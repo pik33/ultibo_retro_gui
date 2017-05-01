@@ -1,0 +1,327 @@
+unit simpleaudio;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses  Classes, SysUtils, platform, heapmanager;
+
+type
+
+// ----  I decided to use SDL-like API so this fragment is copied from SDL unit
+// ----- and modified somewhat
+
+TAudioSpecCallback = procedure(userdata: Pointer; stream: PUInt8; len:Integer );
+
+PAudioSpec = ^TAudioSpec;
+
+TAudioSpec = record
+  freq: Integer;       // DSP frequency -- samples per second
+  format: UInt16;      // Audio data format
+  channels: UInt8;     // Number of channels: 1 mono, 2 stereo
+  silence: UInt8;      // Audio buffer silence value (calculated)
+  samples: UInt16;     // Audio buffer size in samples
+  padding: UInt16;     // Necessary for some compile environments
+  size: UInt32;        // Audio buffer size in bytes (calculated)
+
+                       //     This function is called when the audio device needs more data.
+                       //    'stream' is a pointer to the audio data buffer
+                       //    'len' is the length of that buffer in bytes.
+                       //     Once the callback returns, the buffer will no longer be valid.
+                       //     Stereo samples are stored in a LRLRLR ordering.
+
+  callback: TAudioSpecCallback;
+  userdata: Pointer;
+                      // 3 fields added, not in SDL
+
+  oversample: UInt8;  // oversampling value
+  range: UInt16;      // PWM range
+  oversampled_size: integer; // oversampled buffer size
+  end;
+
+TLongBuffer=array[0..65535] of integer;  // 64K DMA buffer
+TCtrlBlock=array[0..7] of cardinal;
+PCtrlBlock=^TCtrlBlock;
+
+
+const nocache=$C0000000;              // constant to disable GPU L2 Cache
+
+// ------- Hardware registers addresses --------------------------------------
+
+      _pwm_fif1_ph= $7E20C018;       // PWM FIFO input reg physical address
+
+      _pwm_ctl=     $3F20C000;       // PWM Control Register MMU address
+      _pwm_dmac=    $3F20C008;       // PWM DMA Configuration MMU address
+      _pwm_rng1=    $3F20C010;       // PWM Range channel #1 MMU address
+      _pwm_rng2=    $3F20C020;       // PWM Range channel #2 MMU address
+
+      _gpfsel4=     $3F200010;       // GPIO Function Select 4 MMU address
+      _pwmclk=      $3F1010a0;       // PWM Clock ctrl reg MMU address
+      _pwmclk_div=  $3F1010a4;       // PWM clock divisor MMU address
+
+      _dma_enable=  $3F007ff0;       // DMA enable register
+      _dma_cs=      $3F007000;       // DMA control and status
+      _dma_conblk=  $3F007004;       // DMA ctrl block address
+
+// ------- Hardware initialization constants
+
+      transfer_info=$00050140;        // DMA transfer information
+                                      // 5 - DMA peripheral code (5 -> PWM)
+                                      // 1 - src address increment after read
+                                      // 4 - DREQ controls write
+
+      and_mask_40_45=  %11111111111111000111111111111000;  // AND mask for gpio 40 and 45
+      or_mask_40_45_4= %00000000000000100000000000000100;  // OR mask for set Alt Function #0 @ GPIO 40 and 45
+
+      clk_plld=     $5a000016;       // set clock to PLL D
+      clk_div_2=    $5a002000;       // set clock divisor to 2.0
+
+      pwm_ctl_val=  $0000a1e1;       // value for PWM init:
+                                     // bit 15: chn#2 set M/S mode=1. Use PWM mode for non-noiseshaped audio and M/S mode for oversampled noiseshaped audio
+                                     // bit 13: enable fifo for chn #2
+                                     // bit 8: enable chn #2
+                                     // bit 7: chn #1 M/S mode on
+                                     // bit 6: clear FIFO
+                                     // bit 5: enable fifo for chn #1
+                                     // bit 0: enable chn #1
+
+      pwm_dmac_val= $80000307;       // PWM DMA ctrl value:
+                                     // bit 31: enable DMA
+                                     // bits 15..8: PANIC value: when less than 3 entries in FIFO, raise DMA priority
+                                     // bits 7..0: DREQ value: request the data if less than 7 entries in FIFO
+
+      dma_chn= 14;                   // use DMA channel 14 (the last)
+
+// ---------- Error codes
+
+      freq_too_low=            -$11;
+      freq_too_high=           -$12;
+      format_not_supported=    -$21;
+      invalid_channel_number=  -$41;
+      size_too_low =           -$81;
+      size_too_high=           -$81;
+      callback_not_specified= -$101;
+
+// ---------- Audio formats. Subset of SDL formats
+// ---------- These are 99.99% of wave file formats:
+
+      AUDIO_U8  = $0008; // Unsigned 8-bit samples
+      AUDIO_S16 = $8010; // Signed 16-bit samples
+      AUDIO_F32 = $8120; // Float 32 bit
+
+
+
+
+var gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
+    pwmclk:cardinal      absolute _pwmclk;       // PWM Clock ctrl
+    pwmclk_div: cardinal absolute _pwmclk_div;   // PWM Clock divisor
+    pwm_ctl:cardinal     absolute _pwm_ctl;      // PWM Control Register
+    pwm_dmac:cardinal    absolute _pwm_dmac;     // PWM DMA Configuration MMU address
+    pwm_rng1:cardinal    absolute _pwm_rng1;     // PWM Range channel #1 MMU address
+    pwm_rng2:cardinal    absolute _pwm_rng2;     // PWM Range channel #2 MMU address
+
+    dma_enable:cardinal  absolute _dma_enable;   // DMA Enable register
+
+    dma_cs:cardinal      absolute _dma_cs+($100*dma_chn); // DMA ctrl/status
+    dma_conblk:cardinal  absolute _dma_conblk+($100*dma_chn); // DMA ctrl block addr
+
+    dmactrl_ptr:PCardinal=nil;                   // DMA ctrl block pointer
+    dmactrl:cardinal absolute dmactrl_ptr;       // DMA ctrl block address
+    dmabuf1_ptr: PInteger=nil;                   // DMA data buffer #1 pointer
+    dmabuf1:cardinal absolute dmabuf1_ptr;       // DMA data buffer #1 address
+    dmabuf2_ptr: PInteger=nil;                   // DMA data buffer #2 pointer
+    dmabuf2:cardinal absolute dmabuf2_ptr;       // DMA data buffer #2 address
+
+    ctrl1_ptr,ctrl2_ptr:PCtrlBlock;              // DMA ctrl block array pointers
+    ctrl1:cardinal absolute ctrl1_ptr;           // DMA ctrl block #1 array address
+    ctrl2:cardinal absolute ctrl2_ptr;           // DMA ctrl block #2 array address
+
+
+
+
+
+
+procedure InitAudio;
+procedure InitAudioEx(range,t_length:integer);
+
+function OpenAudio(desired, obtained: PAudioSpec): Integer;
+function ChangeAudioParams(desired, obtained: PAudioSpec): Integer;
+procedure CloseAudio;
+
+implementation
+
+//uses retromalina; //TODO: remove this dependency!!!
+
+//------------------------------------------------------------------------------
+//  Procedure initaudio - init the GPIO, PWM and DMA for audio subsystem.
+//------------------------------------------------------------------------------
+
+procedure InitAudio;
+
+// calls InitAudioEx with parameters suitable for 44100 Hz wav
+
+begin
+InitAudioEx(270,21*768);
+end;
+
+procedure InitAudioEx(range,t_length:integer);
+
+var i:integer;
+
+begin
+//pauseaudio(1);
+dmactrl_ptr:=GetAlignedMem(64,32);      // get 64 bytes for 2 DMA ctrl blocks
+ctrl1_ptr:=PCtrlBlock(dmactrl_ptr);     // set pointers so the ctrl blocks can be accessed as array
+ctrl2_ptr:=PCtrlBlock(dmactrl_ptr+8);   // second ctrl block is 8 longs further
+dmabuf1_ptr:=getmem(65536);             // allocate 64k for DMA buffer
+dmabuf2_ptr:=getmem(65536);             // .. and the second one
+
+// Clean the buffers.
+
+for i:=dmabuf1 to dmabuf1+$ffff do if (i mod 4) = 0 then PInteger(i)^:=range div 2;
+CleanDataCacheRange(dmabuf1,$10000);
+for i:=dmabuf2 to dmabuf2+$ffff do if (i mod 4) = 0 then PInteger(i)^:=range div 2;
+CleanDataCacheRange(dmabuf2,$10000);
+
+// Init DMA control blocks so they will form the endless loop
+// pushing two buffers to PWM FIFO
+
+ctrl1_ptr^[0]:=transfer_info;         // transfer info
+ctrl1_ptr^[1]:=nocache+dmabuf1;       // source address -> buffer #1
+ctrl1_ptr^[2]:=_pwm_fif1_ph;          // destination address
+ctrl1_ptr^[3]:=t_length;              // transfer length
+ctrl1_ptr^[4]:=$0;                    // 2D length, unused
+ctrl1_ptr^[5]:=nocache+ctrl2;         // next ctrl block -> ctrl block #2
+ctrl1_ptr^[6]:=$0;                    // unused
+ctrl1_ptr^[7]:=$0;                    // unused
+ctrl2_ptr^:=ctrl1_ptr^;               // copy first block to second
+ctrl2_ptr^[5]:=nocache+ctrl1;         // next ctrl block -> ctrl block #1
+ctrl2_ptr^[1]:=nocache+dmabuf2;       // source address -> buffer #2
+CleanDataCacheRange(dmactrl,64);      // now push this into RAM
+sleep(1);
+
+// Init the hardware
+
+gpfsel4:=(gpfsel4 and and_mask_40_45) or or_mask_40_45_4;  // gpio 40/45 as alt#0 -> PWM Out
+pwmclk:=clk_plld;                                          // set PWM clock src=PLLD (500 MHz)
+pwmclk_div:=clk_div_2;                                     // set PWM clock divisor=2 (250 MHz)
+pwm_rng1:=range;                                             // minimum range for 8-bit noise shaper to avoid overflows
+pwm_rng2:=range;                                             //
+pwm_ctl:=pwm_ctl_val;                                      // pwm contr0l - enable pwm, clear fifo, use fifo
+pwm_dmac:=pwm_dmac_val;                                    // pwm dma enable
+dma_enable:=dma_enable or (1 shl dma_chn);                 // enable dma channel # dma_chn
+dma_conblk:=nocache+ctrl1;                                 // init DMA ctr block to ctrl block # 1
+dma_cs:=3;                                                 // start DMA
+end;
+
+
+// ----------------------------------------------------------------------
+// OpenAudio
+// Inits the audio accordng to specifications in 'desired' record
+// The values which in reality had been set are in 'obtained' record
+// Returns 0 or the error code, in this case 'obtained' is invalid
+//
+// You have to set the fields:
+//
+//     freq: samples per second, 8..960 kHz
+//     format: audio data format
+//     channels: number of channels: 1 mono, 2 stereo
+//     samples: audio buffer size in samples. >32, not too long (<384 for stereo 44100 Hz)
+//     callback: a callback function you have to write in your program
+//
+// The rest of fields in 'desire' will be ignored. They will be filled in 'obtained'
+// ------------------------------------------------------------------------
+
+function OpenAudio(desired, obtained: PAudioSpec): Integer;
+
+var maxsize:double;
+    over_freq:integer;
+
+begin
+
+result:=0;
+
+// -----------  check if params can be used
+// -----------  the frequency should be between 8 and 960 kHz
+
+if desired^.freq<8000 then
+  begin
+  result:=freq_too_low;
+  exit;
+  end;
+
+if desired^.freq>960000 then
+  begin
+  result:=freq_too_high;
+  exit;
+  end;
+
+//----------- check if the format is supported
+
+if (desired^.format <> AUDIO_U8) and (desired^.format <> AUDIO_S16) and (desired^.format <> AUDIO_F32) then
+  begin
+  result:=format_not_supported;
+  exit;
+  end;
+
+//----------- check the channel number
+
+if (desired^.channels < 1) or (desired^.channels>2) then
+  begin
+  result:=invalid_channel_number;
+  exit;
+  end;
+
+//----------- check the buffer size in samples
+//----------- combined with the noise shaper should not exceed 64k
+//            It is ~384 for 44 kHz S16 samples
+
+if (desired^.samples<32) then
+  begin
+  result:=size_too_low;
+  exit;
+  end;
+
+maxsize:=65528/960000*desired^.freq/desired^.channels;
+
+if (desired^.samples>maxsize) then
+  begin
+  result:=size_too_high;
+  exit;
+  end;
+
+if (desired^.callback=nil) then
+  begin
+  result:=callback_not_specified;
+  exit;
+  end;
+
+// now compute the obtained parameters
+
+obtained^:=desired^;
+
+obtained^.oversample:=960000 div desired^.freq;
+over_freq:=desired^.freq*obtained^.oversample;
+obtained^.range:=round(250000000/over_freq);
+obtained^.freq:=round(250000000/(obtained^.range*obtained^.oversample));
+if (desired^.format = AUDIO_U8) then obtained^.silence:=128 else obtained^.silence:=0;
+obtained^.padding:=0;
+obtained^.size:=obtained^.samples*obtained^.channels;
+obtained^.oversampled_size:=obtained^.size*4*obtained^.oversample;
+if obtained^.format=AUDIO_U8 then obtained^.size:=obtained^.size div 2;
+if obtained^.format=AUDIO_F32 then obtained^.size:=obtained^.size *2;
+InitAudioEx(obtained^.range,obtained^.oversampled_size);
+end;
+
+function ChangeAudioParams(desired, obtained: PAudioSpec): Integer;
+
+begin
+end;
+
+procedure CloseAudio;
+begin
+end;
+
+
+end.
+
