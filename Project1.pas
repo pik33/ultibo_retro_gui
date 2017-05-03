@@ -64,6 +64,8 @@ var s,currentdir,currentdir2:string;
     mousedebug:boolean=false;
         mp3buf:array[0..4096] of byte;
 
+    wh:PWindow;
+
 //    mp3test:pointer;
 //    mp3testi:cardinal absolute mp3test;
 //
@@ -743,14 +745,42 @@ repeat
       if abs(SA_GetCurrentFreq-49152)<200 then SA_ChangeParams(48258,0,0,0);
       end
 
-    else if key=ord('g') then   // set 440 Hz
-      begin
-      a1base:=440;
-      if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
-      if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
-      if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
-      if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
-      end
+     else if key=ord('g') then   // set 440 Hz
+       begin
+       a1base:=440;
+       if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
+       if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
+       if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
+       if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
+       end
+
+     else if key=ord('w') then   // set 440 Hz
+       begin
+       wh:=window(500,500);
+       wcls(wh,130);
+       wouttextxyz(wh,10,10,'Moving window test line 1',136,2,2);
+       wouttextxyz(wh,10,42,'Moving window test line 2',152,2,2);
+       wouttextxyz(wh,10,74,'Moving window test line 3',168,2,2);
+       wouttextxyz(wh,10,106,'Moving window test line 4',184,2,2);
+       wouttextxyz(wh,10,138,'Moving window test line 5',200,2,2);
+       wouttextxyz(wh,10,170,'Moving window test line 6',216,2,2);
+       wouttextxyz(wh,10,202,'Moving window test line 7',232,2,2);
+       wouttextxyz(wh,10,234,'Moving window test line 8',248,2,2);
+       wouttextxyz(wh,10,266,'Moving window test line 9',8,2,2);
+       wouttextxyz(wh,10,298,'Moving window test line 10',24,2,2);
+       wouttextxyz(wh,10,330,'Moving window test line 11',40,2,2);
+       wouttextxyz(wh,10,363,'Moving window test line 12',56,2,2);
+       wouttextxyz(wh,10,394,'Moving window test line 13',72,2,2);
+       wouttextxyz(wh,10,426,'Moving window test line 14',88,2,2);
+       wouttextxyz(wh,10,458,'Moving window test line 15',104,2,2);
+//       wouttextxyz(wh,10,490,'Moving window test line 16',120,2,2);
+       for i:=0 to 500 do begin drawwindow(wh,i,i,100,100,0,0); waitvbl; end;
+       for i:=1 to 300 do begin drawwindow(wh,500,500,100+i,100+i,0,0); waitvbl; end;
+       for i:=0 to 100 do begin drawwindow(wh,500,500,400-i,400-i,0,0); waitvbl; end;
+       for i:=0 to 200 do begin drawwindow(wh,500,500,300,300,i,i); waitvbl; end;
+       sleep(1000);
+       destroywindow(wh);
+       end
 
     else if key=key_enter then
       begin
@@ -907,13 +937,15 @@ repeat
           i:=xmp_load_module(xmp_context,Pchar(fn));
  //                   outtextxyz(0,32,inttostr(i),40,2,2);
                   xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
-     //           xmp_set_player(xmp_context,xmp_player_dsp,xmp_dsp_lowpass);
+                xmp_set_player(xmp_context,xmp_player_mix,50);
           if i<>0 then
             begin
            xmp_free_context(xmp_context);
                  goto p102;
             end;
           i:= xmp_start_player(xmp_context,49152,34);
+            xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
+            xmp_set_player(xmp_context,xmp_player_mix,50);
  //               outtextxyz(0,64,inttostr(i),40,2,2);
 
  //               xmp_set_player(xmp_context,xmp_player_volume,90);

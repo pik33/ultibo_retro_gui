@@ -93,7 +93,7 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;
+     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager, mwindows;
 
 const base=          $2F000000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
@@ -434,6 +434,8 @@ procedure outtextxy(x,y:integer; t:string;c:integer);
 procedure blit(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure box(x,y,l,h,c:integer);
 procedure box2(x1,y1,x2,y2,color:integer);
+procedure box32(x,y,l,h,c:integer);
+procedure box322(x1,y1,x2,y2,color:integer);
 function gettime:int64;
 procedure poke(addr:integer;b:byte);
 procedure dpoke(addr:integer;w:word);
@@ -471,6 +473,7 @@ procedure unhidecolor(c,bank:cardinal);
 implementation
 
 procedure scrconvert(screen:pointer); forward;
+procedure scrconvert32(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
 
 // ---- TMouse thread methods --------------------------------------------------
@@ -1033,6 +1036,185 @@ akeyboard.terminate;
 end;
 
 // -----  Screen convert procedures
+
+procedure scrconvert32 (screen:pointer);
+
+// --- rev 21070111
+
+var a,b,c:integer;
+    e:integer;
+
+label p1,p0,p002,p10,p11,p12,p999;
+
+begin
+a:=displaystart;
+c:=$30800000;  // map start
+e:=bordercolor;
+b:=base+_pallette;
+
+                asm
+      //          vldr d0,[r0]
+      //          vmov d1,d0
+      //          vadd.i64 d1,d0
+      //          vstr d1,[r0]
+                stmfd r13!,{r0-r12,r14}   //Push registers
+                ldr r1,c //a
+                mov r6,r1
+                add r6,#4     // now r1, r6 points to map
+                ldr r2,screen
+                mov r12,r2
+                add r12,#4
+                ldr r3,b
+                mov r5,r2
+                                    //upper border
+                add r5,#307200
+                ldr r9,e
+                mov r10,r9
+p10:            str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p10
+                mov r0,#1120
+                                    //left border
+p11:            add r5,#256
+                ldr r9,e
+                mov r10,r9
+p0:             str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p0
+
+                push {r0,r11}
+                                    //active screen
+                add r5,#7168
+
+p1:
+                ldr r7,[r1],#8
+                ldr r8,[r6],#8
+                ldr r9,[r1],#8
+                ldr r10,[r6],#8
+                ldr r0,[r1],#8
+                ldr r4,[r6],#8
+                ldr r14,[r1],#8
+                ldr r11,[r6],#8
+
+                ldr r7,[r7]
+                ldr r8,[r8]
+                ldr r9,[r9]
+                ldr r10,[r10]
+                ldr r0,[r0]
+                ldr r4,[r4]
+                ldr r14,[r14]
+                ldr r11,[r11]
+
+   //             ldr r7,[r3,r7,lsl #2]
+   //             ldr r8,[r3,r8,lsl #2]
+   //             ldr r9,[r3,r9,lsl #2]
+   //             ldr r10,[r3,r10,lsl #2]
+    //            ldr r0,[r3,r0,lsl #2]
+    //            ldr r4,[r3,r4,lsl #2]
+   //             ldr r14,[r3,r14,lsl #2]
+   //             ldr r11,[r3,r11,lsl #2]
+
+                str r7,[r2],#8
+                str r8,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r0,[r2],#8
+                str r4,[r12],#8
+                str r14,[r2],#8
+                str r11,[r12],#8
+
+                ldr r7,[r1],#8
+                ldr r8,[r6],#8
+                ldr r9,[r1],#8
+                ldr r10,[r6],#8
+                ldr r0,[r1],#8
+                ldr r4,[r6],#8
+                ldr r14,[r1],#8
+                ldr r11,[r6],#8
+
+                ldr r7,[r7]
+                ldr r8,[r8]
+                ldr r9,[r9]
+                ldr r10,[r10]
+                ldr r0,[r0]
+                ldr r4,[r4]
+                ldr r14,[r14]
+                ldr r11,[r11]
+
+   //             ldr r7,[r3,r7,lsl #2]
+   //             ldr r8,[r3,r8,lsl #2]
+    //            ldr r9,[r3,r9,lsl #2]
+   //             ldr r10,[r3,r10,lsl #2]
+   //             ldr r0,[r3,r0,lsl #2]
+    //            ldr r4,[r3,r4,lsl #2]
+    //            ldr r14,[r3,r14,lsl #2]
+     //           ldr r11,[r3,r11,lsl #2]
+
+                str r7,[r2],#8
+                str r8,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r0,[r2],#8
+                str r4,[r12],#8
+                str r14,[r2],#8
+                str r11,[r12],#8
+
+
+
+                cmp r2,r5
+                blt p1
+                pop {r0,r11}
+                                  //right border
+                add r5,#256
+                ldr r9,e
+                mov r10,r9
+p002:           str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p002
+
+                subs r0,#1
+                bne p11
+                                  //lower border
+                add r5,#307200
+                ldr r9,e
+                mov r10,r9
+p12:            str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p12
+p999:           ldmfd r13!,{r0-r12,r14}
+                end;
+
+
+end;
+
 
 procedure scrconvert(screen:pointer);
 
@@ -1745,6 +1927,53 @@ p101:        strb r3,[r0],#1  // inner loop
 p999:
 end;
 
+procedure box32(x,y,l,h,c:integer);
+
+label p101,p102,p999;
+
+var screenptr:cardinal;
+
+begin
+ if c<256 then c:=ataripallette[c];
+screenptr:=displaystart;
+if x<0 then begin l:=l+x; x:=0; if l<1 then goto p999; end;
+if x>=xres then goto p999;
+if y<0 then begin h:=h+y; y:=0; if h<1 then goto p999; end;
+if y>=yres then goto p999;
+if x+l>=xres then l:=xres-x;
+if y+h>=yres then h:=yres-y;
+
+
+             asm
+             push {r0-r6}
+             ldr r2,y
+             mov r3,#1792*4
+             ldr r1,x
+             mul r3,r3,r2
+             lsl r1,#2
+             ldr r4,l
+             lsl r4,#2
+             add r3,r1
+             ldr r0,screenptr
+             add r0,r3
+             ldr r3,c
+             ldr r6,h
+
+p102:        mov r5,r4
+p101:        str r3,[r0],#4  // inner loop
+             subs r5,#4
+             bne p101
+             add r0,#1792*4
+             sub r0,r4
+             subs r6,#1
+             bne p102
+
+             pop {r0-r6}
+             end;
+
+p999:
+end;
+
 
 //  ---------------------------------------------------------------------
 //   box2(x1,y1,x2,y2,color)
@@ -1760,6 +1989,14 @@ begin
 if x1>x2 then begin i:=x2; x2:=x1; x1:=i; end;
 if y1>y2 then begin i:=y2; y2:=y1; y1:=i; end;
 if (x1<>x2) and (y1<>y2) then  box(x1,y1,x2-x1+1, y2-y1+1,color);
+end;
+
+procedure box322(x1,y1,x2,y2,color:integer);
+
+begin
+if x1>x2 then begin i:=x2; x2:=x1; x1:=i; end;
+if y1>y2 then begin i:=y2; y2:=y1; y1:=i; end;
+if (x1<>x2) and (y1<>y2) then  box32(x1,y1,x2-x1+1, y2-y1+1,color);
 end;
 
 
