@@ -1,7 +1,6 @@
 *.bak
 *.compiled
 *.elf
-*.img
 *.lps
 *.o
 *.ppu
