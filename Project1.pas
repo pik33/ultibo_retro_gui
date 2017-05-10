@@ -34,7 +34,7 @@ uses
   simpleaudio,scripttest,xmp, mwindows;
 
 
-label p101, p102 ,p999;
+label p101, p102 ,p999, p998;
 
 
 var s,currentdir,currentdir2:string;
@@ -65,6 +65,7 @@ var s,currentdir,currentdir2:string;
         mp3buf:array[0..4096] of byte;
 
     wh:PWindow;
+
 
 //    mp3test:pointer;
 //    mp3testi:cardinal absolute mp3test;
@@ -487,9 +488,11 @@ end;
 
 begin
 
+background_init(147);
 initmachine;
 initscreen;
-
+ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
+sleep(1);
 while not DirectoryExists('C:\') do
   begin
   Sleep(100);
@@ -539,8 +542,10 @@ startmousereportbuffer;
 repeat
 
   refreshscreen;
-
   key:=readkey and $FF;
+  wh:=checkmouse;
+  if wh<>@background  then goto p998;
+
   wheel:=readwheel;
 
   if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
@@ -574,7 +579,7 @@ repeat
       if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
       end;
     end;
-
+  p998:
   if key=ord('5') then begin siddelay:=20000; songfreq:=50; skip:=0; end
   else if key=ord('1') then begin siddelay:=10000; songfreq:=100; skip:=0; end
   else if key=ord('2') then begin siddelay:=5000; songfreq:=200; skip:=0;end
@@ -588,10 +593,10 @@ repeat
 
   else if key=ord('b') then   // blitter test
     begin
-    tttt:=gettime;
-    box(100,100,500,500,136);
-    tttt:=gettime-tttt;
-    outtextxyz(100,100,inttostr(tttt),15,3,3);
+pauseaudio(0);
+sleep(10);
+pauseaudio(1);
+
     end
 
   else if key=ord('s') then   // blitter test
@@ -756,30 +761,31 @@ repeat
 
      else if key=ord('w') then   // set 440 Hz
        begin
-       wh:=window(500,500);
-       wcls(wh,130);
-       wouttextxyz(wh,10,10,'Moving window test line 1',136,2,2);
-       wouttextxyz(wh,10,42,'Moving window test line 2',152,2,2);
-       wouttextxyz(wh,10,74,'Moving window test line 3',168,2,2);
-       wouttextxyz(wh,10,106,'Moving window test line 4',184,2,2);
-       wouttextxyz(wh,10,138,'Moving window test line 5',200,2,2);
-       wouttextxyz(wh,10,170,'Moving window test line 6',216,2,2);
-       wouttextxyz(wh,10,202,'Moving window test line 7',232,2,2);
-       wouttextxyz(wh,10,234,'Moving window test line 8',248,2,2);
-       wouttextxyz(wh,10,266,'Moving window test line 9',8,2,2);
-       wouttextxyz(wh,10,298,'Moving window test line 10',24,2,2);
-       wouttextxyz(wh,10,330,'Moving window test line 11',40,2,2);
-       wouttextxyz(wh,10,363,'Moving window test line 12',56,2,2);
-       wouttextxyz(wh,10,394,'Moving window test line 13',72,2,2);
-       wouttextxyz(wh,10,426,'Moving window test line 14',88,2,2);
-       wouttextxyz(wh,10,458,'Moving window test line 15',104,2,2);
-//       wouttextxyz(wh,10,490,'Moving window test line 16',120,2,2);
-       for i:=0 to 500 do begin drawwindow(wh,i,i,100,100,0,0); waitvbl; end;
-       for i:=1 to 300 do begin drawwindow(wh,500,500,100+i,100+i,0,0); waitvbl; end;
-       for i:=0 to 100 do begin drawwindow(wh,500,500,400-i,400-i,0,0); waitvbl; end;
-       for i:=0 to 200 do begin drawwindow(wh,500,500,300,300,i,i); waitvbl; end;
-       sleep(1000);
-       destroywindow(wh);
+       wh:=window(1920,1200);
+       wcls(wh,16*random(16)+2);
+       wouttextxy(wh,10,10,'Window handle: '+inttostr(integer(wh)),136);
+       wouttextxy(wh,10,42,'Moving window test line 1',152);
+       wouttextxy(wh,10,74,'Moving window test line 2',168);
+       wouttextxy(wh,10,106,'Moving window test line 3',184);
+       wouttextxy(wh,10,138,'Moving window test line 4',200);
+       wouttextxy(wh,10,170,'Moving window test line 5',216);
+       wouttextxy(wh,10,202,'Moving window test line 6',232);
+       wouttextxy(wh,10,234,'Moving window test line 7',248);
+       wouttextxy(wh,10,266,'Moving window test line 8',8);
+       wouttextxy(wh,10,298,'Moving window test line 9',24);
+       wouttextxy(wh,10,330,'Moving window test line 10',40);
+       wouttextxy(wh,10,363,'Moving window test line 11',56);
+       wouttextxy(wh,10,394,'Moving window test line 12',72);
+       wouttextxy(wh,10,426,'Moving window test line 13',88);
+       wouttextxy(wh,10,458,'Moving window test line 14',104);
+       wouttextxy(wh,10,490,'Moving window test line 15',120);
+       movewindow(wh,100,100,300,300,0,0);
+//       for i:=10 to 800 do begin movewindow(wh,100,100,i,i,0,0); waitvbl; end;
+//       for i:=1 to 300 do begin movewindow(wh,100,100,800-i,800-i,0,0); waitvbl; end;
+//       for i:=1 to 300 do begin movewindow(wh,100+i,100+i,500,500,0,0); waitvbl; end;
+//       for i:=0 to 100 do begin movewindow(wh,400,400,500,500,i,i); waitvbl; end;
+//       sleep(1000);
+//       destroywindow(wh);
        end
 
     else if key=key_enter then

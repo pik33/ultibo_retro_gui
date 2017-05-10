@@ -11,7 +11,7 @@ unit screen;
 
 interface
 
-uses sysutils,classes,retromalina,platform,retro,cwindows,threads;
+uses sysutils,classes,retromalina,platform,retro,mwindows,threads;
 
 const ver='The retromachine player v. 0.23u --- 2017.04.26';
 
@@ -57,6 +57,8 @@ var test:integer ;
    // animated sprites definitions
    spr0,spr1,spr2,spr3,spr4,spr5,spr6:TAnimatedSprite;
 
+   screentime:int64;
+
 procedure initscreen;
 procedure refreshscreen;
 procedure mandelbrot;
@@ -64,7 +66,7 @@ procedure writebmp;
 
 implementation
 
-uses simpleaudio,retromouse;
+uses simpleaudio,retromouse,blitter;
 
 procedure rainbow;
 
@@ -176,13 +178,13 @@ avsid:=0;
 rainbow;
 i:=displaystart;
 outtextxyz(24,1019,'A retromachine SID and WAV player by pik33 --- inspired by Johannes Ahlebrand''s Parallax Propeller SIDCog ---',89,2,2);
-blit(i,10,1011,i+$100000,10,911,1771,48,1792,1792);
+blit(i,10,1011,i+$200000,10,911,1771,48,1792,1792);
 rainbow;
 outtextxyz(24,1019,' F1,F2,F3 - channels 1..3 on/off; 1-100 Hz, 2-200 Hz, 3-150 Hz, 4-400 Hz, 5-50 Hz; P - pause; up/down/enter - ',89,2,2);
-blit(i,10,1011,i+$100000,10,959,1771,48,1792,1792);
+blit(i,10,1011,i+$200000,10,959,1771,48,1792,1792);
 rainbow;
 outtextxyz(24,1019,'select; F-432 Hz; G-440 Hz; Q-volume up; A-volume down; + - next subsong; - - previous subsong; ESC-reboot -- ',89,2,2);
-blit(i,10,1011,i+$100000,10,1007,1771,48,1792,1792);
+blit(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
 
 // Set animated sprites definitions.
 // The "balls" is an rotating blue ball definition
@@ -267,7 +269,9 @@ var v,a,aaa,c1,ii,i,cc:integer;
 begin
 
 clock:=timetostr(now);
-waitvbl;
+repeat sleep(0) until not background.redraw;
+repeat sleep(0) until background.redraw;
+screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 
 // animate the sprites
@@ -360,14 +364,14 @@ if (framecnt mod 32)=0 then systempallette[0,89]:=systempallette[1,(framecnt div
 cc:=(2*framecnt) mod 5316;
 a:=displaystart;
 
-if cc<1772 then blit(a+$100000,10+(cc),911,a,12,1011,1771-(cc),48,1792,1792);
-if cc<1772 then blit(a+$100000,10,959,a,11+1771-(cc),1011,(cc),48,1792,1792);
+if cc<1772 then blit8(a+$200000,10+(cc),911,a,12,1011,1771-(cc),48,1792,1792);
+if cc<1772 then blit8(a+$200000,10,959,a,11+1771-(cc),1011,(cc),48,1792,1792);
 
-if (cc>=1772) and (cc<3544) then blit (a+$100000,10,1007,a,11+3543-(cc),1011,(cc-1772),48,1792,1792);
-if (cc>=1772) and (cc<3544) then blit (a+$100000,10+(cc-1772),959,a,12,1011,1771-(cc-1772),48,1792,1792);
+if (cc>=1772) and (cc<3544) then blit8 (a+$200000,10,1007,a,11+3543-(cc),1011,(cc-1772),48,1792,1792);
+if (cc>=1772) and (cc<3544) then blit8 (a+$200000,10+(cc-1772),959,a,12,1011,1771-(cc-1772),48,1792,1792);
 
-if (cc>=3544) then blit (a+$100000,10,911,a,11+5316-(cc),1011,(cc-3544),48,1792,1792);
-if (cc>=3544) then blit (a+$100000,10+(cc-3544),1007,a,12,1011,1771-(cc-3544),48,1792,1792);
+if (cc>=3544) then blit8 (a+$200000,10,911,a,11+5316-(cc),1011,(cc-3544),48,1792,1792);
+if (cc>=3544) then blit8 (a+$200000,10+(cc-3544),1007,a,12,1011,1771-(cc-3544),48,1792,1792);
 
 // draw the oscilloscope
 box2(10,610,894,797,178);
@@ -491,7 +495,14 @@ else  // animate the bouncing balls
      end;
   sprite7xy:=mousexy+$00280040; //sprite coordinates are fullscreen
                                 //where mouse is on active screen only
+
+
                                 //so I have to add $28 to y and $40 to x
+
+screentime:=gettime-screentime;
+
+//box(0,0,200,100,0);
+//outtextxyz(0,0,inttostr(screentime),15,2,2);
 end;
 
 

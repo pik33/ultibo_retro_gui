@@ -4,31 +4,31 @@ DoExitAsm ()
 DoExitLink ()
 { echo "An error occurred while linking $1"; exit 1; }
 echo Assembling retrokeyboard
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/retrokeyboard.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/retrokeyboard.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/retrokeyboard.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/retrokeyboard.s
 if [ $? != 0 ]; then DoExitAsm retrokeyboard; fi
 echo Assembling retromouse
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/retromouse.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/retromouse.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/retromouse.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/retromouse.s
 if [ $? != 0 ]; then DoExitAsm retromouse; fi
 echo Assembling simpleaudio
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/simpleaudio.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/simpleaudio.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/simpleaudio.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/simpleaudio.s
 if [ $? != 0 ]; then DoExitAsm simpleaudio; fi
 echo Assembling mp3
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/mp3.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/mp3.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/mp3.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/mp3.s
 if [ $? != 0 ]; then DoExitAsm mp3; fi
 echo Assembling retromalina
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/retromalina.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/retromalina.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/retromalina.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/retromalina.s
 if [ $? != 0 ]; then DoExitAsm retromalina; fi
 echo Assembling unit6502
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/unit6502.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/unit6502.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/unit6502.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/unit6502.s
 if [ $? != 0 ]; then DoExitAsm unit6502; fi
 echo Assembling cwindows
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/cwindows.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/cwindows.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/cwindows.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/cwindows.s
 if [ $? != 0 ]; then DoExitAsm cwindows; fi
 echo Assembling screen
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/screen.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/screen.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.s
 if [ $? != 0 ]; then DoExitAsm screen; fi
 echo Assembling project1
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-sid/lib/arm-ultibo/Project1.o  /home/pi/ultibo-retro-sid/lib/arm-ultibo/Project1.s
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.s
 if [ $? != 0 ]; then DoExitAsm project1; fi
 echo Linking Project1
 OFS=$IFS

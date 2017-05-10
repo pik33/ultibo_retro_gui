@@ -95,7 +95,7 @@ function  SA_GetCurrentRange:integer;
 //------------------ End of Interface ------------------------------------------
 
 implementation
-
+uses retromalina;
 type
      PLongBuffer=^TLongBuffer;
      TLongBuffer=array[0..65535] of integer;  // 64K DMA buffer
@@ -793,6 +793,8 @@ threadsleep(1);
     if nc=nocache+ctrl2_adr then for i:=0 to 16383 do dmabuf2_ptr[i]:=CurrentAudioSpec.range div 2;
     if nc=nocache+ctrl1_adr then CleanDataCacheRange(dmabuf1_adr,$10000);
     if nc=nocache+ctrl2_adr then CleanDataCacheRange(dmabuf2_adr,$10000);
+//    if nc=nocache+ctrl1_adr then lpoke($2f06000c,255);
+//    if nc=nocache+ctrl2_adr then lpoke($2f06000c,$FF00);
     end
   else
     begin
@@ -822,6 +824,8 @@ threadsleep(1);
     if nc=nocache+ctrl1_adr then noiseshaper8(samplebuffer_32_adr,dmabuf1_adr,CurrentAudioSpec.oversample,CurrentAudioSpec.samples)
     else noiseshaper8(samplebuffer_32_adr,dmabuf2_adr,CurrentAudioSpec.oversample,CurrentAudioSpec.samples);
     if nc=nocache+ctrl1_adr then CleanDataCacheRange(dmabuf1_adr,$10000) else CleanDataCacheRange(dmabuf2_adr,$10000);
+//    if nc=nocache+ctrl1_adr then lpoke($2f06000c,$FFFF);
+//    if nc=nocache+ctrl2_adr then lpoke($2f06000c,$FF0000);
     end;
   dma_cs:=$00FF0003;
   working:=0;
