@@ -544,9 +544,9 @@ repeat
   refreshscreen;
   key:=readkey and $FF;
   wh:=checkmouse;
-  if wh<>@background  then goto p998;
+//  if wh<>@background  then goto p998;
 
-  wheel:=readwheel;
+  if wh=@background then wheel:=readwheel;
 
   if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
   if (key=0) and (wheel=1) then begin key:=key_uparrow;  end;
@@ -554,9 +554,9 @@ repeat
   if (key=0) and (nextsong=2) then begin nextsong:=0; key:=key_enter; end;      // play the next song
   if (key=0) and (nextsong=1) then begin nextsong:=2; key:=key_downarrow; end;  // select the nest song
 
-  if (dblclick) and (key=0) and (mousex>896) then begin key:=key_enter; end;    // dbl click on right panel=enter
+  if (dblclick) and (key=0) and (mousex>896) and (wh=@background) then begin key:=key_enter; end;    // dbl click on right panel=enter
 
-  if (click) and (mousex>896) then
+  if (click) and (mousex>896) and (wh=@background) then
     begin
 
     nsel:=(mousey-132) div 32;
@@ -761,7 +761,8 @@ pauseaudio(1);
 
      else if key=ord('w') then   // set 440 Hz
        begin
-       wh:=window(1920,1200);
+       wh:=window(1920,1200,'');
+       wh^.title:='Test window '+inttohex(integer(wh),8);
        wcls(wh,16*random(16)+2);
        wouttextxy(wh,10,10,'Window handle: '+inttostr(integer(wh)),136);
        wouttextxy(wh,10,42,'Moving window test line 1',152);
