@@ -236,7 +236,7 @@ var transfer_info2:cardinal;
 
 begin
 
-transfer_info2:=$0000E332;   //burst=8, 2D
+transfer_info2:=$00009332;   //burst=8, 2D
 
 ctrl1[0]:=transfer_info2;                       // transfer info
 ctrl1[1]:=from+x+bpl1*y;                        // source address -> buffer #1
@@ -255,7 +255,7 @@ cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
 dma_enable:=dma_enable or (1 shl blit_dma_chn); // enable dma channel # dma_chn
 dma_conblk:=nocache+_blitter_dmacb;             // init DMA ctr block
 dma_cs:=$00FF0003;                              // start DMA
-repeat until (dma_cs and 1) =0 ;               //
+repeat  until (dma_cs and 1) =0 ;               //
 //dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // disable dma channel
 InvalidateDataCacheRange(too+x2+y2*bpl2,lines*bpl2);                     // !!!
 end;
@@ -267,7 +267,7 @@ var transfer_info2:cardinal;
 
 begin
 
-transfer_info2:=$0000E330;                  //burst=8, 2D
+transfer_info2:=$00009330;                  //burst=8, 2D
 
 ctrl1[0]:=transfer_info2;                       // transfer info
 ctrl1[1]:=from;                        // source address -> buffer #1
@@ -286,7 +286,7 @@ cleanDataCacheRange(too,len);// destination range cache clean
 dma_enable:=dma_enable or (1 shl blit_dma_chn); // enable dma channel # dma_chn
 dma_conblk:=nocache+_blitter_dmacb;             // init DMA ctr block
 dma_cs:=$00FF0003;                              // start DMA
-repeat until (dma_cs and 1) =0 ;               //
+repeat  until (dma_cs and 1) =0 ;               //
 //dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // disable dma channel
 InvalidateDataCacheRange(too,len);                     // !!!
 end;

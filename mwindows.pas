@@ -232,9 +232,12 @@ else
     fill2d(dest, wh^.x+wh^.l, wh^.y+dy,dsv,wh^.h,1792,scrollcolor);
     fill2d(dest, wh^.x+wh^.l, wh^.y+wh^.h,dsv,dsh,1792,inactivecolor);
     gouttextxy(pointer(dest),wh^.x+32,wh^.y-20,wh^.title,inactivetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-54,wh^.y-20,'_',inactivetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-38,wh^.y-32,'_',inactivetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-22,wh^.y-22,'x',inactivetextcolor);
+    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-60+i,wh^.y-20+j,down_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-40+i,wh^.y-20+j,up_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-20+i,wh^.y-20+j,close_icon[i+16*j]);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-54,wh^.y-20,'_',inactivetextcolor);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-38,wh^.y-32,'_',inactivetextcolor);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-22,wh^.y-22,'x',inactivetextcolor);
 
     for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),wh^.x+4+i,wh^.y-20+j,icon[i,j]);
     end
@@ -249,10 +252,15 @@ else
     fill2d(dest, wh^.x+wh^.l, wh^.y+dy,dsv,wh^.h,1792,scrollcolor);
     fill2d(dest, wh^.x+wh^.l, wh^.y+wh^.h,dsv,dsh,1792,activecolor);
     gouttextxy(pointer(dest),wh^.x+32,wh^.y-20,wh^.title,activetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-54,wh^.y-20,'_',activetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-38,wh^.y-32,'_',activetextcolor);
-    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-22,wh^.y-22,'x',activetextcolor);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-54,wh^.y-20,'_',activetextcolor);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-38,wh^.y-32,'_',activetextcolor);
+//    gouttextxy(pointer(dest),wh^.x+wh^.l+dsv-22,wh^.y-22,'x',activetextcolor);
     for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),wh^.x+4+i,wh^.y-20+j,icon[i,j]);
+    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-60+i,wh^.y-20+j,down_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-40+i,wh^.y-20+j,up_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),wh^.x+wh^.l+dsv-20+i,wh^.y-20+j,32+close_icon[i+16*j]);
+//    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),wh^.x+4+i,wh^.y-20+j,icon[i,j]);
+//    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),wh^.x+4+i,wh^.y-20+j,icon[i,j]);
     end;
   end;
 wh^.redraw:=true;
@@ -265,7 +273,7 @@ function checkmouse:PWindow;
 label p999;
 
 var wh:PWindow;
-    mmx,mmy,mmk,dt,dg,dh,dl:integer;
+    mmx,mmy,mmk,dt,dg,dh,dl,dsh,dsv:integer;
 
 const state:integer=0;
       deltax:integer=0;
@@ -295,16 +303,20 @@ if (state=0) and (mmk=2) then
       dh:=0;
       dt:=0;
       dl:=0;
+      dsh:=0;
+      dsv:=0;
       end
     else
       begin
-      dt:=titleheight+borderwidth;
+      dt:= titleheight;
       dl:=borderwidth;
-      if wh^.decoration^.hscroll then dg:=borderwidth+scrollwidth else dg:=borderwidth;
-      if wh^.decoration^.vscroll then dh:=borderwidth+scrollwidth else dh:=borderwidth;;
+      dg:=borderwidth;
+      dh:=borderwidth;
+      if wh^.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
+      if wh^.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
       end;
 
-    while ((mmx<wh^.x-dl) or (mmx>wh^.x+wh^.l+dg) or (mmy<wh^.y-dt) or (mmy>wh^.y+wh^.h+dh)) and (wh^.prev<>nil) do wh:=wh^.prev;
+    while ((mmx<wh^.x-dl) or (mmx>wh^.x+wh^.l+dg+dsv) or (mmy<wh^.y-dt-dg) or (mmy>wh^.y+wh^.h+dh+dsh)) and (wh^.prev<>nil) do wh:=wh^.prev;
     if wh<>@background then destroywindow(wh);
     state:=4;
     goto p999;
@@ -328,23 +340,27 @@ if (state=0) and (mmk=2) then
 wh:=@background;
 while wh^.next<>nil do wh:=wh^.next;
 
-if wh^.decoration=nil then
-  begin
-  dg:=0;
-  dh:=0;
-  dt:=0;
-  dl:=0;
-  end
-else
-  begin
-  dt:= titleheight;
-  dl:=borderwidth;
-  if wh^.decoration^.hscroll then dg:=borderwidth+scrollwidth else dg:=borderwidth;
-  if wh^.decoration^.vscroll then dh:=borderwidth+scrollwidth else dh:=borderwidth;;
-  end;
 
+    if wh^.decoration=nil then
+      begin
+      dg:=0;
+      dh:=0;
+      dt:=0;
+      dl:=0;
+      dsh:=0;
+      dsv:=0;
+      end
+    else
+      begin
+      dt:= titleheight;
+      dl:=borderwidth;
+      dg:=borderwidth;
+      dh:=borderwidth;
+      if wh^.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
+      if wh^.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
+      end ;
 
-while ((mmx<wh^.x-dg) or (mmx>wh^.x+wh^.l+dg) or (mmy<wh^.y-dt) or (mmy>wh^.y+wh^.h+dh)) and (wh^.prev<>nil) do
+while ((mmx<wh^.x-dg) or (mmx>wh^.x+wh^.l+dg+dsv) or (mmy<wh^.y-dt-dg) or (mmy>wh^.y+wh^.h+dh+dsh)) and (wh^.prev<>nil) do
   begin
   wh^.mx:=-1;
   wh^.my:=-1;
@@ -356,13 +372,21 @@ while ((mmx<wh^.x-dg) or (mmx>wh^.x+wh^.l+dg) or (mmy<wh^.y-dt) or (mmy>wh^.y+wh
     dg:=0;
     dh:=0;
     dt:=0;
+    dl:=0;
+    dsh:=0;
+    dsv:=0;
     end
   else
     begin
     dt:= titleheight;
-    if wh^.decoration^.hscroll then dg:=borderwidth+scrollwidth else dg:=borderwidth;
-    if wh^.decoration^.vscroll then dh:=borderwidth+scrollwidth else dh:=borderwidth;;
-    end;
+    dl:=borderwidth;
+    dg:=borderwidth;
+    dh:=borderwidth;
+    if wh^.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
+    if wh^.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
+    end
+
+
 
   end;
 result:=wh;
