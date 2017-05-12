@@ -15,6 +15,8 @@ procedure fill32(start,len,color:integer);
 procedure fastmove(from,too,len:integer);
 procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
+procedure dma_blit1D(from,too,len:integer);
+
 
 implementation
 
@@ -24,20 +26,20 @@ type TCtrlBlock=array[0..7] of cardinal;
      PCtrlBlock=^TCtrlBlock;
 
 const
-      blit_dma_chn=6;                                  // let blitter use dma #6
-      _dma_enable=  $3F007ff0;                    // DMA enable register
-      _dma_cs=      $3F007000;       // DMA control and status
-      _dma_conblk=  $3F007004;       // DMA ctrl block address
+      blit_dma_chn=6;                                 // let blitter use dma #6
+      _dma_enable=  $3F007ff0;                        // DMA enable register
+      _dma_cs=      $3F007000;                        // DMA control and status
+      _dma_conblk=  $3F007004;                        // DMA ctrl block address
 
-      _blitter_dmacb=base+$60100;                 // blitter dma control block
-      _blitter_color=base+$60120;                 // blitter color area
-      nocache=$C0000000;
+      _blitter_dmacb=base+$60100;                     // blitter dma control block
+      _blitter_color=base+$60120;                     // blitter color area
+      nocache=$C0000000;                              // disable GPU cache
 
 
 var
-     dma_enable:cardinal              absolute _dma_enable;   // DMA Enable register
-     dma_cs:cardinal                  absolute _dma_cs+($100*blit_dma_chn); // DMA ctrl/status
-     dma_conblk:cardinal              absolute _dma_conblk+($100*blit_dma_chn); // DMA ctrl block addr
+     dma_enable:cardinal              absolute _dma_enable;                       // DMA Enable register
+     dma_cs:cardinal                  absolute _dma_cs+($100*blit_dma_chn);       // DMA ctrl/status
+     dma_conblk:cardinal              absolute _dma_conblk+($100*blit_dma_chn);   // DMA ctrl block addr
      ctrl1: TCtrlBlock                absolute _blitter_dmacb;
      color8: array[0..15] of byte     absolute _blitter_color;
      color16: array[0..7] of word     absolute _blitter_color;
@@ -230,35 +232,63 @@ end;
 
 procedure dma_blit(from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 
-
 var transfer_info2:cardinal;
-
 
 begin
 
-transfer_info2:=$00008332;   //burst=8, 2D
+transfer_info2:=$0000E332;   //burst=8, 2D
 
 ctrl1[0]:=transfer_info2;                       // transfer info
-ctrl1[1]:=from+x+bpl1*y;                    // source address -> buffer #1
-ctrl1[2]:=too+x2+bpl2*y2;                   // destination address
-ctrl1[3]:=len+(lines shl 16);                 // transfer length
-ctrl1[4]:=((bpl2-len) shl 16)+((bpl1-len)); // 2D
+ctrl1[1]:=from+x+bpl1*y;                        // source address -> buffer #1
+ctrl1[2]:=too+x2+bpl2*y2;                       // destination address
+ctrl1[3]:=len+(lines shl 16);                   // transfer length
+ctrl1[4]:=((bpl2-len) shl 16)+((bpl1-len));     // 2D
 ctrl1[5]:=$0;                                   // next ctrl block -> 0
 ctrl1[6]:=$0;                                   // unused
 ctrl1[7]:=$0;                                   // unused
 CleanDataCacheRange(_blitter_dmacb,32);         // now push this into RAM
-//cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2);         // now push this into RAM
+cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
+cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
 
 // Init the hardware
+//while (dma_cs and 1)=1 do sleep(0);
+dma_enable:=dma_enable or (1 shl blit_dma_chn); // enable dma channel # dma_chn
+dma_conblk:=nocache+_blitter_dmacb;             // init DMA ctr block
+dma_cs:=$00FF0003;                              // start DMA
+repeat until (dma_cs and 1) =0 ;               //
+//dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // disable dma channel
+InvalidateDataCacheRange(too+x2+y2*bpl2,lines*bpl2);                     // !!!
+end;
 
-dma_enable:=dma_enable or (1 shl blit_dma_chn);                 // enable dma channel # dma_chn
-dma_conblk:=nocache+_blitter_dmacb;                                // init DMA ctr block to ctrl block # 1
-dma_cs:=$00FF0003;                                         // start DMA
-repeat until (dma_cs and 2) <>0 ;
-dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // enable dma channel # dma_chn
 
-//InvalidateDataCacheRange(displaystart,$200000);
+procedure dma_blit1D(from,too,len:integer);
 
+var transfer_info2:cardinal;
+
+begin
+
+transfer_info2:=$0000E330;                  //burst=8, 2D
+
+ctrl1[0]:=transfer_info2;                       // transfer info
+ctrl1[1]:=from;                        // source address -> buffer #1
+ctrl1[2]:=too;                       // destination address
+ctrl1[3]:=len;                   // transfer length
+ctrl1[4]:=0;     // 2D
+ctrl1[5]:=$0;                                   // next ctrl block -> 0
+ctrl1[6]:=$0;                                   // unused
+ctrl1[7]:=$0;                                   // unused
+CleanDataCacheRange(_blitter_dmacb,32);         // now push this into RAM
+cleandatacacherange(from,len);  // source range cache clean
+cleanDataCacheRange(too,len);// destination range cache clean
+
+// Init the hardware
+//while (dma_cs and 1)=1 do sleep(0);
+dma_enable:=dma_enable or (1 shl blit_dma_chn); // enable dma channel # dma_chn
+dma_conblk:=nocache+_blitter_dmacb;             // init DMA ctr block
+dma_cs:=$00FF0003;                              // start DMA
+repeat until (dma_cs and 1) =0 ;               //
+//dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // disable dma channel
+InvalidateDataCacheRange(too,len);                     // !!!
 end;
 
 procedure fill(start,len,color:integer);

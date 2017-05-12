@@ -183,7 +183,7 @@ end;
 procedure drawwindow(wh:PWindow;dest:integer);
 
 var dt,dg,dh,dx,dy,dl,dsh,dsv,i,j:integer;
-
+   wt:int64;
 
 begin
 
@@ -209,13 +209,14 @@ else
   end;
 
 
-if wh=@background then fastmove($30000000,dest,1792*1120)
+if wh=@background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);  wt:=gettime-wt; box(100,100,200,100,0); outtextxyz(100,100,inttostr(wt),15,2,2); end
 else
   begin
+  wt:=gettime;
   if wh^.x<0 then dx:=0-wh^.x else dx:=0;
   if wh^.y<0 then dy:=0-wh^.y else dy:=0;
 
-  blit8(integer(wh^.gdata),wh^.vx+dx,wh^.vy+dy,dest,wh^.x+dx,wh^.y+dy,wh^.l-dx,wh^.h-dy,wh^.wl,1792);
+  {blit8} dma_blit(integer(wh^.gdata),wh^.vx+dx,wh^.vy+dy,dest,wh^.x+dx,wh^.y+dy,wh^.l-dx,wh^.h-dy,wh^.wl,1792);
 
   if wh^.x<dl then dx:=dl-wh^.x else dx:=0;
   if wh^.y<(dt+dl) then dy:=dt+dl-wh^.y else dy:=0;
@@ -255,7 +256,8 @@ else
     end;
   end;
 wh^.redraw:=true;
-
+  wt:=gettime-wt;
+  wh^.title:='Window time='+inttostr(wt)+' us';
 end;
 
 function checkmouse:PWindow;
