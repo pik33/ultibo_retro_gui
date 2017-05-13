@@ -33,6 +33,7 @@ type //PWindow=^Twindow;
      gdata:pointer; // graphic memory                   //+40
      decoration:pDecoration;//+48
      visible:boolean;
+     resizable:boolean;
      redraw:boolean;
      active:boolean;
      title:string;
@@ -136,7 +137,7 @@ if background<>nil then
 
   next:=nil;
   visible:=false;
-
+  resizable:=true;
   prev:=who;
   gdata:=getmem(wl*wh);
   for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,0);
@@ -199,16 +200,25 @@ begin
 
 if al>0 then l:=al;        // now set new window parameters
 if ah>0 then h:=ah;
+
+if al<64 then al:=64;
+
+if al>wl then al:=wl;
+if ah>wh then ah:=wh;
+
+
+
 if ax>-2048 then x:=ax;
 if ay>-2048 then y:=ay;
 if avx>-2048 then vx:=avx;
 if avy>-2048 then vy:=avy;
+
  end;
 
 
 procedure window.draw(dest:integer);
 
-var dt,dg,dh,dx,dy,dl,dsh,dsv,i,j:integer;
+var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
    wt:int64;
 
 begin
@@ -226,7 +236,7 @@ if decoration=nil then
   end
 else
   begin
-  dt:= titleheight;
+  dt:=titleheight;
   dl:=borderwidth;
   dg:=borderwidth;
   dh:=borderwidth;
@@ -239,59 +249,41 @@ if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);  
 else
   begin
   wt:=gettime;
-  if x<0 then dx:=0-x else dx:=0;
-  if y<0 then dy:=0-y else dy:=0;
+  dma_blit(6,integer(gdata),vx,vy,dest,x,y,l,h,wl,1792);
 
-  {blit8} dma_blit(6,integer(gdata),vx+dx,vy+dy,dest,x+dx,y+dy,l-dx,h-dy,wl,1792);
-
-  if x<dl then dx:=dl-x else dx:=0;
-  if y<(dt+dl) then dy:=dt+dl-y else dy:=0;
+//  if x<dl then dx:=dl-x else dx:=0;
+//  if y<(dt+dl) then dy:=dt+dl-y else dy:=0;
 
   if next<>nil then
     begin
-    if (dy<dt+dl) then fill2d(dest, x-dl+dx, y+dy-dt-dl, l-dx+dl +dsv ,dl-dy,1792,inactivecolor+borderdelta);
-    if (dy<dt) then fill2d(dest,x-dl+dx,y-dt+dy,l-dx+dl+dsv,dt-dy,1792,inactivecolor);
-    if (dx<dl) then fill2d(dest,x-dl+dx,y-dt-dl,dl-dx,h+dt+dl+dsh+dh-dy,1792,inactivecolor+borderdelta);
-    fill2d(dest, x-dl+dx, y+h+dsh, l+dl+dg-dx+dsv,dh,1792,inactivecolor+borderdelta);
-    fill2d(dest, x+dx, y+h, l-dx,dsh,1792,scrollcolor);
-    fill2d(dest, x+l+dsv, y+dy-dt-dl,dg,h+dt+dl+dsh+dl,1792,inactivecolor+borderdelta);
-    fill2d(dest, x+l, y+dy,dsv,h,1792,scrollcolor);
-    fill2d(dest, x+l, y+h,dsv,dsh,1792,inactivecolor);
-    gouttextxy(pointer(dest),x+32,y-20,title,inactivetextcolor);
-    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,close_icon[i+16*j]);
-//    gouttextxy(pointer(dest),x+l+dsv-54,y-20,'_',inactivetextcolor);
-//    gouttextxy(pointer(dest),x+l+dsv-38,y-32,'_',inactivetextcolor);
-//    gouttextxy(pointer(dest),x+l+dsv-22,y-22,'x',inactivetextcolor);
-
-    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
+    c:=inactivecolor;
+    ct:=inactivetextcolor;
+    a:=0;
     end
   else
     begin
-    if (dy<dt+dl) then fill2d(dest, x-dl+dx, y+dy-dt-dl, l-dx+dl +dsv ,dl-dy,1792,activecolor+borderdelta);
-    if (dy<dt) then fill2d(dest,x-dl+dx,y-dt+dy,l-dx+dl+dsv,dt-dy,1792,activecolor);
-    if (dx<dl) then fill2d(dest,x-dl+dx,y-dt-dl,dl-dx,h+dt+dl+dsh+dh-dy,1792,activecolor+borderdelta);
-    fill2d(dest, x-dl+dx, y+h+dsh, l+dl+dg-dx+dsv,dh,1792,activecolor+borderdelta);
-    fill2d(dest, x+dx, y+h, l-dx,dsh,1792,scrollcolor);
-    fill2d(dest, x+l+dsv, y+dy-dt-dl,dg,h+dt+dl+dsh+dl,1792,activecolor+borderdelta);
-    fill2d(dest, x+l, y+dy,dsv,h,1792,scrollcolor);
-    fill2d(dest, x+l, y+h,dsv,dsh,1792,activecolor);
-    gouttextxy(pointer(dest),x+32,y-20,title,activetextcolor);
-//    gouttextxy(pointer(dest),x+l+dsv-54,y-20,'_',activetextcolor);
-//    gouttextxy(pointer(dest),x+l+dsv-38,y-32,'_',activetextcolor);
-//    gouttextxy(pointer(dest),x+l+dsv-22,y-22,'x',activetextcolor);
-    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
-    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,32+close_icon[i+16*j]);
-//    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
-//    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
+    c:=activecolor;
+    ct:=activetextcolor;
+    a:=32
     end;
+
+  fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
+  fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,1792,c);                        //title bar
+  fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,1792,c+borderdelta);   //left border
+  fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,1792,c+borderdelta);      //lower border
+  fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
+  fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
+  fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
+  fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
+  gouttextxy(pointer(dest),x+32,y-20,title,ct);
+  for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
+  for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
+  for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+close_icon[i+16*j]);
+  for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
   end;
 redraw:=true;
-  wt:=gettime-wt;
-  title:='Window time='+inttostr(wt)+' us';
+wt:=gettime-wt;
+//title:='Window time='+inttostr(wt)+' us';
 end;
 
 function checkmouse:Window;
@@ -343,9 +335,12 @@ if (state=0) and (mmk=2) then
       end;
 
     while ((mmx<wh.x-dl) or (mmx>wh.x+wh.l+dg+dsv) or (mmy<wh.y-dt-dg) or (mmy>wh.y+wh.h+dh+dsh)) and (wh.prev<>nil) do wh:=wh.prev;
-    if wh<>background then wh.destroy;
-    state:=4;
-    goto p999;
+    if wh<>background then
+      begin
+      wh.destroy;
+      state:=4;
+      goto p999;
+      end;
     end;
 
   if mmk=1 then // find a window with mk=1
@@ -424,7 +419,7 @@ else
   wh.my:=mmy-wh.y;
   wh.mk:=mmk;
   end;
-if (mmx<(wh.x+wh.l)) and (mmy<(wh.y+wh.h)) then begin state:=0; deltax:=0; deltay:=0 end
+if not(wh.resizable) or ((mmx<(wh.x+wh.l)) and (mmy<(wh.y+wh.h))) then begin state:=0; deltax:=0; deltay:=0 end
 else if (mmx>=(wh.x+wh.l)) and (mmy<(wh.y+wh.h)) then begin state:=1; deltax:=wh.x+wh.l-mmx; deltay:=0; end
 else if (mmx<(wh.x+wh.l)) and (mmy>=(wh.y+wh.h)) then begin state:=2; deltax:=0; deltay:=wh.y+wh.h-mmy;end
 else begin state:=3; deltax:=wh.x+wh.l-mmx; deltay:=wh.y+wh.h-mmy; end ;
@@ -577,12 +572,12 @@ begin
 screenptr:=integer(gdata);
 xres:=wl;
 yres:=wh;
-if ax<0 then begin l:=l+ax; ax:=0; if l<1 then goto p999; end;
+if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
 if ax>=xres then goto p999;
-if ay<0 then begin h:=h+ay; ay:=0; if h<1 then goto p999; end;
+if ay<0 then begin ah:=ah+ay; ay:=0; if ah<1 then goto p999; end;
 if ay>=yres then goto p999;
-if ax+l>=xres then l:=xres-ax;
-if ay+h>=yres then h:=yres-ay;
+if ax+al>=xres then al:=xres-ax;
+if ay+ah>=yres then ah:=yres-ay;
 
 
              asm

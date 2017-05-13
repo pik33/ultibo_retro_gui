@@ -239,23 +239,45 @@ var transfer_info2:cardinal;
     conblk:Pcardinal;        //      absolute _dma_conblk+($100*blit_dma_chn);   // DMA ctrl block addr
 
 begin
+//cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
+
 if len<1 then goto p999;
+if x2<0 then
+  begin
+  x:=x-x2;
+  len:=len+x2;
+  x2:=0;
+  if len<1 then goto p999;
+  end;
+if y2<0 then
+  begin
+  y:=y-y2;
+  lines:=lines+y2;
+  if lines<1 then goto p999;
+  y2:=0;
+  end;
+if x2+len>1791 then len:=1792-x2;
+if y2+lines>1119 then lines:=1120-y2;
+if len<1 then goto p999;
+if lines<1 then goto p999;
+
 transfer_info2:=$00009332;                      //burst=9, 2D
 cs:=Pcardinal(_dma_cs+$100*chn);
 conblk:=Pcardinal(_dma_conblk+$100*chn);
 ctrl1[chn,0]:=transfer_info2;                       // transfer info
-ctrl1[chn,1]:=from+x+bpl1*y;                        // source address -> buffer #1
+ctrl1[chn,1]:=from+x+bpl1*y+$80000000;                        // source address -> buffer #1
 ctrl1[chn,2]:=too+x2+bpl2*y2;                       // destination address
 ctrl1[chn,3]:=len+(lines shl 16);                   // transfer length
 ctrl1[chn,4]:=((bpl2-len) shl 16)+((bpl1-len));     // 2D
 ctrl1[chn,5]:=$0;                                   // next ctrl block -> 0
 ctrl1[chn,6]:=$0;                                   // unused
 ctrl1[chn,7]:=$0;                                   // unused
-CleanDataCacheRange(_blitter_dmacb+$20*chn,32);         // now push this into RAM
+CleanDataCacheRange(_blitter_dmacb+$20*chn,32);     // now push this into RAM
 cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
 cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
 
 // Init the hardware
+//cs^:=$80EE0003;
 dma_enable:=dma_enable or (1 shl chn); // enable dma channel # dma_chn
 conblk^:=nocache+_blitter_dmacb+$20*chn;             // init DMA ctr block
 cs^:=$00EE0003;                              // start DMA
@@ -365,9 +387,27 @@ procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
 
 // --- rev 21070509
 
-label p101;
+label p101,p999;
 
 begin
+if length<1 then goto p999;
+if x<0 then
+  begin
+  length:=length+x;
+  x:=0;
+  if length<1 then goto p999;
+  end;
+if y<0 then
+  begin
+  lines:=lines+y;
+  if lines<1 then goto p999;
+  y:=0;
+  end;
+if x+length>1791 then length:=1792-x;
+if y+lines>1119 then lines:=1120-y;
+if length<1 then goto p999;
+if lines<1 then goto p999;
+
                   asm
                   push {r0-r7}
 
@@ -396,7 +436,7 @@ p101:             strb r6,[r1],#1
                   bgt p101
                   pop {r0-r7}
                   end;
-
+p999:
 end;
 
 procedure fill32(start,len,color:integer);

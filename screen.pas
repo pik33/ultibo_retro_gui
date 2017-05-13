@@ -58,6 +58,7 @@ var test:integer ;
    spr0,spr1,spr2,spr3,spr4,spr5,spr6:TAnimatedSprite;
 
    screentime:int64;
+   sc:window;
 
 procedure initscreen;
 procedure refreshscreen;
@@ -263,6 +264,12 @@ spr5dy:=6;
 spr6dx:=7;
 spr6dy:=7;
 
+sc:=window.create(884,187,'Oscilloscope');      //884,187
+sc.decoration^.hscroll:=false;
+sc.decoration^.vscroll:=false;
+sc.resizable:=false;
+sc.move(400,500,884,187,0,0);
+
 end;
 
 
@@ -383,11 +390,16 @@ if (cc>=3544) then blit8 (a+$200000,10,911,a,11+5316-(cc),1011,(cc-3544),48,1792
 if (cc>=3544) then blit8 (a+$200000,10+(cc-3544),1007,a,12,1011,1771-(cc-3544),48,1792,1792);
 
 // draw the oscilloscope
-box2(10,610,894,797,178);
-box2(10,700,894,701,140);
-box2(10,636,894,637,140);
-box2(10,764,894,765,140);
-for j:=20 to 840 do if abs(scope[j])<46000 then box(20+j,700-scope[j] div 768,2,2,190);
+sc.box(0,0,883,186,178);
+sc.box(0,93,883,2,140);
+sc.box(0,27,882,2,140);
+sc.box(0,158,883,2,140);
+for j:=20 to 840 do if abs(scope[j])<46000 then sc.box(10+j,93-scope[j] div 768,2,2,190);
+//box2(10,610,894,797,178);
+//box2(10,700,894,701,140);
+//box2(10,636,894,637,140);
+//box2(10,764,894,765,140);
+//for j:=20 to 840 do if abs(scope[j])<46000 then box(20+j,700-scope[j] div 768,2,2,190);
 
 // if the file is SID then move the sprites acccording to SID regs
 

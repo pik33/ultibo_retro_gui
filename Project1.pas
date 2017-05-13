@@ -64,7 +64,7 @@ var s,currentdir,currentdir2:string;
     mousedebug:boolean=false;
         mp3buf:array[0..4096] of byte;
 
-    wh:Window;
+    wh,scope:window;
 
 
 //    mp3test:pointer;
@@ -487,7 +487,10 @@ end;
 //------------------- The main program
 
 begin
-
+background:=window.create(1792,1120,'');
+//background_init(147);
+initmachine;
+initscreen;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
 sleep(1);
 while not DirectoryExists('C:\') do
@@ -523,10 +526,8 @@ if fileexists(drive+'kernel7_l.img') then
 
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
-background:=window.create(1792,1120,'');
-//background_init(147);
-initmachine;
-initscreen;
+
+
 
 workdir:='C:\';
 dirlist('C:\');
@@ -547,7 +548,15 @@ repeat
   key:=readkey and $FF;
   wh:=checkmouse;
 //  if wh<>@background  then goto p998;
-
+   box(600,100,200,500,0);
+   outtextxy(600,100,'oscilloscope x '+inttostr(sc.x),15);
+   outtextxy(600,116,'oscilloscope y '+inttostr(sc.y),15);
+   outtextxy(600,132,'oscilloscope wl '+inttostr(sc.wl),15);
+   outtextxy(600,148,'oscilloscope wh '+inttostr(sc.wh),15);
+   outtextxy(600,164,'oscilloscope vx '+inttostr(sc.vx),15);
+   outtextxy(600,180,'oscilloscope vy '+inttostr(sc.vy),15);
+   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
+   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
   if wh=background then  wheel:=readwheel;
 
   if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
@@ -763,11 +772,12 @@ pauseaudio(1);
 
      else if key=ord('w') then   // set 440 Hz
        begin
-       wh:=window.create(1920,1200,'');
+       wh:=window.create(600,600,'');
        wh.title:='Test window '+inttohex(integer(wh),8);
        wh.cls(16*random(16)+2);
        wh.outtextxy(10,10,'Window handle: '+inttostr(integer(wh)),136);
        wh.outtextxy(10,42,'Moving window test line 1',152);
+       wh.box(100,100,100,100,40);
  //      wh.outtextxy(10,74,'Moving window test line 2',168);
  //      wh.outtextxy(10,106,'Moving window test line 3',184);
  //      wh.outtextxy(10,138,'Moving window test line 4',200);
