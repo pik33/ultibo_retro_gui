@@ -64,7 +64,7 @@ var s,currentdir,currentdir2:string;
     mousedebug:boolean=false;
         mp3buf:array[0..4096] of byte;
 
-    wh:PWindow;
+    wh:Window;
 
 
 //    mp3test:pointer;
@@ -488,9 +488,6 @@ end;
 
 begin
 
-background_init(147);
-initmachine;
-initscreen;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
 sleep(1);
 while not DirectoryExists('C:\') do
@@ -526,6 +523,11 @@ if fileexists(drive+'kernel7_l.img') then
 
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
+background:=window.create(1792,1120,'');
+//background_init(147);
+initmachine;
+initscreen;
+
 workdir:='C:\';
 dirlist('C:\');
 songtime:=0;
@@ -546,7 +548,7 @@ repeat
   wh:=checkmouse;
 //  if wh<>@background  then goto p998;
 
-  if wh=@background then wheel:=readwheel;
+  if wh=background then  wheel:=readwheel;
 
   if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
   if (key=0) and (wheel=1) then begin key:=key_uparrow;  end;
@@ -554,9 +556,9 @@ repeat
   if (key=0) and (nextsong=2) then begin nextsong:=0; key:=key_enter; end;      // play the next song
   if (key=0) and (nextsong=1) then begin nextsong:=2; key:=key_downarrow; end;  // select the nest song
 
-  if (dblclick) and (key=0) and (mousex>896) and (wh=@background) then begin key:=key_enter; end;    // dbl click on right panel=enter
+  if (dblclick) and (key=0) and (mousex>896) and (wh=background) then begin key:=key_enter; end;    // dbl click on right panel=enter
 
-  if (click) and (mousex>896) and (wh=@background) then
+  if (click) and (mousex>896) and (wh=background) then
     begin
 
     nsel:=(mousey-132) div 32;
@@ -761,26 +763,31 @@ pauseaudio(1);
 
      else if key=ord('w') then   // set 440 Hz
        begin
-       wh:=window(1920,1200,'');
-       wh^.title:='Test window '+inttohex(integer(wh),8);
-       wcls(wh,16*random(16)+2);
-       wouttextxy(wh,10,10,'Window handle: '+inttostr(integer(wh)),136);
-       wouttextxy(wh,10,42,'Moving window test line 1',152);
-       wouttextxy(wh,10,74,'Moving window test line 2',168);
-       wouttextxy(wh,10,106,'Moving window test line 3',184);
-       wouttextxy(wh,10,138,'Moving window test line 4',200);
-       wouttextxy(wh,10,170,'Moving window test line 5',216);
-       wouttextxy(wh,10,202,'Moving window test line 6',232);
-       wouttextxy(wh,10,234,'Moving window test line 7',248);
-       wouttextxy(wh,10,266,'Moving window test line 8',8);
-       wouttextxy(wh,10,298,'Moving window test line 9',24);
-       wouttextxy(wh,10,330,'Moving window test line 10',40);
-       wouttextxy(wh,10,363,'Moving window test line 11',56);
-       wouttextxy(wh,10,394,'Moving window test line 12',72);
-       wouttextxy(wh,10,426,'Moving window test line 13',88);
-       wouttextxy(wh,10,458,'Moving window test line 14',104);
-       wouttextxy(wh,10,490,'Moving window test line 15',120);
-       movewindow(wh,100,100,300,300,0,0);
+       wh:=window.create(1920,1200,'');
+       wh.title:='Test window '+inttohex(integer(wh),8);
+       wh.cls(16*random(16)+2);
+       wh.outtextxy(10,10,'Window handle: '+inttostr(integer(wh)),136);
+       wh.outtextxy(10,42,'Moving window test line 1',152);
+ //      wh.outtextxy(10,74,'Moving window test line 2',168);
+ //      wh.outtextxy(10,106,'Moving window test line 3',184);
+ //      wh.outtextxy(10,138,'Moving window test line 4',200);
+ //      wh.outtextxy(10,170,'Moving window test line 5',216);
+
+       box(100,100,200,600,0);
+       outtextxy(100,100,inttostr(integer(wh)),15);
+       outtextxy(100,132,inttostr(integer(wh.gdata)),15);
+
+//       wh.outtextxy(10,202,'Moving window test line 6',232);
+//       wh.outtextxy(10,234,'Moving window test line 7',248);
+//       wh.outtextxy(10,266,'Moving window test line 8',8);
+//       wh.outtextxy(10,298,'Moving window test line 9',24);
+//       wh.outtextxy(10,330,'Moving window test line 10',40);
+//       wh.outtextxy(10,363,'Moving window test line 11',56);
+//       wh.outtextxy(10,394,'Moving window test line 12',72);
+//       wh.outtextxy(10,426,'Moving window test line 13',88);
+//       wh.outtextxy(10,458,'Moving window test line 14',104);
+//       wh.outtextxy(10,490,'Moving window test line 15',120);
+       wh.move(100,100,300,300,0,0);
 //       for i:=10 to 800 do begin movewindow(wh,100,100,i,i,0,0); waitvbl; end;
 //       for i:=1 to 300 do begin movewindow(wh,100,100,800-i,800-i,0,0); waitvbl; end;
 //       for i:=1 to 300 do begin movewindow(wh,100+i,100+i,500,500,0,0); waitvbl; end;

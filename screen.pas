@@ -68,33 +68,33 @@ implementation
 
 uses simpleaudio,retromouse,blitter;
 
-procedure rainbow;
+procedure rainbow(a:integer); //1011
 
 begin
-box2(10,1011,1782,1012,48+16);
-box2(10,1013,1782,1014,48+17);
-box2(10,1015,1782,1016,48+18);
-box2(10,1017,1782,1018,48+19);
-box2(10,1019,1782,1020,48+20);
-box2(10,1021,1782,1022,48+21);
-box2(10,1023,1782,1024,48+22);
-box2(10,1025,1782,1026,48+23);
-box2(10,1027,1782,1028,48+24);
-box2(10,1029,1782,1030,48+25);
-box2(10,1031,1782,1032,48+26);
-box2(10,1033,1782,1034,48+27);
-box2(10,1035,1782,1036,48+28);
-box2(10,1037,1782,1038,48+29);
-box2(10,1039,1782,1040,48+30);
-box2(10,1041,1782,1042,48+31);
-box2(10,1043,1782,1044,48+32);
-box2(10,1045,1782,1046,48+33);
-box2(10,1047,1782,1048,48+34);
-box2(10,1049,1782,1050,48+35);
-box2(10,1051,1782,1052,48+36);
-box2(10,1053,1782,1054,48+37);
-box2(10,1055,1782,1056,48+38);
-box2(10,1057,1782,1058,48+39);
+box2(10,a,1782,1012,48+16);
+box2(10,a+2,1782,1014,48+17);
+box2(10,a+4,1782,1016,48+18);
+box2(10,a+6,1782,1018,48+19);
+box2(10,a+8,1782,1020,48+20);
+box2(10,a+10,1782,1022,48+21);
+box2(10,a+12,1782,1024,48+22);
+box2(10,a+14,1782,1026,48+23);
+box2(10,a+16,1782,1028,48+24);
+box2(10,a+18,1782,1030,48+25);
+box2(10,a+20,1782,1032,48+26);
+box2(10,a+22,1782,1034,48+27);
+box2(10,a+24,1782,1036,48+28);
+box2(10,a+26,1782,1038,48+29);
+box2(10,a+28,1782,1040,48+30);
+box2(10,a+30,1782,1042,48+31);
+box2(10,a+32,1782,1044,48+32);
+box2(10,a+34,1782,1046,48+33);
+box2(10,a+36,1782,1048,48+34);
+box2(10,a+38,1782,1050,48+35);
+box2(10,a+40,1782,1052,48+36);
+box2(10,a+42,1782,1054,48+37);
+box2(10,a+44,1782,1056,48+38);
+box2(10,a+46,1782,1058,48+39);
 end;
 
 
@@ -149,7 +149,26 @@ sethidecolor(190,0,$80);
 sethidecolor(188,0,$80);
 sethidecolor(154,0,$80);
 
+// prepare the scroll bar
+
+rainbow(811);
+i:=displaystart;
+outtextxyz(24,819,'A retromachine SID and WAV player by pik33 --- inspired by Johannes Ahlebrand''s Parallax Propeller SIDCog ---',89,2,2);
+cleandatacacherange(i,1120*1792);
+blit8(i,10,811,i+$200000,10,911,1771,48,1792,1792);
+rainbow(911);
+outtextxyz(24,919,' F1,F2,F3 - channels 1..3 on/off; 1-100 Hz, 2-200 Hz, 3-150 Hz, 4-400 Hz, 5-50 Hz; P - pause; up/down/enter - ',89,2,2);
+cleandatacacherange(i,1120*1792);
+blit8(i,10,911,i+$200000,10,959,1771,48,1792,1792);
+rainbow(1011);
+outtextxyz(24,1019,'select; F-432 Hz; G-440 Hz; Q-volume up; A-volume down; + - next subsong; - - previous subsong; ESC-reboot -- ',89,2,2);
+cleandatacacherange(i,1120*1792);
+blit8(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
+
+
 // -------------- Now prepare the screen
+
+
 
 cls(146);
 outtextxyz(128,16,ver,154,4,2);
@@ -173,18 +192,7 @@ avspt:=0;
 avall:=0;
 avsid:=0;
 
-// prepare the scroll bar
 
-rainbow;
-i:=displaystart;
-outtextxyz(24,1019,'A retromachine SID and WAV player by pik33 --- inspired by Johannes Ahlebrand''s Parallax Propeller SIDCog ---',89,2,2);
-blit(i,10,1011,i+$200000,10,911,1771,48,1792,1792);
-rainbow;
-outtextxyz(24,1019,' F1,F2,F3 - channels 1..3 on/off; 1-100 Hz, 2-200 Hz, 3-150 Hz, 4-400 Hz, 5-50 Hz; P - pause; up/down/enter - ',89,2,2);
-blit(i,10,1011,i+$200000,10,959,1771,48,1792,1792);
-rainbow;
-outtextxyz(24,1019,'select; F-432 Hz; G-440 Hz; Q-volume up; A-volume down; + - next subsong; - - previous subsong; ESC-reboot -- ',89,2,2);
-blit(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
 
 // Set animated sprites definitions.
 // The "balls" is an rotating blue ball definition
@@ -271,6 +279,7 @@ begin
 clock:=timetostr(now);
 repeat sleep(0) until not background.redraw;
 repeat sleep(0) until background.redraw;
+//waitvbl;
 screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 

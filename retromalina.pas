@@ -62,9 +62,9 @@
 //    2F06_00C0 - 2F06_00FF - audio DMA ctrl blocks, 2x32 bytes
 //
 //    2F06_0100 - 2F06_01?? - blitter
-//    2F06_0100 - 2F06_011F - blitter DMA ctrl block
-//    2F06_0120 - 2F06_0127 - blitter fill color area
-//    2F06_0100 - 2F06_FFFF - reserved
+//    2F06_0100 - 2F06_01FF - blitter DMA ctrl blocks
+//    2F06_0200 - 2F06_0207 - blitter fill color area
+//    2F06_0210 - 2F06_FFFF - reserved
 //
 //    2F07_0000 - 2F08_FFFF - 2x64k long audio buffer for noise shaper
 //    2F0D_0000  -  2FFF_FFFF - retromachine system area
@@ -497,17 +497,17 @@ end;
 procedure TWindows.Execute;
 
 var scr:integer;
-    wh:PWindow;
+    wh:Window;
 
 begin
 scr:=$30a00000;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_1);
 sleep(1);
 repeat
-  wh:=@background;
+  wh:=background;
   repeat
-    drawwindow(wh,scr);
-    wh:=wh^.next;
+    wh.draw(scr);
+    wh:=wh.next;
   until wh=nil;
   repeat ThreadSetCPU(ThreadGetCurrent,CPU_ID_1); sleep(0) until screenaddr<>scr;
   scr:=screenaddr;
@@ -921,7 +921,7 @@ procedure TRetro.Execute;
 // --- rev 21070111
 
 var id:integer;
-    wh:PWindow;
+    wh:Window;
     screen:integer;
 
 begin
@@ -937,7 +937,7 @@ repeat
   t:=gettime;
 
 
-  scrconvert(pointer($30800000),p2);
+  scrconvert(pointer($30800000),p2);   //8
   screenaddr:=$30800000;
 
 
@@ -955,7 +955,7 @@ repeat
   vblank1:=0;
   t:=gettime;
 
-  scrconvert(pointer($30a00000),p2+2304000);
+  scrconvert(pointer($30a00000),p2+2304000);   //a
   screenaddr:=$30a00000;
 
   tim:=gettime-t;

@@ -7,26 +7,26 @@ interface
 uses
   Classes, SysUtils, Platform, HeapManager;
 
-procedure box8(x,y,l,h,c:cardinal);
-procedure dma_blit(from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
+//procedure box8(x,y,l,h,c:cardinal);
+procedure dma_blit(chn,from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 procedure blit8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill(start,len,color:integer);
 procedure fill32(start,len,color:integer);
 procedure fastmove(from,too,len:integer);
-procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
+//procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
-procedure dma_blit1D(from,too,len:integer);
+//procedure dma_blit1D(from,too,len:integer);
 
 
 implementation
 
 uses retromalina;
 
-type TCtrlBlock=array[0..7] of cardinal;
+type TCtrlBlock=array[0..15,0..7] of cardinal;
      PCtrlBlock=^TCtrlBlock;
 
 const
-      blit_dma_chn=6;                                 // let blitter use dma #6
+      blit_dma_chn=9;                                 // let blitter use dma #6
       _dma_enable=  $3F007ff0;                        // DMA enable register
       _dma_cs=      $3F007000;                        // DMA control and status
       _dma_conblk=  $3F007004;                        // DMA ctrl block address
@@ -92,7 +92,7 @@ p101:             ldrb r6,[r0],#1
                   end;
 p999:
 end;
-
+  {
 procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 
 // --- rev 21070509
@@ -228,9 +228,44 @@ repeat until (dma_cs and 2) <>0 ;
 //InvalidateDataCacheRange(displaystart,$200000);
 
 end;
+ }
 
+procedure dma_blit(chn,from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 
-procedure dma_blit(from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
+label p999;
+
+var transfer_info2:cardinal;
+    cs:Pcardinal;          //         absolute _dma_cs+($100*blit_dma_chn);       // DMA ctrl/status
+    conblk:Pcardinal;        //      absolute _dma_conblk+($100*blit_dma_chn);   // DMA ctrl block addr
+
+begin
+if len<1 then goto p999;
+transfer_info2:=$00009332;                      //burst=9, 2D
+cs:=Pcardinal(_dma_cs+$100*chn);
+conblk:=Pcardinal(_dma_conblk+$100*chn);
+ctrl1[chn,0]:=transfer_info2;                       // transfer info
+ctrl1[chn,1]:=from+x+bpl1*y;                        // source address -> buffer #1
+ctrl1[chn,2]:=too+x2+bpl2*y2;                       // destination address
+ctrl1[chn,3]:=len+(lines shl 16);                   // transfer length
+ctrl1[chn,4]:=((bpl2-len) shl 16)+((bpl1-len));     // 2D
+ctrl1[chn,5]:=$0;                                   // next ctrl block -> 0
+ctrl1[chn,6]:=$0;                                   // unused
+ctrl1[chn,7]:=$0;                                   // unused
+CleanDataCacheRange(_blitter_dmacb+$20*chn,32);         // now push this into RAM
+cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
+cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
+
+// Init the hardware
+dma_enable:=dma_enable or (1 shl chn); // enable dma channel # dma_chn
+conblk^:=nocache+_blitter_dmacb+$20*chn;             // init DMA ctr block
+cs^:=$00EE0003;                              // start DMA
+repeat until (cs^ and 1) =0 ;                //
+InvalidateDataCacheRange(too+x2+y2*bpl2,lines*bpl2);                     // !!!
+p999:
+end;
+
+{
+procedure old_dma_blit(from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 
 var transfer_info2:cardinal;
 
@@ -290,7 +325,7 @@ repeat  until (dma_cs and 1) =0 ;               //
 //dma_enable:=dma_enable and ($FFFFFFFE shl blit_dma_chn);                 // disable dma channel
 InvalidateDataCacheRange(too,len);                     // !!!
 end;
-
+ }
 procedure fill(start,len,color:integer);
 
 label p101 ;
