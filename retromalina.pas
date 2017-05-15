@@ -430,6 +430,7 @@ var fh,filetype:integer;                // this needs cleaning...
    framesize:integer;
    screenaddr:integer=$30800000;
    redrawing:integer=$30800000;
+   windowsdone:boolean=false;
 
 // prototypes
 
@@ -501,15 +502,17 @@ var scr:integer;
 
 begin
 scr:=$30a00000;
-ThreadSetCPU(ThreadGetCurrent,CPU_ID_1);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_2);
 sleep(1);
 repeat
+  windowsdone:=false;
   wh:=background;
   repeat
     wh.draw(scr);
     wh:=wh.next;
   until wh=nil;
-  repeat ThreadSetCPU(ThreadGetCurrent,CPU_ID_1); sleep(0) until screenaddr<>scr;
+  windowsdone:=true;
+  repeat sleep(1) until screenaddr<>scr;
   scr:=screenaddr;
 until terminated;
 end;
@@ -926,13 +929,13 @@ var id:integer;
 
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
 ThreadSetPriority(ThreadGetCurrent,6);
 sleep(1);
 
 running:=1;
 repeat
   begin
-  ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
   vblank1:=0;
   t:=gettime;
 
@@ -996,7 +999,6 @@ begin
 
 //init the framebuffer
 //TODO: if the screen is 1920x1080 init it to this resolution
-
 fb:=FramebufferDevicegetdefault;
 FramebufferDeviceRelease(fb);
 Sleep(100);
@@ -1010,11 +1012,11 @@ sleep(100);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
 for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-
+sleep(100);
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
-for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
+//for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
 // init pallette, font and mouse cursor
 
 systemfont:=st4font;
@@ -1059,14 +1061,15 @@ error:=openaudio(@desired,@obtained);
 filebuffer:=Tfilebuffer.create(true);
 filebuffer.start;
 
-amouse:=tmouse.create(true);
-amouse.start;
 mousex:=960;
 mousey:=600;
 mousewheel:=128;
+amouse:=tmouse.create(true);
+amouse.start;
 
 akeyboard:=tkeyboard.create(true);
 akeyboard.start;
+background:=window.create(1792,1120,'');
 windows:=twindows.create(true);
 windows.start;
 end;
@@ -3405,6 +3408,7 @@ ttt:=clockgettotal;
 
 if (filetype=3) or (filetype=4) or (filetype=5) then
   begin
+  time6502:=0;
   if sfh>0 then
     begin
     if filebuffer.eof then // il<>1536 then
@@ -3429,6 +3433,7 @@ if (filetype=3) or (filetype=4) or (filetype=5) then
   end
 else if filetype=6 then
   begin
+  time6502:=0;
   timer1+=siddelay;
   songtime+=siddelay;
   for i:=0 to 383 do oscilloscope(audio2[2*i]+audio2[2*i+1]);
@@ -3453,6 +3458,7 @@ else
       if filetype=0 then
 
         begin
+        time6502:=0;
         il:=fileread(sfh,buf,25);
         if il=25 then
           begin

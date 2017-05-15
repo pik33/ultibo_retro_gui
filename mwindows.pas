@@ -54,10 +54,16 @@ type //PWindow=^Twindow;
 
      end;
 
+
+TThreadWindow=class(TThread)
+        win:window;
+        Constructor Create(al,ah:integer; atitle:string);
+        end;
+
 var background:window=nil;
 
     activecolor:integer=120;
-    inactivecolor:integer=15;
+    inactivecolor:integer=13;
     activetextcolor:integer=15;
     inactivetextcolor:integer=0;
     borderwidth:integer=6;
@@ -82,7 +88,12 @@ implementation
 
 uses retromalina,blitter,retro;
 
+constructor tthreadwindow.create(al,ah:integer; atitle:string);
 
+begin
+inherited create(true);
+win:=window.create(al,ah,atitle);
+end;
 
 procedure background_init(color:byte);
 
@@ -201,10 +212,10 @@ begin
 if al>0 then l:=al;        // now set new window parameters
 if ah>0 then h:=ah;
 
-if al<64 then al:=64;
+if (decoration<>nil) and (al>0) and (al<96) then l:=96;
 
-if al>wl then al:=wl;
-if ah>wh then ah:=wh;
+if al>wl then l:=wl;
+if ah>wh then h:=wh;
 
 
 
@@ -223,7 +234,7 @@ var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
 
 begin
 
-redraw:=false;
+//redraw:=false;
 
 if decoration=nil then
   begin
@@ -245,7 +256,7 @@ else
   end;
 
 
-if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);  wt:=gettime-wt; box(100,100,200,100,0); outtextxyz(100,100,inttostr(wt),15,2,2); end
+if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);   wt:=gettime-wt; end
 else
   begin
   wt:=gettime;
@@ -281,7 +292,7 @@ else
   for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+close_icon[i+16*j]);
   for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
   end;
-redraw:=true;
+  redraw:=true;
 wt:=gettime-wt;
 //title:='Window time='+inttostr(wt)+' us';
 end;
@@ -449,9 +460,7 @@ procedure window.cls(c:integer);
 var i,al:integer;
 
 begin
-c:=c mod 256;
-al:=wl*wh;
-for i:=0 to al-1 do poke(cardinal(gdata)+i,c);
+box(0,0,wl,wh,c);
 end;
 
 procedure window.putpixel(ax,ay,color:integer); inline;

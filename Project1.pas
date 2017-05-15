@@ -111,27 +111,20 @@ if head.data<>1635017060 then
 
 // visualize wave data
 
-box(18,132,800,600,178);
-outtextxyz(42,156,'type: RIFF',177,2,2);
-outtextxyz(18,132,'type: RIFF',188,2,2);
+fi.box(0,0,600,600,15);
 
-outtextxyz(42,164+24,'size:             '+inttostr(head.size),177,2,2);
-outtextxyz(42,196+24,'pcm type:         ' +inttostr(head.pcm),177,2,2);
-outtextxyz(42,228+24,'channels:         '+inttostr(head.channels),177,2,2);
-outtextxyz(42,260+24,'sample rate:      '+inttostr(head.srate),177,2,2);
-outtextxyz(42,292+24,'bitrate:          '+inttostr(head.brate),177,2,2);
-outtextxyz(42,324+24,'bytes per sample: '+inttostr(head.bytesps),177,2,2);
-outtextxyz(42,356+24,'bits per sample:  '+inttostr(head.bps),177,2,2);
-outtextxyz(42,388+24,'data size:        '+inttostr(head.datasize),177,2,2);
+fi.outtextxy(10,10,  'type:             RIFF',178);
 
-outtextxyz(18,164,   'size:             '+inttostr(head.size),188,2,2);
-outtextxyz(18,196,   'pcm type:         '+inttostr(head.pcm),188,2,2);
-outtextxyz(18,228,   'channels:         '+inttostr(head.channels),188,2,2);
-outtextxyz(18,260,   'sample rate:      '+inttostr(head.srate),188,2,2);
-outtextxyz(18,292,   'bitrate:          '+inttostr(head.brate),188,2,2);
-outtextxyz(18,324,   'bytes per sample: '+inttostr(head.bytesps),188,2,2);
-outtextxyz(18,356,   'bits per sample:  '+inttostr(head.bps),188,2,2);
-outtextxyz(18,388,   'data size:        '+inttostr(head.datasize),188,2,2);
+
+
+fi.outtextxy (10,30 ,   'size:             '+inttostr(head.size),178);
+fi.outtextxy (10,50 ,   'pcm type:         '+inttostr(head.pcm),178);
+fi.outtextxy (10,70 ,   'channels:         '+inttostr(head.channels),178);
+fi.outtextxy (10,90 ,   'sample rate:      '+inttostr(head.srate),178);
+fi.outtextxy (10,110,   'bitrate:          '+inttostr(head.brate),178);
+fi.outtextxy (10,130,   'bytes per sample: '+inttostr(head.bytesps),178);
+fi.outtextxy (10,150,   'bits per sample:  '+inttostr(head.bps),178);
+fi.outtextxy (10,170,   'data size:        '+inttostr(head.datasize),178);
 
 if head.pcm=85 then goto p999;
 
@@ -141,10 +134,8 @@ currentdatasize:=head.datasize;
 // determine the number of samples
 
 samplenum:=currentdatasize div (head.channels*head.bps div 8);
-outtextxyz(42,420+24,'samples:          '+inttostr(samplenum),177,2,2);
-outtextxyz(18,420,   'samples:          '+inttostr(samplenum),188,2,2);
-box(18,912,800,32,244);
-outtextxyz(18,912,'Wave file, '+inttostr(head.srate)+' Hz',250,2,2);
+fi.outtextxy (10,190,   'samples:          '+inttostr(samplenum),178);
+
 p999:
 end;
 
@@ -173,24 +164,24 @@ if skip>0 then begin
 
 // visualize wave data
 
-box(18,132,800,600,178);
-outtextxyz(42,156,'type: mp3',177,2,2);
-outtextxyz(18,132,'type: mp3',188,2,2);
+fi.box(0,0,600,600,15);
+//outtextxyz(42,156,'type:              mp3',177,2,2);
+fi.outtextxy (10,10 ,'type:           mp3',177);
 
 
-outtextxyz(42,228+24,'channels:         '+inttostr(head.channels),177,2,2);
-outtextxyz(42,260+24,'sample rate:      '+inttostr(head.srate),177,2,2);
-outtextxyz(42,292+24,'bitrate:          ',177,2,2);
+//outtextxyz(42,228+24,'channels:         '+inttostr(head.channels),177,2,2);
+//outtextxyz(42,260+24,'sample rate:      '+inttostr(head.srate),177,2,2);
+//outtextxyz(42,292+24,'bitrate:          ',177,2,2);
 
-outtextxyz(18,228,   'channels:         '+inttostr(head.channels),188,2,2);
-outtextxyz(18,260,   'sample rate:      '+inttostr(head.srate),188,2,2);
-outtextxyz(18,292,   'bitrate:          ',188,2,2);
+fi.outtextxy (10,30 ,   'channels:     '+inttostr(head.channels),177);
+fi.outtextxy (10,50 ,   'sample rate:  '+inttostr(head.srate),177);
+//fi.outtextxy (10,70 ,   'bitrate:       ',177,2,2);
 
 
 // determine the number of samples
 
-box(18,912,800,32,244);
-outtextxyz(18,912,'MP3 file, '+inttostr(head.srate)+' Hz',250,2,2);
+//box(18,912,800,32,244);
+//outtextxyz(18,912,'MP3 file, '+inttostr(head.srate)+' Hz',250,2,2);
 end;
 
 procedure sidopen (var fh:integer);
@@ -226,35 +217,35 @@ if version>1 then begin
   end;
 for i:=1 to 32 do if byte(atitle[i])=$F1 then atitle[i]:=char(26);
 for i:=1 to 32 do if byte(author[i])=$F1 then author[i]:=char(26);
-box(18,132,800,600,178);
-outtextxyz(42,156,'type: PSID',177,2,2);
-outtextxyz(18,132,'type: PSID',188,2,2);
+fi.box(0,0,600,600,15);
+//fi.outtextxy(42,156,'type: PSID',177,2,2);
+fi.outtextxy (10,10,'type:      PSID',178);
 
-outtextxyz(42,164+24,'version: '+inttostr(version),177,2,2);
-outtextxyz(42,196+24,'offset: ' +inttohex(offset,4),177,2,2);
-outtextxyz(42,228+24,'load: '+inttohex(load,4),177-144*b,2,2);
-outtextxyz(42,260+24,'init: '+inttohex(init,4),177,2,2);
-outtextxyz(42,292+24,'play: '+inttohex(play,4),177,2,2);
-outtextxyz(42,324+24,'songs: '+inttostr(songs),177,2,2);
-outtextxyz(42,356+24,'startsong: '+inttostr(startsong),177,2,2);
-outtextxyz(42,388+24,'speed: '+inttohex(speed,8),177,2,2);
-outtextxyz(42,420+24,'title: '+atitle,177,2,2);
-outtextxyz(42,452+24,'author: '+author,177,2,2);
-outtextxyz(42,484+24,'copyright: '+copyright,177,2,2);
-outtextxyz(42,516+24,'flags: '+inttohex(flags,4),177,2,2);
+//outtextxyz(42,164+24,'version: '+inttostr(version),177,2,2);
+//outtextxyz(42,196+24,'offset: ' +inttohex(offset,4),177,2,2);
+//outtextxyz(42,228+24,'load: '+inttohex(load,4),177-144*b,2,2);
+//outtextxyz(42,260+24,'init: '+inttohex(init,4),177,2,2);
+//outtextxyz(42,292+24,'play: '+inttohex(play,4),177,2,2);
+//outtextxyz(42,324+24,'songs: '+inttostr(songs),177,2,2);
+//outtextxyz(42,356+24,'startsong: '+inttostr(startsong),177,2,2);
+//outtextxyz(42,388+24,'speed: '+inttohex(speed,8),177,2,2);
+//outtextxyz(42,420+24,'title: '+atitle,177,2,2);
+//outtextxyz(42,452+24,'author: '+author,177,2,2);
+//outtextxyz(42,484+24,'copyright: '+copyright,177,2,2);
+//outtextxyz(42,516+24,'flags: '+inttohex(flags,4),177,2,2);
 
-outtextxyz(18,164,'version: '+inttostr(version),188,2,2);
-outtextxyz(18,196,'offset: ' +inttohex(offset,4),188,2,2);
-outtextxyz(18,228,'load: '+inttohex(load,4),188-144*b,2,2);
-outtextxyz(18,260,'init: '+inttohex(init,4),188,2,2);
-outtextxyz(18,292,'play: '+inttohex(play,4),188,2,2);
-outtextxyz(18,324,'songs: '+inttostr(songs),188,2,2);
-outtextxyz(18,356,'startsong: '+inttostr(startsong),188,2,2);
-outtextxyz(18,388,'speed: '+inttohex(speed,8),188,2,2);
-outtextxyz(18,420,'title: '+atitle,188,2,2);
-outtextxyz(18,452,'author: '+author,188,2,2);
-outtextxyz(18,484,'copyright: '+copyright,188,2,2);
-outtextxyz(18,516,'flags: '+inttohex(flags,4),188,2,2);
+fi.outtextxy (10,30 ,'version:   '+inttostr(version),178);
+fi.outtextxy (10,50 ,'offset:    '+inttohex(offset,4),178);
+fi.outtextxy (10,70 ,'load:      '+inttohex(load,4),178-144*b);
+fi.outtextxy (10,90 ,'init:      '+inttohex(init,4),178);
+fi.outtextxy (10,110,'play:      '+inttohex(play,4),178);
+fi.outtextxy (10,130,'songs:     '+inttostr(songs),178);
+fi.outtextxy (10,150,'startsong: '+inttostr(startsong),178);
+fi.outtextxy (10,170,'speed:     '+inttohex(speed,8),178);
+fi.outtextxy (10,190,'title:     '+atitle,178);
+fi.outtextxy (10,210,'author:    '+author,178);
+fi.outtextxy (10,230,'copyright: '+copyright,178);
+fi.outtextxy (10,250,'flags:     '+inttohex(flags,4),178);
 song:=startsong-1;
 
 //reset6502;
@@ -270,8 +261,8 @@ i:=lpeek(base+$60000);
 repeat until lpeek(base+$60000)>(i+4);
 jsr6502(song,init);
 cia:=read6502($dc04)+256*read6502($dc05);
-outtextxyz(42,548+24,'cia: '+inttohex(read6502($dc04)+256*read6502($dc05),4),177,2,2);
-outtextxyz(18,548,'cia: '+inttohex(read6502($dc04)+256*read6502($dc05),4),188,2,2);
+//outtextxyz(42,548+24,'cia: '+inttohex(read6502($dc04)+256*read6502($dc05),4),177,2,2);
+fi.outtextxy (10,270,'cia:       '+inttohex(read6502($dc04)+256*read6502($dc05),4),178);
 end;
 
 
@@ -487,7 +478,7 @@ end;
 //------------------- The main program
 
 begin
-background:=window.create(1792,1120,'');
+
 //background_init(147);
 initmachine;
 initscreen;
@@ -548,15 +539,15 @@ repeat
   key:=readkey and $FF;
   wh:=checkmouse;
 //  if wh<>@background  then goto p998;
-   box(600,100,200,500,0);
-   outtextxy(600,100,'oscilloscope x '+inttostr(sc.x),15);
-   outtextxy(600,116,'oscilloscope y '+inttostr(sc.y),15);
-   outtextxy(600,132,'oscilloscope wl '+inttostr(sc.wl),15);
-   outtextxy(600,148,'oscilloscope wh '+inttostr(sc.wh),15);
-   outtextxy(600,164,'oscilloscope vx '+inttostr(sc.vx),15);
-   outtextxy(600,180,'oscilloscope vy '+inttostr(sc.vy),15);
-   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
-   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
+//   box(600,100,200,500,0);
+//   outtextxy(600,100,'oscilloscope x '+inttostr(sc.x),15);
+//   outtextxy(600,116,'oscilloscope y '+inttostr(sc.y),15);
+//   outtextxy(600,132,'oscilloscope wl '+inttostr(sc.wl),15);
+//   outtextxy(600,148,'oscilloscope wh '+inttostr(sc.wh),15);
+//   outtextxy(600,164,'oscilloscope vx '+inttostr(sc.vx),15);
+//   outtextxy(600,180,'oscilloscope vy '+inttostr(sc.vy),15);
+//   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
+//   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
   if wh=background then  wheel:=readwheel;
 
   if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
@@ -757,6 +748,7 @@ pauseaudio(1);
       a1base:=432;
       if abs(SA_GetCurrentFreq-44100)<200 then SA_ChangeParams(43298,0,0,0);
       if abs(SA_GetCurrentFreq-48000)<200 then SA_ChangeParams(47127,0,0,0);
+      if abs(SA_GetCurrentFreq-480000)<2000 then SA_ChangeParams(471270,0,0,0);
       if abs(SA_GetCurrentFreq-96000)<400 then SA_ChangeParams(94254,0,0,0);
       if abs(SA_GetCurrentFreq-49152)<200 then SA_ChangeParams(48258,0,0,0);
       end
@@ -766,6 +758,7 @@ pauseaudio(1);
        a1base:=440;
        if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
        if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
+       if abs(SA_GetCurrentFreq-471270)<2000 then SA_ChangeParams(480000,0,0,0);
        if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
        if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
        end
@@ -783,9 +776,9 @@ pauseaudio(1);
  //      wh.outtextxy(10,138,'Moving window test line 4',200);
  //      wh.outtextxy(10,170,'Moving window test line 5',216);
 
-       box(100,100,200,600,0);
-       outtextxy(100,100,inttostr(integer(wh)),15);
-       outtextxy(100,132,inttostr(integer(wh.gdata)),15);
+//       box(100,100,200,600,0);
+//       outtextxy(100,100,inttostr(integer(wh)),15);
+//       outtextxy(100,132,inttostr(integer(wh.gdata)),15);
 
 //       wh.outtextxy(10,202,'Moving window test line 6',232);
 //       wh.outtextxy(10,234,'Moving window test line 7',248);
@@ -808,7 +801,7 @@ pauseaudio(1);
 
     else if key=key_enter then
       begin
-
+      av6502:=0;
       if filenames[sel+selstart,1]='(DIR)' then
         begin
         if copy(filenames[sel+selstart,0],2,1)<>':' then dirlist(currentdir2+filenames[sel+selstart,0]+'\')
@@ -842,18 +835,16 @@ pauseaudio(1);
         if (buf[0]=ord('S')) and (buf[1]=ord('D')) and (buf[2]=ord('M')) and (buf[3]=ord('P')) then
           begin
           for i:=0 to 15 do times6502[i]:=0;
-          box(18,132,800,600,178);
-          outtextxyz(18,132,'type: SDMP',188,2,2);
+          fi.box(0,0,600,600,15);
+          fi.outtextxy(10,10,'type: SDMP',178);
           songs:=0;
           fileread(sfh,buf,4);
           siddelay:=1000000 div buf[0];
-          outtextxyz(18,196,'speed: '+inttostr(buf[0])+' Hz',188,2,2);
+          fi.outtextxy(10,30,'speed: '+inttostr(buf[0])+' Hz',178);
           atitle:='                                ';
           fileread(sfh,atitle[1],16);
           fileread(sfh,buf,1);
-          outtextxyz(18,164,'title: '+atitle,188,2,2);
-          box(18,912,800,32,244);
-          outtextxyz(18,912,'SIDCog DMP file, '+inttostr(songfreq)+' Hz',250,2,2);
+          fi.outtextxy (10,50,'title: '+atitle,178);
           if a1base=432 then error:=SA_changeparams(10*47127,16,2,1200)
                         else error:=SA_changeparams(10*48000,16,2,1200);
           songs:=0;
@@ -865,8 +856,8 @@ pauseaudio(1);
           for i:=1 to 4 do waitvbl;
           if cia>0 then siddelay:={985248}1000000 div (50*round(19652/cia));
           filetype:=1;
-          box(18,912,800,32,244);
-          outtextxyz(18,912,'PSID file, '+inttostr(1000000 div siddelay)+' Hz',250,2,2);
+      //    box(18,912,800,32,244);
+       //   outtextxyz(18,912,'PSID file, '+inttostr(1000000 div siddelay)+' Hz',250,2,2);
           if a1base=432 then error:=SA_changeparams(10*47127,16,2,10*120)
                         else error:=SA_changeparams(10*48000,16,2,10*120);
           fileclose(sfh);
@@ -875,8 +866,8 @@ pauseaudio(1);
           begin
           filetype:=2;
 
-          box(18,132,800,600,178);
-          outtextxyz(18,132,'type: RSID, not yet supported',44,2,2);
+          fi.box(0,0,600,600,15);
+          fi.outtextxy(10,10,'type: RSID, not yet supported',44);
           fileclose(sfh);
           end
         else if filenames[sel+selstart,1]='mp3' then
@@ -928,8 +919,8 @@ pauseaudio(1);
        //                                          else error:=SA_changeparams(96000,32,2,192);
 
           if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
-          box(18,132,800,600,178);
-          outtextxyz(18,132,'type: MP2',188,2,2);
+          fi.box(0,0,600,600,15);
+          fi.outtextxy(10,10,'type: MP2',178);
           pauseaudio(0);
           end
 
@@ -982,8 +973,8 @@ pauseaudio(1);
           sleep(50);
           for i:=0 to 15 do times6502[i]:=0;
           if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
-          box(18,132,800,600,178);
-          outtextxyz(18,132,'type: MOD',188,2,2);
+          fi.box(0,0,600,600,15);
+          fi.outtextxy(10,10,'type: MOD',178);
           pauseaudio(0);
           p102:
           end
@@ -1009,8 +1000,8 @@ pauseaudio(1);
         //                                          else error:=SA_changeparams(96000,32,2,192);
 
            if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
-           box(18,132,800,600,178);
-           outtextxyz(18,132,'type: MP2',188,2,2);
+           fi.box(0,0,600,600,15);
+           fi.outtextxy(10,10,'type: MP2',178);
            pauseaudio(0);
            end
 
@@ -1056,10 +1047,10 @@ pauseaudio(1);
           begin
           for i:=0 to 15 do times6502[i]:=0;
           fileread(sfh,buf,21);
-          box(18,132,800,600,178);
-          outtextxyz(18,132,'type: unknown, 50 Hz SDMP assumed',188,2,2);
-          box(18,912,800,32,244);
-          outtextxyz(18,912,'SIDCog DMP file, 50 Hz',250,2,2);
+          fi.box(0,0,600,600,15);
+
+          fi.outtextxy(10,10,'type: unknown, 50 Hz SDMP assumed',178);
+
           if a1base=432 then error:=SA_changeparams(471270,16,2,1200)
                         else error:=SA_changeparams(480000,16,2,1200);
 

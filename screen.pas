@@ -17,6 +17,22 @@ const ver='The retromachine player v. 0.23u --- 2017.04.26';
 
 type bmppixel=array[0..2] of byte;
 
+  TOscilloscope= class(TThread)
+  private
+  protected
+    procedure Execute; override;
+  public
+   Constructor Create;
+  end;
+
+ TStatus= class(TThread)
+  private
+  protected
+    procedure Execute; override;
+  public
+   Constructor Create;
+  end;
+
 var test:integer ;
     licznik:integer=0;
     songname:string;
@@ -58,7 +74,10 @@ var test:integer ;
    spr0,spr1,spr2,spr3,spr4,spr5,spr6:TAnimatedSprite;
 
    screentime:int64;
-   sc:window;
+   fi,np,sc,status:window;
+   oscilloscope1:TOscilloscope;
+   status1:TStatus;
+//   fileinfo1:TFileInfo
 
 procedure initscreen;
 procedure refreshscreen;
@@ -67,7 +86,175 @@ procedure writebmp;
 
 implementation
 
-uses simpleaudio,retromouse,blitter;
+uses globalconst,simpleaudio,retromouse,blitter;
+
+constructor TOscilloscope.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+procedure TOscilloscope.Execute;
+
+var scr:integer;
+    wh:Window;
+    t:int64;
+begin
+
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+sleep(1);
+repeat
+  repeat sleep(1) until sc.redraw;
+  t:=gettime;
+  sc.box(0,0,884,187,178);
+  sc.box(0,93,884,2,140);
+  sc.box(0,27,884,2,140);
+  sc.box(0,158,884,2,140);
+  for j:=20 to 840 do if abs(scope[j])<46000 then sc.box(10+j,93-scope[j] div 768,2,2,190);
+  sc.redraw:=false;
+  t:=gettime-t;
+  sc.outtextxy(0,0,inttostr(t),15);
+  until terminated;
+end;
+
+constructor TStatus.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+procedure TStatus.Execute;
+
+var scr,i:integer;
+    wh:Window;
+    t:int64;
+    s1,s2,s3:string;
+    c1,l1,l2,l3:integer;
+
+
+const cpuclock:integer=0;
+      cputemp:integer=0;
+      cnt:integer=0;
+
+
+begin
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+sleep(1);
+cputemp:=TemperatureGetCurrent(0) div 1000;
+cpuclock:=clockgetrate(8) div 1000000;
+
+repeat
+
+  repeat sleep(1) until status.redraw;
+  c1:=framecnt mod 60;
+  status.box(0,0,600,600,147);
+  status.outtextxy(10,10,'CPU load: ',157);
+
+  i:=length(inttostr(round(100*avsct/16666)));
+  status.outtextxy(30,30,'screen: ',157);
+  status.outtextxy(180-8*i,30,inttostr(round(100*avsct/16666))+'%',157);
+  i:=length(inttostr(avsct));
+  status.outtextxy(230-8*i,30,inttostr(avsct)+' us',157);
+
+  status.outtextxy(30,48,'sprites: ',157);
+  i:=length(inttostr(round(100*avspt/16666)));
+  status.outtextxy(180-8*i,48,inttostr(round(100*avspt/16666))+'%',157);
+  i:=length(inttostr(avspt));
+  status.outtextxy(230-8*i,48,inttostr(avspt)+' us',157);
+
+  if sidcount<>0 then
+    begin
+    if filetype<3 then      begin s1:='SID emulation:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/2500)); end
+    else if filetype=3 then begin s1:='WAV processing:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/siddelay)); end
+    else if filetype=4 then begin s1:='MP3 decoding:'; s2:=inttostr(mp3time); s3:=inttostr(round(100*mp3time/siddelay)); end
+    else if filetype=5 then begin s1:='MP2 decoding:'; s2:=inttostr(mp3time); s3:=inttostr(round(100*mp3time/siddelay)); end
+    else if filetype=6 then begin s1:='MOD decoding:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/siddelay)); end;
+    end;
+
+  if (filetype<3) and (avall=0) then begin s1:='Audio decoding:'; s2:='0'; s3:='0'; end;
+
+  l2:=length(s2)*8;
+  l3:=length(s3)*8;
+  status.outtextxy(30,66,s1,157);
+  status.outtextxy(180-l3,66, s3+'%',157);
+  status.outtextxy(230-l2,66, s2+' us',157);
+  s1:='6502 emulation:';
+  s2:=floattostrf((av6502/16),fffixed,4,1);
+  s3:=inttostr(round((100*av6502)/(16*2500)));
+  l2:=length(s2)*8;
+  l3:=length(s3)*8;
+
+  status.outtextxy(30,84,s1,157);
+  status.outtextxy(180-l3,84,s3+'%',157);
+  status.outtextxy(246-l2,84,s2+' us',157);
+
+  s1:=inttostr(cpuclock);
+  l1:=8*length(s1);
+  status.outtextxy(10,112,'CPU clock: ',157);
+  status.outtextxy(230-l1,112, s1+' MHz',157);
+
+  s1:=inttostr(cputemp);
+  l1:=8*length(s1);
+
+  status.outtextxy(10,132,'CPU temperature: ',157);
+  status.outtextxy(230-l1, 132, s1+' C',157);
+
+  status.outtextxy(10,152,'Sampling frequency: ',157);
+  s1:=inttostr(SA_getcurrentfreq);
+  l1:=8*length(s1);
+
+  status.outtextxy(230-l1,152,s1+ ' Hz',157);
+  status.outtextxy(10,172,'A4 base frequency: ',157);
+  status.outtextxy(206,172, inttostr(a1base)+' Hz',157);
+
+
+  s1:=inttostr(-vol123);
+  if vol123<73 then s1:=inttostr(-vol123) else s1:='Mute' ;
+  l1:=8*length(s1);
+  if l1<32 then s1:=s1+' dB';
+  status.outtextxy(10,192,'Volume: ',157);
+  status.outtextxy(230-l1,192,s1,157);
+
+  status.outtextxy(10,212,'Mouse type:',157);
+  status.outtextxy(222,212,inttostr(mousetype),157);
+
+  status.outtextxy(10,232,'SID waveforms:',157);
+
+  if channel1on=1 then status.outtextxyz(154,232,inttostr(peek(base+$d404)shr 4),122,2,1);  // SID waveform
+  if channel2on=1 then status.outtextxyz(184,232,inttostr(peek(base+$d40b)shr 4),202,2,1);
+  if channel3on=1 then status.outtextxyz(214,232,inttostr(peek(base+$d412)shr 4),42,2,1);
+
+  if (cnt mod 60)=0 then
+    begin
+    for i:=0 to 14 do tbb[i]:=tbb[i+1];
+    tbb[15]:=TemperatureGetCurrent(0); // temperature
+    cputemp:=0; for i:=0 to 15 do cputemp+=tbb[i] ;
+    cputemp:=cputemp div 16000;
+    end;
+  if (cnt mod 120)=30 then cpuclock:=clockgetrate(8) div 1000000;
+  cnt+=1;
+  status.redraw:=false;
+
+  // compute average times
+
+  avsct1[c1]:=tim;
+  avspt1[c1]:=ts;
+  sidtime1[c1]:=sidtime;
+  if time6502>0 then c6+=1;
+  av65021[c1]:=time6502;
+  avsct:=0; for i:=0 to 59 do avsct+=avsct1[i]; avsct:=round(avsct/60);
+  avspt:=0; for i:=0 to 59 do avspt+=avspt1[i]; avspt:=round(avspt/60);
+  avall:=0; for i:=0 to 59 do avall+=sidtime1[i]; avall:=round(avall/60);
+  av6502:=0; for i:=0 to 59 do av6502+=av65021[i]; av6502:=round(av6502/60);
+
+  until terminated;
+end;
+
+
+
+
 
 procedure rainbow(a:integer); //1011
 
@@ -134,7 +321,7 @@ sprite7zoom:=$00010001;
 
 // --------- set the screen resolution and pallettes
 
-bordercolor:=$002040;
+bordercolor:=$0;
 graphicmode:=0;
 xres:=1792;
 yres:=1120;
@@ -171,18 +358,18 @@ blit8(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
 
 
 
-cls(146);
-outtextxyz(128,16,ver,154,4,2);
-box2(8,64,1784,1112,0);
-box2(10,1062,1782,1110,120);
-box2(10,800,894,848,246);
-box2(10,851,894,1008,244);
-outtextxyz(320,808,'Now playing',250,2,2);
-box2(10,118,894,797,178);
-box2(10,67,894,115,180);
-outtextxyz(320,75,'File info',188,2,2);
-box2(897,118,1782,1008,34);
-box2(897,67,1782,115,36);
+cls(202);
+//outtextxyz(128,16,ver,154,4,2);
+//box2(8,64,1784,1112,0);
+//box2(10,1062,1782,1110,120);
+//box2(10,800,894,848,246);
+//box2(10,851,894,1008,244);
+//outtextxyz(320,808,'Now playing',250,2,2);
+//box2(10,118,894,797,178);
+//box2(10,67,894,115,180);
+//outtextxyz(320,75,'File info',188,2,2);
+//box2(897,118,1782,1008,34);
+//box2(897,67,1782,115,36);
 outtextxyz(1296,75,'Files',44,2,2);
 
 // clear the variables for time calculating
@@ -268,8 +455,28 @@ sc:=window.create(884,187,'Oscilloscope');      //884,187
 sc.decoration^.hscroll:=false;
 sc.decoration^.vscroll:=false;
 sc.resizable:=false;
-sc.move(400,500,884,187,0,0);
+sc.move(600,800,884,187,0,0);
 
+np:=window.create(840,80,'Now playing');      //840,132     18,864,840,132,244
+np.decoration^.hscroll:=false;
+np.decoration^.vscroll:=false;
+np.cls(0);
+//
+np.resizable:=false;
+np.move(100,800,840,80,0,0);
+fi:=window.create(600,600,'File information');      //884,187
+fi.cls(15);
+fi.outtextxy(10,10,'No file playing', 35);
+fi.move(100,100,360,300,0,0);
+
+status:=window.create(600,600,'System status');
+status.cls(15);
+status.move(500,100,300,300,0,0);
+
+oscilloscope1:=toscilloscope.create;
+oscilloscope1.Start;
+status1:=tstatus.create;
+status1.Start;
 end;
 
 
@@ -280,13 +487,14 @@ var v,a,aaa,c1,ii,i,cc:integer;
     mms,hhs,sss:string;
     clock:string;
     frame:cardinal;
+    sl1,sl2:integer;
+    s1,s2:string;
 
 begin
 
 clock:=timetostr(now);
-repeat sleep(0) until not background.redraw;
-repeat sleep(0) until background.redraw;
-//waitvbl;
+waitvbl;
+//repeat sleep(1) until background.redraw;
 screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 
@@ -300,9 +508,7 @@ sprite4ptr:=cardinal(@spr4[0])+4096*frame;
 sprite5ptr:=cardinal(@spr5[0])+4096*frame;
 sprite6ptr:=cardinal(@spr6[0])+4096*frame;
 
-c1:=framecnt mod 60;
-
-// Refresh the yellow field with song name and time
+// Refresh the window with song name and time
 
 ss:=(songtime div 1000000) mod 60;
 mm:=(songtime div 60000000) mod 60;
@@ -312,94 +518,35 @@ mms:=inttostr(mm); if mm<10 then mms:='0'+mms;
 hhs:=inttostr(hh); if hh<10 then hhs:='0'+hhs;
 
 songfreq:=1000000 div siddelay;
-box(18,864,840,132,244);
-//box(18,960,840,32,244);
+if songs>1 then s1:=songname+', song '+inttostr(song+1)
+else s1:=songname;
 
-if songs>1 then outtextxyz(18,864,songname+', song '+inttostr(song+1),250,2,2)
-else outtextxyz(18,864,songname,250,2,2);
-if filetype=0 then outtextxyz(18,912,'SIDCog DMP file, '+inttostr(songfreq)+' Hz',250,2,2)
-else if filetype=1 then outtextxyz(18,912,'PSID file, '+inttostr(1000000 div siddelay)+' Hz',250,2,2)
-else if filetype=3 then outtextxyz(18,912,'Wave file, '+inttostr(head.srate)+' Hz',250,2,2)
-else if filetype=4 then outtextxyz(18,912,'MP3 file, '+inttostr(head.srate)+' Hz, ' + inttostr(head.brate)+' kbps',250,2,2)
-else if filetype=5 then outtextxyz(18,912,'MP2 file'{, '+inttostr(head.srate)+' Hz'},250,2,2)
-else if filetype=6 then outtextxyz(18,912,'Module file'{, '+inttostr(head.srate)+' Hz'},250,2,2);
-outtextxyz(18,960,hhs+':'+mms+':'+sss,190,4,2);
+if filetype=0 then s2:='SIDCog DMP file, '+inttostr(songfreq)+' Hz'
+else if filetype=1 then s2:='PSID file, '+inttostr(1000000 div siddelay)+' Hz'
+else if filetype=3 then s2:='Wave file, '+inttostr(head.srate)+' Hz'
+else if filetype=4 then s2:='MP3 file, '+inttostr(head.srate)+' Hz, ' + inttostr(head.brate)+' kbps'
+else if filetype=5 then s2:='MP2 file'
+else if filetype=6 then s2:='Module file';
+if s1='' then begin s1:='No file playing'; s2:=''; end;
 
-// compute average times
+sl1:=8*length(s1);
+sl2:=8*length(s2);
+if sl1>sl2 then i:=16+sl1 else i:=16+sl2;
+if i<192 then i:=192;
+np.l:=i;
+np.box(0,8,i,16,0);
+np.outtextxy((i-sl1) div 2,8,s1,250);
+np.box(0,32,i,16,0);
+np.outtextxy((i-sl2) div 2,32,s2,250);
+np.box(0,56,i,32,0);
+np.outtextxyz((i-128) div 2,56,hhs+':'+mms+':'+sss,190,2,1);
 
-avsct1[c1]:=tim;
-avspt1[c1]:=ts;
-sidtime1[c1]:=sidtime;
-if time6502>0 then c6+=1;
-av65021[c1]:=time6502;
-avsct:=0; for i:=0 to 59 do avsct+=avsct1[i]; avsct:=round(avsct/60);
-avspt:=0; for i:=0 to 59 do avspt+=avspt1[i]; avspt:=round(avspt/60);
-avall:=0; for i:=0 to 59 do avall+=sidtime1[i]; avall:=round(avall/60);
-av6502:=0; for i:=0 to 59 do av6502+=av65021[i]; av6502:=round(av6502/60);
+
 
 //refresh the status bar
 
-box2(10,1062,1782,1110,118);
-outtextxyz(32,1070,'Times: ',44,2,2);
-outtextxyz(144,1070,'screen '+inttostr(avsct)+' us',44,2,2);
-outtextxyz(400,1070,'sprites '+inttostr(avspt)+' us',186,2,2);
-if sidcount<>0 then
-  begin
-  if filetype<3 then outtextxyz(656,1070,'SID '+inttostr(avall)+' us',233,2,2)
-  else if filetype=3 then begin if sidtime>10 then outtextxyz(656,1070,'wav '+inttostr(avall)+' us',233,2,2); end
-  else if filetype=4 then outtextxyz(656,1070,'mp3 '+inttostr(mp3time)+' us',233,2,2)
-  else if filetype=5 then outtextxyz(656,1070,'mp2 '+inttostr(mp3time)+' us',233,2,2)
-  else if filetype=6 then outtextxyz(656,1070,'mod '+inttostr(avall)+' us',233,2,2);
-  end;
-outtextxyz(864,1070,'6502 '+floattostrf((av6502/16),fffixed,4,1)+' us',124,2,2);
-outtextxyz(1088,1070,inttostr(a1base),200,2,2);
-v:=-vol123;
-if vol123<73 then outtextxyz(1168,1070,inttostr(v)+' dB',24,2,2)
-else outtextxyz(1184,1070,'Mute',24,2,2);
-outtextxyz(1284,1070,clock,220,2,2);
-outtextxyz(1560,1070,'m'+inttostr(mousetype),136,2,2);
-if channel1on=1 then outtextxyz(1640,1070,inttostr(peek(base+$d404)shr 4),108,2,2);  // SID waveform
-if channel2on=1 then outtextxyz(1680,1070,inttostr(peek(base+$d40b)shr 4),200,2,2);
-if channel3on=1 then outtextxyz(1720,1070,inttostr(peek(base+$d412)shr 4),40,2,2);
-for i:=0 to 14 do tbb[i]:=tbb[i+1];
-tbb[15]:=TemperatureGetCurrent(0); // temperature
-aaa:=0; for i:=0 to 15 do aaa+=tbb[i] ;
-aaa:=aaa div 16000;
-if aaa<75 then ii:=184
-else if aaa<80 then ii:=232
-else ii:=40;
-outtextxyz(1434,1070,inttostr(aaa),ii,2,2);
-outtextxyz(1474,1070,'C',ii,2,2);
-outtextxyz(1462,1050,'.',ii,2,2);
-
-// make the scrollbar colors change
-for i:=64 to 88 do systempallette[0,i]:=systempallette[1,(i+(framecnt div 2)) mod 256] and $FFFFFF;
-if (framecnt mod 32)=0 then systempallette[0,89]:=systempallette[1,(framecnt div 64) mod 256] and $FFFFFF;
-
-// scroll the text
-cc:=(2*framecnt) mod 5316;
-a:=displaystart;
-
-if cc<1772 then blit8(a+$200000,10+(cc),911,a,12,1011,1771-(cc),48,1792,1792);
-if cc<1772 then blit8(a+$200000,10,959,a,11+1771-(cc),1011,(cc),48,1792,1792);
-
-if (cc>=1772) and (cc<3544) then blit8 (a+$200000,10,1007,a,11+3543-(cc),1011,(cc-1772),48,1792,1792);
-if (cc>=1772) and (cc<3544) then blit8 (a+$200000,10+(cc-1772),959,a,12,1011,1771-(cc-1772),48,1792,1792);
-
-if (cc>=3544) then blit8 (a+$200000,10,911,a,11+5316-(cc),1011,(cc-3544),48,1792,1792);
-if (cc>=3544) then blit8 (a+$200000,10+(cc-3544),1007,a,12,1011,1771-(cc-3544),48,1792,1792);
-
-// draw the oscilloscope
-sc.box(0,0,883,186,178);
-sc.box(0,93,883,2,140);
-sc.box(0,27,882,2,140);
-sc.box(0,158,883,2,140);
-for j:=20 to 840 do if abs(scope[j])<46000 then sc.box(10+j,93-scope[j] div 768,2,2,190);
-//box2(10,610,894,797,178);
-//box2(10,700,894,701,140);
-//box2(10,636,894,637,140);
-//box2(10,764,894,765,140);
-//for j:=20 to 840 do if abs(scope[j])<46000 then box(20+j,700-scope[j] div 768,2,2,190);
+box2(0,1096,1791,1119,11);
+outtextxy(1724,1100,clock,0);
 
 // if the file is SID then move the sprites acccording to SID regs
 
@@ -408,7 +555,7 @@ if filetype<3 then
   if channel1on=1 then sprite0x:=(dpeek(base+$d400) div 40)+74 else sprite0x:=2048;
   sprite0y:=920-3*(peek(base+$d406) and $F0);
 
-  if channel2on=1 then sprite1x:=(peek(base+$d407)+256*peek(base+$d408) div 40)+74 else sprite1x:=2048;
+  if channel2on=1 then sprite1x:=((peek(base+$d407)+256*peek(base+$d408)) div 40)+74 else sprite1x:=2048;
   sprite1y:=920-3*(peek(base+$d40d) and $F0);
 
   if channel3on=1 then sprite2x:=(dpeek(base+$d40e) div 40) +74 else sprite2x:=2048; ;
@@ -418,112 +565,102 @@ if filetype<3 then
   sprite4x:=2048;
   sprite5x:=2048;
   sprite6x:=2048;
-
   end
-
 else  // animate the bouncing balls
-
   begin  // check collisions... Is it possible to add colision regs to the sprite machine?
+  if (sqr(sprite0x-sprite1x)+sqr(sprite0y-sprite1y))<=4096 then begin i:=spr0dx; spr0dx:=spr1dx; spr1dx:=i; i:=spr0dy; spr0dy:=spr1dy; spr1dy:=i; end;
+  if (sqr(sprite0x-sprite2x)+sqr(sprite0y-sprite2y))<=4096 then begin i:=spr0dx; spr0dx:=spr2dx; spr2dx:=i; i:=spr0dy; spr0dy:=spr2dy; spr2dy:=i; end;
+  if (sqr(sprite0x-sprite3x)+sqr(sprite0y-sprite3y))<=4096 then begin i:=spr0dx; spr0dx:=spr3dx; spr3dx:=i; i:=spr0dy; spr0dy:=spr3dy; spr3dy:=i; end;
+  if (sqr(sprite0x-sprite4x)+sqr(sprite0y-sprite4y))<=4096 then begin i:=spr0dx; spr0dx:=spr4dx; spr4dx:=i; i:=spr0dy; spr0dy:=spr4dy; spr4dy:=i; end;
+  if (sqr(sprite0x-sprite5x)+sqr(sprite0y-sprite5y))<=4096 then begin i:=spr0dx; spr0dx:=spr5dx; spr5dx:=i; i:=spr0dy; spr0dy:=spr5dy; spr5dy:=i; end;
+  if (sqr(sprite0x-sprite6x)+sqr(sprite0y-sprite6y))<=4096 then begin i:=spr0dx; spr0dx:=spr6dx; spr6dx:=i; i:=spr0dy; spr0dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite0x-sprite1x)+sqr(sprite0y-sprite1y))<=4096 then begin i:=spr0dx; spr0dx:=spr1dx; spr1dx:=i; i:=spr0dy; spr0dy:=spr1dy; spr1dy:=i; end;
-     if (sqr(sprite0x-sprite2x)+sqr(sprite0y-sprite2y))<=4096 then begin i:=spr0dx; spr0dx:=spr2dx; spr2dx:=i; i:=spr0dy; spr0dy:=spr2dy; spr2dy:=i; end;
-     if (sqr(sprite0x-sprite3x)+sqr(sprite0y-sprite3y))<=4096 then begin i:=spr0dx; spr0dx:=spr3dx; spr3dx:=i; i:=spr0dy; spr0dy:=spr3dy; spr3dy:=i; end;
-     if (sqr(sprite0x-sprite4x)+sqr(sprite0y-sprite4y))<=4096 then begin i:=spr0dx; spr0dx:=spr4dx; spr4dx:=i; i:=spr0dy; spr0dy:=spr4dy; spr4dy:=i; end;
-     if (sqr(sprite0x-sprite5x)+sqr(sprite0y-sprite5y))<=4096 then begin i:=spr0dx; spr0dx:=spr5dx; spr5dx:=i; i:=spr0dy; spr0dy:=spr5dy; spr5dy:=i; end;
-     if (sqr(sprite0x-sprite6x)+sqr(sprite0y-sprite6y))<=4096 then begin i:=spr0dx; spr0dx:=spr6dx; spr6dx:=i; i:=spr0dy; spr0dy:=spr6dy; spr6dy:=i; end;
+  if (sqr(sprite1x-sprite2x)+sqr(sprite1y-sprite2y))<=4096 then begin i:=spr1dx; spr1dx:=spr2dx; spr2dx:=i; i:=spr1dy; spr1dy:=spr2dy; spr2dy:=i; end;
+  if (sqr(sprite1x-sprite3x)+sqr(sprite1y-sprite3y))<=4096 then begin i:=spr1dx; spr1dx:=spr3dx; spr3dx:=i; i:=spr1dy; spr1dy:=spr3dy; spr3dy:=i; end;
+  if (sqr(sprite1x-sprite4x)+sqr(sprite1y-sprite4y))<=4096 then begin i:=spr1dx; spr1dx:=spr4dx; spr4dx:=i; i:=spr1dy; spr1dy:=spr4dy; spr4dy:=i; end;
+  if (sqr(sprite1x-sprite5x)+sqr(sprite1y-sprite5y))<=4096 then begin i:=spr1dx; spr1dx:=spr5dx; spr5dx:=i; i:=spr1dy; spr1dy:=spr5dy; spr5dy:=i; end;
+  if (sqr(sprite1x-sprite6x)+sqr(sprite1y-sprite6y))<=4096 then begin i:=spr1dx; spr1dx:=spr6dx; spr6dx:=i; i:=spr1dy; spr1dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite1x-sprite2x)+sqr(sprite1y-sprite2y))<=4096 then begin i:=spr1dx; spr1dx:=spr2dx; spr2dx:=i; i:=spr1dy; spr1dy:=spr2dy; spr2dy:=i; end;
-     if (sqr(sprite1x-sprite3x)+sqr(sprite1y-sprite3y))<=4096 then begin i:=spr1dx; spr1dx:=spr3dx; spr3dx:=i; i:=spr1dy; spr1dy:=spr3dy; spr3dy:=i; end;
-     if (sqr(sprite1x-sprite4x)+sqr(sprite1y-sprite4y))<=4096 then begin i:=spr1dx; spr1dx:=spr4dx; spr4dx:=i; i:=spr1dy; spr1dy:=spr4dy; spr4dy:=i; end;
-     if (sqr(sprite1x-sprite5x)+sqr(sprite1y-sprite5y))<=4096 then begin i:=spr1dx; spr1dx:=spr5dx; spr5dx:=i; i:=spr1dy; spr1dy:=spr5dy; spr5dy:=i; end;
-     if (sqr(sprite1x-sprite6x)+sqr(sprite1y-sprite6y))<=4096 then begin i:=spr1dx; spr1dx:=spr6dx; spr6dx:=i; i:=spr1dy; spr1dy:=spr6dy; spr6dy:=i; end;
+  if (sqr(sprite2x-sprite3x)+sqr(sprite2y-sprite3y))<=4096 then begin i:=spr2dx; spr2dx:=spr3dx; spr3dx:=i; i:=spr2dy; spr2dy:=spr3dy; spr3dy:=i; end;
+  if (sqr(sprite2x-sprite4x)+sqr(sprite2y-sprite4y))<=4096 then begin i:=spr2dx; spr2dx:=spr4dx; spr4dx:=i; i:=spr2dy; spr2dy:=spr4dy; spr4dy:=i; end;
+  if (sqr(sprite2x-sprite5x)+sqr(sprite2y-sprite5y))<=4096 then begin i:=spr2dx; spr2dx:=spr5dx; spr5dx:=i; i:=spr2dy; spr2dy:=spr5dy; spr5dy:=i; end;
+  if (sqr(sprite2x-sprite6x)+sqr(sprite2y-sprite6y))<=4096 then begin i:=spr2dx; spr2dx:=spr6dx; spr6dx:=i; i:=spr2dy; spr2dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite2x-sprite3x)+sqr(sprite2y-sprite3y))<=4096 then begin i:=spr2dx; spr2dx:=spr3dx; spr3dx:=i; i:=spr2dy; spr2dy:=spr3dy; spr3dy:=i; end;
-     if (sqr(sprite2x-sprite4x)+sqr(sprite2y-sprite4y))<=4096 then begin i:=spr2dx; spr2dx:=spr4dx; spr4dx:=i; i:=spr2dy; spr2dy:=spr4dy; spr4dy:=i; end;
-     if (sqr(sprite2x-sprite5x)+sqr(sprite2y-sprite5y))<=4096 then begin i:=spr2dx; spr2dx:=spr5dx; spr5dx:=i; i:=spr2dy; spr2dy:=spr5dy; spr5dy:=i; end;
-     if (sqr(sprite2x-sprite6x)+sqr(sprite2y-sprite6y))<=4096 then begin i:=spr2dx; spr2dx:=spr6dx; spr6dx:=i; i:=spr2dy; spr2dy:=spr6dy; spr6dy:=i; end;
+  if (sqr(sprite3x-sprite4x)+sqr(sprite3y-sprite4y))<=4096 then begin i:=spr3dx; spr3dx:=spr4dx; spr4dx:=i; i:=spr3dy; spr3dy:=spr4dy; spr4dy:=i; end;
+  if (sqr(sprite3x-sprite5x)+sqr(sprite3y-sprite5y))<=4096 then begin i:=spr3dx; spr3dx:=spr5dx; spr5dx:=i; i:=spr3dy; spr3dy:=spr5dy; spr5dy:=i; end;
+  if (sqr(sprite3x-sprite6x)+sqr(sprite3y-sprite6y))<=4096 then begin i:=spr3dx; spr3dx:=spr6dx; spr6dx:=i; i:=spr3dy; spr3dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite3x-sprite4x)+sqr(sprite3y-sprite4y))<=4096 then begin i:=spr3dx; spr3dx:=spr4dx; spr4dx:=i; i:=spr3dy; spr3dy:=spr4dy; spr4dy:=i; end;
-     if (sqr(sprite3x-sprite5x)+sqr(sprite3y-sprite5y))<=4096 then begin i:=spr3dx; spr3dx:=spr5dx; spr5dx:=i; i:=spr3dy; spr3dy:=spr5dy; spr5dy:=i; end;
-     if (sqr(sprite3x-sprite6x)+sqr(sprite3y-sprite6y))<=4096 then begin i:=spr3dx; spr3dx:=spr6dx; spr6dx:=i; i:=spr3dy; spr3dy:=spr6dy; spr6dy:=i; end;
+  if (sqr(sprite4x-sprite5x)+sqr(sprite4y-sprite5y))<=4096 then begin i:=spr4dx; spr4dx:=spr5dx; spr5dx:=i; i:=spr4dy; spr4dy:=spr5dy; spr5dy:=i; end;
+  if (sqr(sprite4x-sprite6x)+sqr(sprite4y-sprite6y))<=4096 then begin i:=spr4dx; spr4dx:=spr6dx; spr6dx:=i; i:=spr4dy; spr4dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite4x-sprite5x)+sqr(sprite4y-sprite5y))<=4096 then begin i:=spr4dx; spr4dx:=spr5dx; spr5dx:=i; i:=spr4dy; spr4dy:=spr5dy; spr5dy:=i; end;
-     if (sqr(sprite4x-sprite6x)+sqr(sprite4y-sprite6y))<=4096 then begin i:=spr4dx; spr4dx:=spr6dx; spr6dx:=i; i:=spr4dy; spr4dy:=spr6dy; spr6dy:=i; end;
+  if (sqr(sprite5x-sprite6x)+sqr(sprite5y-sprite6y))<=4096 then begin i:=spr5dx; spr5dx:=spr6dx; spr6dx:=i; i:=spr5dy; spr5dy:=spr6dy; spr6dy:=i; end;
 
-     if (sqr(sprite5x-sprite6x)+sqr(sprite5y-sprite6y))<=4096 then begin i:=spr5dx; spr5dx:=spr6dx; spr6dx:=i; i:=spr5dy; spr5dy:=spr6dy; spr6dy:=i; end;
+  // mouse is sprite 7; we want to react when tip of the arrow touches the ball, so adding 32
 
-     // mouse is sprite 7; we want to react when tip of the arrow touches the ball, so adding 32
+  if (sqr(32+sprite6x-sprite7x)+sqr(32+sprite6y-sprite7y)<=1024) and (mousek=1) then begin  spr6dx:=-spr6dx; spr6dy:=-spr6dy;  end;
+  if (sqr(32+sprite5x-sprite7x)+sqr(32+sprite5y-sprite7y)<=1024) and (mousek=1) then begin  spr5dx:=-spr5dx; spr5dy:=-spr5dy;  end;
+  if (sqr(32+sprite4x-sprite7x)+sqr(32+sprite4y-sprite7y)<=1024) and (mousek=1) then begin  spr4dx:=-spr4dx; spr4dy:=-spr4dy;  end;
+  if (sqr(32+sprite3x-sprite7x)+sqr(32+sprite3y-sprite7y)<=1024) and (mousek=1) then begin  spr3dx:=-spr3dx; spr3dy:=-spr3dy;  end;
+  if (sqr(32+sprite2x-sprite7x)+sqr(32+sprite2y-sprite7y)<=1024) and (mousek=1) then begin  spr2dx:=-spr2dx; spr2dy:=-spr2dy;  end;
+  if (sqr(32+sprite1x-sprite7x)+sqr(32+sprite1y-sprite7y)<=1024) and (mousek=1) then begin  spr1dx:=-spr1dx; spr1dy:=-spr1dy;  end;
+  if (sqr(32+sprite0x-sprite7x)+sqr(32+sprite0y-sprite7y)<=1024) and (mousek=1) then begin  spr0dx:=-spr0dx; spr0dy:=-spr0dy; end;
 
-     if (sqr(32+sprite6x-sprite7x)+sqr(32+sprite6y-sprite7y)<=1024) and (mousek=1) then begin  spr6dx:=-spr6dx; spr6dy:=-spr6dy;  end;
-     if (sqr(32+sprite5x-sprite7x)+sqr(32+sprite5y-sprite7y)<=1024) and (mousek=1) then begin  spr5dx:=-spr5dx; spr5dy:=-spr5dy;  end;
-     if (sqr(32+sprite4x-sprite7x)+sqr(32+sprite4y-sprite7y)<=1024) and (mousek=1) then begin  spr4dx:=-spr4dx; spr4dy:=-spr4dy;  end;
-     if (sqr(32+sprite3x-sprite7x)+sqr(32+sprite3y-sprite7y)<=1024) and (mousek=1) then begin  spr3dx:=-spr3dx; spr3dy:=-spr3dy;  end;
-     if (sqr(32+sprite2x-sprite7x)+sqr(32+sprite2y-sprite7y)<=1024) and (mousek=1) then begin  spr2dx:=-spr2dx; spr2dy:=-spr2dy;  end;
-     if (sqr(32+sprite1x-sprite7x)+sqr(32+sprite1y-sprite7y)<=1024) and (mousek=1) then begin  spr1dx:=-spr1dx; spr1dy:=-spr1dy;  end;
-     if (sqr(32+sprite0x-sprite7x)+sqr(32+sprite0y-sprite7y)<=1024) and (mousek=1) then begin  spr0dx:=-spr0dx; spr0dy:=-spr0dy; end;
+  sprite0x+=spr0dx;   // now I have to use intermediate variables to avoid wild moving of the sprites :)
+  sprite0y+=spr0dy;
+  if sprite0x>=1792 then spr0dx:=-abs(spr0dx);
+  if sprite0y>=1096 then spr0dy:=-abs(spr0dy);
+  if sprite0x<=64 then spr0dx:=abs(spr0dx);
+  if sprite0y<=40 then spr0dy:=abs(spr0dy);
 
-     sprite0x+=spr0dx;   // now I have to use intermediate variables to avoid wild moving of the sprites :)
-     sprite0y+=spr0dy;
-     if sprite0x>=1792 then spr0dx:=-abs(spr0dx);
-     if sprite0y>=1096 then spr0dy:=-abs(spr0dy);
-     if sprite0x<=64 then spr0dx:=abs(spr0dx);
-     if sprite0y<=40 then spr0dy:=abs(spr0dy);
+  sprite1x+=spr1dx;
+  sprite1y+=spr1dy;
+  if sprite1x>=1792 then spr1dx:=-abs(spr1dx);
+  if sprite1y>=1096 then spr1dy:=-abs(spr1dy);
+  if sprite1x<=64 then spr1dx:=abs(spr1dx);
+  if sprite1y<=40 then spr1dy:=abs(spr1dy);
 
-     sprite1x+=spr1dx;
-     sprite1y+=spr1dy;
-     if sprite1x>=1792 then spr1dx:=-abs(spr1dx);
-     if sprite1y>=1096 then spr1dy:=-abs(spr1dy);
-     if sprite1x<=64 then spr1dx:=abs(spr1dx);
-     if sprite1y<=40 then spr1dy:=abs(spr1dy);
+  sprite2x+=spr2dx;
+  sprite2y+=spr2dy;
+  if sprite2x>=1792 then spr2dx:=-abs(spr2dx);
+  if sprite2y>=1096 then spr2dy:=-abs(spr2dy);
+  if sprite2x<=64 then spr2dx:=abs(spr2dx);
+  if sprite2y<=40 then spr2dy:=abs(spr2dy);
 
-     sprite2x+=spr2dx;
-     sprite2y+=spr2dy;
-     if sprite2x>=1792 then spr2dx:=-abs(spr2dx);
-     if sprite2y>=1096 then spr2dy:=-abs(spr2dy);
-     if sprite2x<=64 then spr2dx:=abs(spr2dx);
-     if sprite2y<=40 then spr2dy:=abs(spr2dy);
+  sprite3x+=spr3dx;
+  sprite3y+=spr3dy;
+  if sprite3x>=1792 then spr3dx:=-abs(spr3dx);
+  if sprite3y>=1096 then spr3dy:=-abs(spr3dy);
+  if sprite3x<=64 then spr3dx:=abs(spr3dx);
+  if sprite3y<=40 then spr3dy:=abs(spr3dy);
 
-     sprite3x+=spr3dx;
-     sprite3y+=spr3dy;
-     if sprite3x>=1792 then spr3dx:=-abs(spr3dx);
-     if sprite3y>=1096 then spr3dy:=-abs(spr3dy);
-     if sprite3x<=64 then spr3dx:=abs(spr3dx);
-     if sprite3y<=40 then spr3dy:=abs(spr3dy);
+  sprite4x+=spr4dx;
+  sprite4y+=spr4dy;
+  if sprite4x>=1792 then spr4dx:=-abs(spr4dx);
+  if sprite4y>=1096 then spr4dy:=-abs(spr4dy);
+  if sprite4x<=64 then spr4dx:=abs(spr4dx);
+  if sprite4y<=40 then spr4dy:=abs(spr4dy);
 
-     sprite4x+=spr4dx;
-     sprite4y+=spr4dy;
-     if sprite4x>=1792 then spr4dx:=-abs(spr4dx);
-     if sprite4y>=1096 then spr4dy:=-abs(spr4dy);
-     if sprite4x<=64 then spr4dx:=abs(spr4dx);
-     if sprite4y<=40 then spr4dy:=abs(spr4dy);
+  sprite5x+=spr5dx;
+  sprite5y+=spr5dy;
+  if sprite5x>=1792 then spr5dx:=-abs(spr5dx);
+  if sprite5y>=1096 then spr5dy:=-abs(spr5dy);
+  if sprite5x<=64 then spr5dx:=abs(spr5dx);
+  if sprite5y<=40 then spr5dy:=abs(spr5dy);
 
-     sprite5x+=spr5dx;
-     sprite5y+=spr5dy;
-     if sprite5x>=1792 then spr5dx:=-abs(spr5dx);
-     if sprite5y>=1096 then spr5dy:=-abs(spr5dy);
-     if sprite5x<=64 then spr5dx:=abs(spr5dx);
-     if sprite5y<=40 then spr5dy:=abs(spr5dy);
+  sprite6x+=spr6dx;
+  sprite6y+=spr6dy;
+  if sprite6x>=1792 then spr6dx:=-abs(spr6dx);
+  if sprite6y>=1096 then spr6dy:=-abs(spr6dy);
+  if sprite6x<=64 then spr6dx:=abs(spr6dx);
+  if sprite6y<=40 then spr6dy:=abs(spr6dy);
+  end;
 
-     sprite6x+=spr6dx;
-     sprite6y+=spr6dy;
-     if sprite6x>=1792 then spr6dx:=-abs(spr6dx);
-     if sprite6y>=1096 then spr6dy:=-abs(spr6dy);
-     if sprite6x<=64 then spr6dx:=abs(spr6dx);
-     if sprite6y<=40 then spr6dy:=abs(spr6dy);
-
-
-
-     end;
-  sprite7xy:=mousexy+$00280040; //sprite coordinates are fullscreen
-                                //where mouse is on active screen only
-
-
-                                //so I have to add $28 to y and $40 to x
-
+sprite7xy:=mousexy+$00280040;           //sprite coordinates are fullscreen
+                                        //while mouse is on active screen only
+                                        //so I have to add $28 to y and $40 to x
 screentime:=gettime-screentime;
+background.redraw:=false;
 
-//box(0,0,200,100,0);
-//outtextxyz(0,0,inttostr(screentime),15,2,2);
 end;
 
 

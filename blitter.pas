@@ -242,6 +242,7 @@ begin
 //cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
 
 if len<1 then goto p999;
+if x+len>bpl1 then len:=bpl1-x;
 if x2<0 then
   begin
   x:=x-x2;
@@ -280,7 +281,7 @@ cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
 //cs^:=$80EE0003;
 dma_enable:=dma_enable or (1 shl chn); // enable dma channel # dma_chn
 conblk^:=nocache+_blitter_dmacb+$20*chn;             // init DMA ctr block
-cs^:=$00EE0003;                              // start DMA
+cs^:=$00110003;                              // start DMA
 repeat until (cs^ and 1) =0 ;                //
 InvalidateDataCacheRange(too+x2+y2*bpl2,lines*bpl2);                     // !!!
 p999:
