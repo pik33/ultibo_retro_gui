@@ -540,7 +540,7 @@ var mb:tmousedata;
     const mousecount:integer=0;
 
 begin
-ThreadSetCPU(ThreadGetCurrent,CPU_ID_2);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
 sleep(1);
   repeat
     repeat m:=getmousereport; threadsleep(1); until m[0]<>255;

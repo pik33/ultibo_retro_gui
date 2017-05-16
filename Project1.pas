@@ -482,7 +482,7 @@ begin
 //background_init(147);
 initmachine;
 initscreen;
-ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
 sleep(1);
 while not DirectoryExists('C:\') do
   begin

@@ -10,6 +10,8 @@ uses
 const mapbase=$30800000;
       framewidth=4;
 
+type window=class;
+     cbutton=class;
 
 
 type PDecoration=^TDecoration;
@@ -37,6 +39,7 @@ type //PWindow=^Twindow;
      redraw:boolean;
      active:boolean;
      title:string;
+     buttons:Cbutton;
      constructor create (al,ah:integer; atitle:string);
      destructor destroy; override;
 
@@ -50,15 +53,42 @@ type //PWindow=^Twindow;
      procedure draw(dest:integer);
      procedure move(ax,ay,al,ah,avx,avy:integer);
      procedure box(ax,ay,al,ah,c:integer);
-
+     function getpixel(ax,ay:integer):integer; inline;
 
      end;
 
 
-TThreadWindow=class(TThread)
-        win:window;
-        Constructor Create(al,ah:integer; atitle:string);
-        end;
+type cbutton=class(TObject)
+  x,y,l,h,c1,c2,clicked:integer;
+  s:string;
+  fsx,fsy:integer;
+  value:integer;
+  gdata:pointer;
+  visible,highlighted,selected,radiobutton:boolean;
+  radiogroup:integer;
+  next,last:cbutton;
+  granny:window;
+
+  constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:window);
+  destructor destroy; override;
+  function checkmouse:boolean;
+  procedure highlight;
+  procedure unhighlight;
+  procedure show;
+  procedure hide;
+  procedure select;
+  procedure unselect;
+  procedure draw;
+  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):cbutton;
+  procedure setparent(parent:cbutton);
+  procedure setdesc(desc:cbutton);
+  function gofirst:cbutton;
+  function findselected:cbutton;
+  procedure setvalue(v:integer);
+  procedure checkall;
+  procedure box(ax,ay,al,ah,c:integer);
+  end;
+
 
 var background:window=nil;
 
@@ -88,12 +118,6 @@ implementation
 
 uses retromalina,blitter,retro;
 
-constructor tthreadwindow.create(al,ah:integer; atitle:string);
-
-begin
-inherited create(true);
-win:=window.create(al,ah,atitle);
-end;
 
 procedure background_init(color:byte);
 
@@ -145,7 +169,7 @@ if background<>nil then
   bg:=0;
   wl:=al;
   wh:=ah;
-
+  buttons:=nil;
   next:=nil;
   visible:=false;
   resizable:=true;
@@ -178,6 +202,7 @@ else
   wl:=al;
   wh:=ah;                   // windows l,h
   bg:=147;            // backround color
+  buttons:=nil;
   gdata:=pointer($30000000);  // graphic memory
   decoration:=nil;            //+48
   visible:=true;
@@ -231,6 +256,7 @@ procedure window.draw(dest:integer);
 
 var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
    wt:int64;
+   q1,q2,q3:integer;
 
 begin
 
@@ -260,6 +286,7 @@ if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);  
 else
   begin
   wt:=gettime;
+  if buttons<>nil then buttons.draw;
   dma_blit(6,integer(gdata),vx,vy,dest,x,y,l,h,wl,1792);
 
 //  if x<dl then dx:=dl-x else dx:=0;
@@ -278,6 +305,11 @@ else
     a:=32
     end;
 
+  if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
+  if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
+  if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
+
+
   fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
   fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,1792,c);                        //title bar
   fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,1792,c+borderdelta);   //left border
@@ -288,8 +320,18 @@ else
   fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
   gouttextxy(pointer(dest),x+32,y-20,title,ct);
   for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
-  for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
-  for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+close_icon[i+16*j]);
+  if q1<>0 then
+     for i:=0 to 15 do
+       for j:=0 to 15 do
+         if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j])
+                                else gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,q1);
+  if q2<>0 then
+     for i:=0 to 15 do
+       for j:=0 to 15 do
+         if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j])
+                                else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
+  else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
+  for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+q3+close_icon[i+16*j]);
   for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
   end;
   redraw:=true;
@@ -321,7 +363,7 @@ mmk:=mousek;
 
 if mmk=0 then state:=0;
 
-if (state=0) and (mmk=2) then
+{if (state=0) and (mmk=2) then
     begin
     wh:=background;
     while wh.next<>nil do wh:=wh.next;
@@ -353,6 +395,8 @@ if (state=0) and (mmk=2) then
       goto p999;
       end;
     end;
+ }
+
 
   if mmk=1 then // find a window with mk=1
     begin
@@ -435,6 +479,11 @@ else if (mmx>=(wh.x+wh.l)) and (mmy<(wh.y+wh.h)) then begin state:=1; deltax:=wh
 else if (mmx<(wh.x+wh.l)) and (mmy>=(wh.y+wh.h)) then begin state:=2; deltax:=0; deltay:=wh.y+wh.h-mmy;end
 else begin state:=3; deltax:=wh.x+wh.l-mmx; deltay:=wh.y+wh.h-mmy; end ;
 
+if wh.decoration<>nil then
+  begin
+
+
+  end;
 p999:
 end;
 
@@ -475,6 +524,20 @@ adr:=cardinal(gdata)+ax+wl*ay;
 poke(adr,color);
 p999:
 end;
+
+function window.getpixel(ax,ay:integer):integer; inline;
+
+label p999;
+
+var adr:integer;
+
+begin
+if (ax<0) or (ax>=wl) or (ay<0) or (ay>wh) then goto p999;
+adr:=cardinal(gdata)+ax+wl*ay;
+result:=peek(adr);
+p999:
+end;
+
 
 procedure gputpixel(g:pointer; x,y,color:integer); inline;
 
@@ -631,6 +694,277 @@ for x:=0 to 15 do
     if ((q shr 8) and 255) >= (q and 255) then icon[x,y]:=((q and 255) shr 4) else icon[x,y]:=32+(q and 255) shr 4;
     if q=0 then icon[x,y]:=0;
     end;
+end;
+
+//------------------------------------------------------------------------------
+// button
+//------------------------------------------------------------------------------
+
+constructor cbutton.create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:window);
+
+begin
+inherited create;
+x:=ax; y:=ay; l:=al; h:=ah; c1:=ac1; c2:=ac2; s:=aname;
+gdata:=getmem(4*al*ah);
+granny:=g;
+if granny.buttons=nil then granny.buttons:=self;
+visible:=false; highlighted:=false; selected:=false; radiobutton:=false;
+next:=nil; last:=nil;
+fsx:=1; fsy:=1;
+radiogroup:=0;
+self.show;
+end;
+
+
+destructor cbutton.destroy;
+
+begin
+if visible then hide;
+freemem(gdata);
+if (last=nil) and (next<>nil) then next.setparent(nil)
+else if next<>nil then next.setparent(last);
+if (next=nil) and (last<>nil) then last.setdesc(nil)
+else if last<>nil then last.setdesc(next);
+if last=nil then granny.buttons:=nil;
+inherited destroy;
+end;
+
+
+procedure cbutton.setvalue(v:integer);
+
+begin
+value:=v;
+end;
+
+function cbutton.findselected:cbutton;
+
+var temp:cbutton;
+
+begin
+temp:=self.gofirst;
+while not (temp=nil) do
+  begin
+  if temp.selected then break else temp:=temp.next;
+  end;
+result:=temp;
+end;
+
+function cbutton.checkmouse:boolean;
+
+var mx,my:integer;
+
+begin
+mx:=mousex-granny.x;
+my:=mousey-granny.y;
+if (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+end;
+
+
+procedure cbutton.highlight;
+
+var c:integer;
+
+begin
+if visible and not highlighted then begin
+  c1+=2;
+  draw;
+  highlighted:=true;
+  end;
+end;
+
+procedure cbutton.unhighlight;
+
+begin
+
+if visible and highlighted then begin
+  c1-=2;
+  draw;
+  highlighted:=false;
+  end;
+end;
+
+procedure cbutton.draw;
+
+var l2,a:integer;
+
+begin
+if selected then a:=-2 else a:=2;
+granny.box(x,y,l,h,c1+a);
+granny.box(x,y+3,l-3,h-3,c1-a);
+granny.putpixel(x,y+1,c1-a); granny.putpixel(x,y+2,c1-a); granny.putpixel(x+1,y+2,c1-a);
+granny.putpixel(x+l-3,y+h-2,c1-a); granny.putpixel(x+l-3,y+h-1,c1-a); granny.putpixel(x+l-2,y+h-1,c1-a);
+granny.box(x+3,y+3,l-6,h-6,c1);
+l2:=length(s)*4*fsx;
+granny.outtextxyz(x+(l div 2)-l2,y+(h div 2)-8*fsy,s,c2,fsx,fsy);
+end;
+
+
+procedure cbutton.show;
+
+var i,j,k:integer;
+    p:^integer;
+
+begin
+if not visible then begin
+p:=gdata;
+k:=0;
+for i:=y to y+h-1 do
+  for j:=x to x+l-1 do
+    begin
+    (p+k)^:=granny.getpixel(j,i);
+    k+=1;
+    end;
+draw;
+visible:=true;
+end;
+end;
+
+procedure cbutton.hide;
+
+var i,j,k:integer;
+    p:^integer;
+
+begin
+if visible then begin
+  p:=gdata;
+  k:=0;
+  for i:=y to y+h-1 do
+    for j:=x to x+l-1 do
+      begin
+      granny.putpixel(j,i,(p+k)^);
+      k+=1;
+      end;
+  visible:=false;
+  end;
+end;
+
+
+procedure cbutton.select;
+
+var c:integer;
+    temp:cbutton;
+
+begin
+if visible and not selected then begin
+  selected:=true;
+  draw;
+  temp:=self;
+  while temp.last<>nil do
+    begin
+    temp:=temp.last;
+    temp.unselect;
+    end;
+  temp:=self;
+  while temp.next<>nil do
+    begin
+    temp:=temp.next;
+    temp.unselect;
+    end;
+   end;
+end;
+
+procedure cbutton.unselect;
+
+begin
+
+if visible and  selected then begin
+  selected:=false;
+  draw;
+  end;
+end;
+
+function cbutton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):cbutton;
+
+begin
+next:=cbutton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
+next.setparent(self);
+result:=next;
+end;
+
+procedure cbutton.setparent(parent:cbutton);
+
+begin
+last:=parent;
+end;
+
+procedure cbutton.setdesc(desc:cbutton);
+
+begin
+next:=desc;
+end;
+
+function cbutton.gofirst:cbutton;
+
+begin
+result:=self;
+while result.last<>nil do result:=result.last;
+end;
+
+procedure cbutton.checkall;
+
+var temp:cbutton;
+
+begin
+temp:=self.gofirst;
+while temp<>nil do
+  begin
+  if temp.checkmouse then temp.highlight else temp.unhighlight;
+  if temp.checkmouse and (peek(base+$60030)=1) then begin
+      if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
+      temp.clicked:=1;
+      poke(base+$60030,0);
+      end;
+  temp:=temp.next;
+  end;
+end;
+
+procedure cbutton.box(ax,ay,al,ah,c:integer);
+
+label p101,p102,p999;
+
+var screenptr:cardinal;
+    xres,yres:integer;
+
+begin
+
+screenptr:=integer(gdata);
+xres:=l;
+yres:=h;
+if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
+if ax>=xres then goto p999;
+if ay<0 then begin ah:=ah+ay; ay:=0; if ah<1 then goto p999; end;
+if ay>=yres then goto p999;
+if ax+al>=xres then al:=xres-ax;
+if ay+ah>=yres then ah:=yres-ay;
+
+
+             asm
+             push {r0-r6}
+             ldr r2,ay
+             ldr r3,xres
+             ldr r1,ax
+             mul r3,r3,r2
+             ldr r4,al
+             add r3,r1
+             ldr r0,screenptr
+             add r0,r3
+             ldrb r3,c
+             ldr r6,ah
+
+p102:        mov r5,r4
+p101:        strb r3,[r0],#1  // inner loop
+             subs r5,#1
+             bne p101
+             ldr r1,xres
+             add r0,r1
+             sub r0,r4
+             subs r6,#1
+             bne p102
+
+             pop {r0-r6}
+             end;
+
+p999:
 end;
 
 

@@ -78,6 +78,7 @@ var test:integer ;
    oscilloscope1:TOscilloscope;
    status1:TStatus;
 //   fileinfo1:TFileInfo
+   testbutton,testbutton2:cbutton;
 
 procedure initscreen;
 procedure refreshscreen;
@@ -235,6 +236,7 @@ repeat
     end;
   if (cnt mod 120)=30 then cpuclock:=clockgetrate(8) div 1000000;
   cnt+=1;
+  status.buttons.checkall;
   status.redraw:=false;
 
   // compute average times
@@ -251,9 +253,6 @@ repeat
 
   until terminated;
 end;
-
-
-
 
 
 procedure rainbow(a:integer); //1011
@@ -359,19 +358,7 @@ blit8(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
 
 
 cls(202);
-//outtextxyz(128,16,ver,154,4,2);
-//box2(8,64,1784,1112,0);
-//box2(10,1062,1782,1110,120);
-//box2(10,800,894,848,246);
-//box2(10,851,894,1008,244);
-//outtextxyz(320,808,'Now playing',250,2,2);
-//box2(10,118,894,797,178);
-//box2(10,67,894,115,180);
-//outtextxyz(320,75,'File info',188,2,2);
-//box2(897,118,1782,1008,34);
-//box2(897,67,1782,115,36);
-outtextxyz(1296,75,'Files',44,2,2);
-
+box2(0,1095,1791,1119,11);
 // clear the variables for time calculating
 
 c:=0;
@@ -379,8 +366,6 @@ avsct:=0;
 avspt:=0;
 avall:=0;
 avsid:=0;
-
-
 
 // Set animated sprites definitions.
 // The "balls" is an rotating blue ball definition
@@ -455,28 +440,32 @@ sc:=window.create(884,187,'Oscilloscope');      //884,187
 sc.decoration^.hscroll:=false;
 sc.decoration^.vscroll:=false;
 sc.resizable:=false;
-sc.move(600,800,884,187,0,0);
+sc.move(10,410,884,187,0,0);
 
 np:=window.create(840,80,'Now playing');      //840,132     18,864,840,132,244
 np.decoration^.hscroll:=false;
 np.decoration^.vscroll:=false;
 np.cls(0);
-//
 np.resizable:=false;
-np.move(100,800,840,80,0,0);
+np.move(10,635,840,80,0,0);
+
+
 fi:=window.create(600,600,'File information');      //884,187
 fi.cls(15);
 fi.outtextxy(10,10,'No file playing', 35);
-fi.move(100,100,360,300,0,0);
+fi.move(10,50,360,300,0,0);
 
 status:=window.create(600,600,'System status');
 status.cls(15);
-status.move(500,100,300,300,0,0);
+status.move(400,50,300,300,0,0);
 
 oscilloscope1:=toscilloscope.create;
 oscilloscope1.Start;
 status1:=tstatus.create;
 status1.Start;
+
+testbutton:=cbutton.create(1,1097,100,22,8,15,'Start',background);
+testbutton2:=cbutton.create(10,400,100,22,8,15,'Testbutton',status);
 end;
 
 
@@ -495,6 +484,7 @@ begin
 clock:=timetostr(now);
 waitvbl;
 //repeat sleep(1) until background.redraw;
+testbutton.checkall;
 screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 
@@ -545,7 +535,7 @@ np.outtextxyz((i-128) div 2,56,hhs+':'+mms+':'+sss,190,2,1);
 
 //refresh the status bar
 
-box2(0,1096,1791,1119,11);
+box2(1724,1096,1791,1119,11);
 outtextxy(1724,1100,clock,0);
 
 // if the file is SID then move the sprites acccording to SID regs
