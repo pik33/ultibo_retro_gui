@@ -74,11 +74,12 @@ var test:integer ;
    spr0,spr1,spr2,spr3,spr4,spr5,spr6:TAnimatedSprite;
 
    screentime:int64;
-   fi,np,sc,status:window;
+   fi,np,sc,status:Twindow;
+
    oscilloscope1:TOscilloscope;
    status1:TStatus;
 //   fileinfo1:TFileInfo
-   testbutton,testbutton2:cbutton;
+   testbutton,testbutton2:TButton;
 
 procedure initscreen;
 procedure refreshscreen;
@@ -99,7 +100,7 @@ end;
 procedure TOscilloscope.Execute;
 
 var scr:integer;
-    wh:Window;
+    wh:TWindow;
     t:int64;
 begin
 
@@ -129,7 +130,7 @@ end;
 procedure TStatus.Execute;
 
 var scr,i:integer;
-    wh:Window;
+    wh:TWindow;
     t:int64;
     s1,s2,s3:string;
     c1,l1,l2,l3:integer;
@@ -358,7 +359,7 @@ blit8(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
 
 
 cls(202);
-box2(0,1095,1791,1119,11);
+//box2(0,1095,1791,1119,11);
 // clear the variables for time calculating
 
 c:=0;
@@ -436,26 +437,26 @@ spr5dy:=6;
 spr6dx:=7;
 spr6dy:=7;
 
-sc:=window.create(884,187,'Oscilloscope');      //884,187
-sc.decoration^.hscroll:=false;
-sc.decoration^.vscroll:=false;
+sc:=Twindow.create(884,187,'Oscilloscope');      //884,187
+sc.decoration.hscroll:=false;
+sc.decoration.vscroll:=false;
 sc.resizable:=false;
 sc.move(10,410,884,187,0,0);
 
-np:=window.create(840,80,'Now playing');      //840,132     18,864,840,132,244
-np.decoration^.hscroll:=false;
-np.decoration^.vscroll:=false;
+np:=Twindow.create(840,80,'Now playing');      //840,132     18,864,840,132,244
+np.decoration.hscroll:=false;
+np.decoration.vscroll:=false;
 np.cls(0);
 np.resizable:=false;
 np.move(10,635,840,80,0,0);
 
 
-fi:=window.create(600,600,'File information');      //884,187
+fi:=Twindow.create(600,600,'File information');      //884,187
 fi.cls(15);
 fi.outtextxy(10,10,'No file playing', 35);
 fi.move(10,50,360,300,0,0);
 
-status:=window.create(600,600,'System status');
+status:=Twindow.create(600,600,'System status');
 status.cls(15);
 status.move(400,50,300,300,0,0);
 
@@ -464,8 +465,8 @@ oscilloscope1.Start;
 status1:=tstatus.create;
 status1.Start;
 
-testbutton:=cbutton.create(1,1097,100,22,8,15,'Start',background);
-testbutton2:=cbutton.create(10,400,100,22,8,15,'Testbutton',status);
+testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
+testbutton2:=Tbutton.create(10,300,100,22,120,124,'Test button',status);
 end;
 
 
@@ -484,7 +485,7 @@ begin
 clock:=timetostr(now);
 waitvbl;
 //repeat sleep(1) until background.redraw;
-testbutton.checkall;
+panel.buttons.checkall;
 screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 
@@ -535,8 +536,8 @@ np.outtextxyz((i-128) div 2,56,hhs+':'+mms+':'+sss,190,2,1);
 
 //refresh the status bar
 
-box2(1724,1096,1791,1119,11);
-outtextxy(1724,1100,clock,0);
+panel.box(1724,4,64,16,11);
+panel.outtextxy(1724,4,clock,0);
 
 // if the file is SID then move the sprites acccording to SID regs
 

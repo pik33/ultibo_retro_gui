@@ -2,6 +2,14 @@ unit mwindows;
 
 {$mode objfpc}{$H+}
 
+//------------------------------------------------------------------------------
+// The window manager unit for use with the retromachine
+// v.0.01 - 20170517
+// Piotr Kardasz pik33@o2.pl
+// gpl v. 2.0 or higher
+// alpha code quality
+//------------------------------------------------------------------------------
+
 interface
 
 uses
@@ -10,66 +18,89 @@ uses
 const mapbase=$30800000;
       framewidth=4;
 
-type window=class;
-     cbutton=class;
+type TWindow=class;
+     TDecoration=class;
+     TButton=class;
 
 
-type PDecoration=^TDecoration;
-
-     TDecoration=record
+type TDecoration=class(TObject)
      title:pointer;
      hscroll,vscroll,up,down,close:boolean;
+     constructor create;
+     destructor destroy;
      end;
 
-type //PWindow=^Twindow;
 
-     window=class(TObject)  // dont change the field order or the asm procedures will crash
-     handle:Window;                                    //+0
-     prev,next:Window;
-     x,y:integer;   // position on screen               //+4 +8
-     l,h:integer;   // dmensions on screen              //+12 +16
-     vx,vy:integer; // visible upper left               //+20 +24
-     mx,my,mk:integer;
-     wl,wh:integer; // windows l,h                      //+28 +32
-     bg:integer;                                //+36
-     gdata:pointer; // graphic memory                   //+40
-     decoration:pDecoration;//+48
-     visible:boolean;
-     resizable:boolean;
-     redraw:boolean;
-     active:boolean;
-     title:string;
-     buttons:Cbutton;
+//------------------------------------------------------------------------------
+// Basic window class
+//------------------------------------------------------------------------------
+
+type TWindow=class(TObject)
+     handle:TWindow;
+     prev,next:TWindow;                     // 2-way list
+     x,y:integer;                           // position on screen
+     l,h:integer;                           // dmensions on screen
+     vx,vy:integer;                         // visible upper left
+     mx,my,mk:integer;                      // mouse events
+     wl,wh:integer;                         // windows l,h
+     bg:integer;                            // background color
+     gdata:pointer;                         // graphic memory
+     decoration:TDecoration;                // the decoration or nil if none
+     visible:boolean;                       // visible or hidden
+     resizable:boolean;                     // if true windows not resizable
+     movable:boolean;                       // if true windows not movable by mouse
+     redraw:boolean;                        // set true by redrawing process after redraw
+     active:boolean;                        // if false, window doesn't need redrawing
+     title:string;                          // window title
+     buttons:TButton;                       // widget chain start
+
+     // The constructor. al, ah - graphic canvas dimensions
+     // atitle - title to set, if '' then windows will have no decoration
+
      constructor create (al,ah:integer; atitle:string);
      destructor destroy; override;
 
-     procedure cls(c:integer);
-     procedure putpixel(ax,ay,color:integer); inline;
-     procedure putchar(ax,ay:integer;ch:char;col:integer);
-     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);
-     procedure outtextxy(ax,ay:integer; t:string;c:integer);
-     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);
-     //function checkmouse:boolean;
-     procedure draw(dest:integer);
-     procedure move(ax,ay,al,ah,avx,avy:integer);
-     procedure box(ax,ay,al,ah,c:integer);
-     function getpixel(ax,ay:integer):integer; inline;
+     // resizing window canvas
 
+     procedure resize(al,ah: integer);    // TODO
+
+     // graphic methods
+
+     procedure cls(c:integer);                                          // clear window and fill with color
+     procedure putpixel(ax,ay,color:integer); inline;                   // put a pixel to window
+     function getpixel(ax,ay:integer):integer; inline;                  // get a pixel from window
+     procedure putchar(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
+     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);       // put a zoomed char, xz,yz - zoom
+     procedure outtextxy(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
+     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
+     procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
+
+     procedure draw(dest:integer);                                      // redraw a window
+     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
+                                                                        // al, ah - visible dimensions without decoration
+                                                                        // avy, avy - upper left visible canvas pixel
+     function checkmouse:TWindow;                                       // check and react to mouse events
      end;
 
+     Tpanel=class(TWindow)
+     constructor create;
+     end;
 
-type cbutton=class(TObject)
-  x,y,l,h,c1,c2,clicked:integer;
-  s:string;
-  fsx,fsy:integer;
-  value:integer;
-  gdata:pointer;
-  visible,highlighted,selected,radiobutton:boolean;
-  radiogroup:integer;
-  next,last:cbutton;
-  granny:window;
+type TButton=class(TObject)
+     x,y:integer;                                                      // upper left pixel position on window
+     l,h:integer;                                                      // dimensions
+     c1,c2:integer;                                                    // basic background color, text color
+     clicked:integer;                                                  // mouse event
+     s:string;                                                         // title
+     fsx,fsy:integer;
+     value:integer;
+     gdata:pointer;
+     visible,highlighted,selected,radiobutton:boolean;
+     radiogroup:integer;
+     next,last:TButton;
+     granny:TWindow;
 
-  constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:window);
+  constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
   destructor destroy; override;
   function checkmouse:boolean;
   procedure highlight;
@@ -79,18 +110,20 @@ type cbutton=class(TObject)
   procedure select;
   procedure unselect;
   procedure draw;
-  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):cbutton;
-  procedure setparent(parent:cbutton);
-  procedure setdesc(desc:cbutton);
-  function gofirst:cbutton;
-  function findselected:cbutton;
+  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
+  procedure setparent(parent:TButton);
+  procedure setdesc(desc:TButton);
+  function gofirst:TButton;
+  function findselected:TButton;
   procedure setvalue(v:integer);
   procedure checkall;
   procedure box(ax,ay,al,ah,c:integer);
   end;
 
 
-var background:window=nil;
+var background:TWindow=nil;
+    panel:TPanel=nil;
+
 
     activecolor:integer=120;
     inactivecolor:integer=13;
@@ -100,14 +133,14 @@ var background:window=nil;
     scrollwidth:integer=16;
     borderdelta:integer=-2;
     scrollcolor:integer=12;
-    activescrollcolor:integer=10;
+    activescrollcolor:integer=124;
     titleheight:integer=24;
     icon:array[0..15,0..15] of byte;
 
 procedure background_init(color:byte);
 //function window(l,h:integer; title:string):pointer;
-function checkmouse:Window;
-procedure selectwindow(wh:Window);
+//function checkmouse:TWindow;
+procedure selectwindow(wh:TWindow);
 procedure gouttextxy(g:pointer;x,y:integer; t:string;c:integer);
 procedure gputpixel(g:pointer; x,y,color:integer); inline;
 procedure makeicon;
@@ -117,6 +150,24 @@ procedure makeicon;
 implementation
 
 uses retromalina,blitter,retro;
+
+constructor TDecoration.create;
+
+begin
+inherited create;
+title:=nil;
+hscroll:=false;
+vscroll:=false;
+up:=false;
+down:=false;
+close:=false;
+end;
+
+destructor TDecoration.destroy;
+
+begin
+if title<>nil then freemem(title);
+end;
 
 
 procedure background_init(color:byte);
@@ -142,9 +193,9 @@ end;
 
 
 
-constructor window.create (al,ah:integer; atitle:string);
+constructor TWindow.create (al,ah:integer; atitle:string);
 
-var who:window;
+var who:TWindow;
     i,j:integer;
 
 begin
@@ -176,16 +227,18 @@ if background<>nil then
   prev:=who;
   gdata:=getmem(wl*wh);
   for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,0);
-  decoration:=new(PDecoration);
-
   title:=atitle;
-
-  decoration^.title:=getmem(wl*titleheight);
-  decoration^.hscroll:=true;
-  decoration^.vscroll:=true;
-  decoration^.up:=true;
-  decoration^.down:=true;
-  decoration^.close:=true;
+  if atitle<>'' then
+    begin
+    decoration:=TDecoration.create;
+    decoration.title:=getmem(wl*titleheight);
+    decoration.hscroll:=true;
+    decoration.vscroll:=true;
+    decoration.up:=true;
+    decoration.down:=true;
+    decoration.close:=true;
+    end
+  else decoration:=nil;
   who.next:=self;
   end
 else
@@ -214,7 +267,7 @@ else
   end;
 end;
 
-destructor window.destroy;
+destructor TWindow.destroy;
 
 var i,j:integer;
 
@@ -225,20 +278,22 @@ if next<>nil then next.prev:=prev;
 if gdata<>nil then freemem(gdata);
 if decoration<>nil then
   begin
-  if decoration^.title<>nil then freemem(decoration^.title);
-  dispose(decoration);
+  decoration.destroy
   end;
 end;
 
-procedure window.move(ax,ay,al,ah,avx,avy:integer);
+procedure TWindow.move(ax,ay,al,ah,avx,avy:integer);
+
+var q:integer;
 
 begin
-
+if ay>1090 then ay:=1090;
 if al>0 then l:=al;        // now set new window parameters
 if ah>0 then h:=ah;
 
-if (decoration<>nil) and (al>0) and (al<96) then l:=96;
-
+q:=8*length(title)+96;
+if (decoration<>nil) and (al>0) and (al<q) then l:=q;
+if (ah>0) and (ah<64) then h:=64;
 if al>wl then l:=wl;
 if ah>wh then h:=wh;
 
@@ -251,12 +306,18 @@ if avy>-2048 then vy:=avy;
 
  end;
 
+procedure TWindow.resize(al,ah: integer);
 
-procedure window.draw(dest:integer);
+begin
+//todo
+end;
+
+procedure TWindow.draw(dest:integer);
 
 var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
    wt:int64;
    q1,q2,q3:integer;
+   hsw,vsh:integer;
 
 begin
 
@@ -270,6 +331,8 @@ if decoration=nil then
   dl:=0;
   dsh:=0;
   dsv:=0;
+  hsw:=0;
+  vsh:=0;
   end
 else
   begin
@@ -277,8 +340,10 @@ else
   dl:=borderwidth;
   dg:=borderwidth;
   dh:=borderwidth;
-  if decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
-  if decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
+  if decoration.hscroll then dsh:=scrollwidth else dsh:=0;
+  if decoration.vscroll then dsv:=scrollwidth else dsv:=0;
+  hsw:=round((l/wl)*l); if hsw<11 then hsw:=10;
+  vsh:=round((h/wh)*h); if vsh<11 then vsh:=10;
   end;
 
 
@@ -304,46 +369,56 @@ else
     ct:=activetextcolor;
     a:=32
     end;
+  if decoration<>nil then
+    begin
+    if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
+    if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
+    if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
 
-  if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
-  if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
-  if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
+
+    fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
+    fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,1792,c);                        //title bar
+    fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,1792,c+borderdelta);   //left border
+    fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,1792,c+borderdelta);      //lower border
+    fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
+
+    fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
+    fill2d(dest,x+3,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);                        //horizontal scroll bar
+
+    fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
+//    fill2d(dest,x+l+3,y,dsv,vsh,1792,scrollcolor+borderdelta-2);                        //vertical scroll bar
+
+    fill2d(dest,x+l+3,y+3,dsv-6,vsh-6,1792,activescrollcolor);                        //vertical scroll bar
 
 
-  fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
-  fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,1792,c);                        //title bar
-  fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,1792,c+borderdelta);   //left border
-  fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,1792,c+borderdelta);      //lower border
-  fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
-  fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
-  fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
-  fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
-  gouttextxy(pointer(dest),x+32,y-20,title,ct);
-  for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
-  if q1<>0 then
-     for i:=0 to 15 do
-       for j:=0 to 15 do
-         if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j])
-                                else gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,q1);
-  if q2<>0 then
-     for i:=0 to 15 do
-       for j:=0 to 15 do
-         if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j])
-                                else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
-  else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
-  for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+q3+close_icon[i+16*j]);
-  for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
+    fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
+    gouttextxy(pointer(dest),x+32,y-20,title,ct);
+    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
+    if q1<>0 then
+       for i:=0 to 15 do
+         for j:=0 to 15 do
+           if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j])
+                                  else gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,q1);
+    if q2<>0 then
+       for i:=0 to 15 do
+         for j:=0 to 15 do
+           if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j])
+                                  else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
+    else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+q3+close_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
+    end;
   end;
   redraw:=true;
 wt:=gettime-wt;
 //title:='Window time='+inttostr(wt)+' us';
 end;
 
-function checkmouse:Window;
+function TWindow.checkmouse:TWindow;
 
 label p999;
 
-var wh:Window;
+var window:TWindow;
     mmx,mmy,mmk,dt,dg,dh,dl,dsh,dsv:integer;
 
 const state:integer=0;
@@ -358,92 +433,61 @@ mmx:=mousex;
 mmy:=mousey;
 mmk:=mousek;
 
-  dg:=6;
-  dt:=28;
-
 if mmk=0 then state:=0;
 
-{if (state=0) and (mmk=2) then
-    begin
-    wh:=background;
-    while wh.next<>nil do wh:=wh.next;
+// if mouse key pressed ans there is a window set to move, move it
 
-    if wh.decoration=nil then
-      begin
-      dg:=0;
-      dh:=0;
-      dt:=0;
-      dl:=0;
-      dsh:=0;
-      dsv:=0;
-      end
-    else
-      begin
-      dt:= titleheight;
-      dl:=borderwidth;
-      dg:=borderwidth;
-      dh:=borderwidth;
-      if wh.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
-      if wh.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
-      end;
-
-    while ((mmx<wh.x-dl) or (mmx>wh.x+wh.l+dg+dsv) or (mmy<wh.y-dt-dg) or (mmy>wh.y+wh.h+dh+dsh)) and (wh.prev<>nil) do wh:=wh.prev;
-    if wh<>background then
-      begin
-      wh.destroy;
-      state:=4;
-      goto p999;
-      end;
-    end;
- }
-
-
-  if mmk=1 then // find a window with mk=1
-    begin
-    wh:=background;
-    while (wh.next<>nil) and (wh.mk<>1) do wh:=wh.next;
-    if wh.mk=1 then
-      begin
-      if state=0 then wh.move(mmx-wh.mx,mmy-wh.my,0,0,0,0)
-      else if state=1 then wh.move(wh.x,wh.y, mmx-wh.x+deltax ,wh.h,0,0)
-      else if state=2 then wh.move(wh.x,wh.y, wh.l, mmy-wh.y+deltay ,0,0)
-      else wh.move(wh.x,wh.y, mmx-wh.x+deltax ,mmy-wh.y+deltay, 0,0);
-      result:=wh;
-      goto p999;
-      end;
-    end;
-
-wh:=background;
-while wh.next<>nil do wh:=wh.next;
-
-
-    if wh.decoration=nil then
-      begin
-      dg:=0;
-      dh:=0;
-      dt:=0;
-      dl:=0;
-      dsh:=0;
-      dsv:=0;
-      end
-    else
-      begin
-      dt:= titleheight;
-      dl:=borderwidth;
-      dg:=borderwidth;
-      dh:=borderwidth;
-      if wh.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
-      if wh.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
-      end ;
-
-while ((mmx<wh.x-dg) or (mmx>wh.x+wh.l+dg+dsv) or (mmy<wh.y-dt-dg) or (mmy>wh.y+wh.h+dh+dsh)) and (wh.prev<>nil) do
+if mmk=1 then // find a window with mk=1
   begin
-  wh.mx:=-1;
-  wh.my:=-1;
-  wh.mk:=-1;
-  wh:=wh.prev;
+  window:=background;
+  while (window.next<>nil) and (window.mk<>1) do window:=window.next;
+  if window.mk=1 then
+    begin
+    if state=0 then window.move(mmx-window.mx,mmy-window.my,0,0,0,0)
+    else if state=1 then window.move(window.x,window.y, mmx-window.x+deltax ,window.h,0,0)
+    else if state=2 then window.move(window.x,window.y, window.l, mmy-window.y+deltay ,0,0)
+    else window.move(window.x,window.y, mmx-window.x+deltax ,mmy-window.y+deltay, 0,0);
+    result:=window;
+    goto p999;
+    end;
+  end;
 
-  if wh.decoration=nil then
+// we are here if mousekey=0 or there is no windows to move
+
+window:=background;
+while window.next<>nil do window:=window.next;        // go to the top window
+
+// calculate decoration sizes to add to the window size
+
+if window.decoration=nil then
+  begin
+  dg:=0;
+  dh:=0;
+  dt:=0;
+  dl:=0;
+  dsh:=0;
+  dsv:=0;
+  end
+else
+  begin
+  dt:= titleheight;
+  dl:=borderwidth;
+  dg:=borderwidth;
+  dh:=borderwidth;
+  if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
+  if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
+  end ;
+
+// go back with windows chain until you found the window on which there is the mouse cursor
+
+while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-dg) or (mmy>window.y+window.h+dh+dsh)) and (window.prev<>nil) do
+  begin
+  window.mx:=-1;
+  window.my:=-1;
+  window.mk:=-1;
+  window:=window.prev;
+
+  if window.decoration=nil then
     begin
     dg:=0;
     dh:=0;
@@ -458,38 +502,36 @@ while ((mmx<wh.x-dg) or (mmx>wh.x+wh.l+dg+dsv) or (mmy<wh.y-dt-dg) or (mmy>wh.y+
     dl:=borderwidth;
     dg:=borderwidth;
     dh:=borderwidth;
-    if wh.decoration^.hscroll then dsh:=scrollwidth else dsh:=0;
-    if wh.decoration^.vscroll then dsv:=scrollwidth else dsv:=0;
+    if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
+    if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
     end
-
-
-
   end;
-result:=wh;
-if (mmk=1) and (wh.mk=0) then selectwindow(wh);
-if (mmk=1) and (wh.mk=1) and (wh<>background) then begin lpoke($2f06000c,$FF0000);wh.move(mmx-wh.mx,mmy-wh.my,0,0,0,0) ;end
-else
-  begin
-  wh.mx:=mmx-wh.x;
-  wh.my:=mmy-wh.y;
-  wh.mk:=mmk;
-  end;
-if not(wh.resizable) or ((mmx<(wh.x+wh.l)) and (mmy<(wh.y+wh.h))) then begin state:=0; deltax:=0; deltay:=0 end
-else if (mmx>=(wh.x+wh.l)) and (mmy<(wh.y+wh.h)) then begin state:=1; deltax:=wh.x+wh.l-mmx; deltay:=0; end
-else if (mmx<(wh.x+wh.l)) and (mmy>=(wh.y+wh.h)) then begin state:=2; deltax:=0; deltay:=wh.y+wh.h-mmy;end
-else begin state:=3; deltax:=wh.x+wh.l-mmx; deltay:=wh.y+wh.h-mmy; end ;
+result:=window;
 
-if wh.decoration<>nil then
-  begin
+// now, here no windows to move and window=window to select
+// if the window is not selected, select it
 
+if (mmk=1) and (window.mk=0) then selectwindow(window);
 
-  end;
+//and set mouse correction amount
+window.mx:=mmx-window.x;
+window.my:=mmy-window.y;
+window.mk:=mmk;
+
+// now set the state according to clicked area
+
+if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y+window.h))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
+else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
+else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
+
 p999:
 end;
 
-procedure selectwindow(wh:Window);
 
-var whh:Window;
+procedure selectwindow(wh:TWindow);
+
+var whh:TWindow;
 
 begin
 if (wh.next<>nil) and (wh<>background) then
@@ -504,7 +546,7 @@ if (wh.next<>nil) and (wh<>background) then
   end;
 end;
 
-procedure window.cls(c:integer);
+procedure TWindow.cls(c:integer);
 
 var i,al:integer;
 
@@ -512,7 +554,7 @@ begin
 box(0,0,wl,wh,c);
 end;
 
-procedure window.putpixel(ax,ay,color:integer); inline;
+procedure TWindow.putpixel(ax,ay,color:integer); inline;
 
 label p999;
 
@@ -525,7 +567,7 @@ poke(adr,color);
 p999:
 end;
 
-function window.getpixel(ax,ay:integer):integer; inline;
+function TWindow.getpixel(ax,ay:integer):integer; inline;
 
 label p999;
 
@@ -552,7 +594,7 @@ poke(adr,color);
 p999:
 end;
 
-procedure window.putchar(ax,ay:integer;ch:char;col:integer);
+procedure TWindow.putchar(ax,ay:integer;ch:char;col:integer);
 
 
 var i,j,start:integer;
@@ -588,7 +630,7 @@ for i:=0 to 15 do
   end;
 end;
 
-procedure window.putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);
+procedure TWindow.putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);
 
 
 var i,j,k,ll:integer;
@@ -608,7 +650,7 @@ for i:=0 to 15 do
   end;
 end;
 
-procedure window.outtextxy(ax,ay:integer; t:string;c:integer);
+procedure TWindow.outtextxy(ax,ay:integer; t:string;c:integer);
 
 var i:integer;
 
@@ -624,7 +666,7 @@ begin
 for i:=1 to length(t) do gputchar(g,x+8*i-8,y,t[i],c);
 end;
 
-procedure window.outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);
+procedure TWindow.outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);
 
 var i:integer;
 
@@ -632,7 +674,7 @@ begin
 for i:=0 to length(t)-1 do putcharz(ax+8*xz*i,ay,t[i+1],c,xz,yz);
 end;
 
-procedure window.box(ax,ay,al,ah,c:integer);
+procedure TWindow.box(ax,ay,al,ah,c:integer);
 
 label p101,p102,p999;
 
@@ -681,6 +723,35 @@ p101:        strb r3,[r0],#1  // inner loop
 p999:
 end;
 
+constructor TPanel.create;
+
+
+var i,j:integer;
+
+begin
+  handle:=self;
+  x:=0;
+  y:=1095;
+  mx:=-1;
+  my:=-1;
+  mk:=0;
+  vx:=0;
+  vy:=0;
+  l:=1792;
+  h:=25;
+  bg:=11;
+  wl:=l;
+  wh:=h;
+  buttons:=nil;
+  next:=nil;
+  visible:=false;
+  resizable:=false;
+  prev:=nil;
+  gdata:=getmem(wl*wh);
+  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,bg);
+  decoration:=nil;
+end;
+
 
 procedure makeicon;
 
@@ -700,7 +771,7 @@ end;
 // button
 //------------------------------------------------------------------------------
 
-constructor cbutton.create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:window);
+constructor TButton.create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
 
 begin
 inherited create;
@@ -716,7 +787,7 @@ self.show;
 end;
 
 
-destructor cbutton.destroy;
+destructor TButton.destroy;
 
 begin
 if visible then hide;
@@ -730,15 +801,15 @@ inherited destroy;
 end;
 
 
-procedure cbutton.setvalue(v:integer);
+procedure TButton.setvalue(v:integer);
 
 begin
 value:=v;
 end;
 
-function cbutton.findselected:cbutton;
+function TButton.findselected:TButton;
 
-var temp:cbutton;
+var temp:TButton;
 
 begin
 temp:=self.gofirst;
@@ -749,18 +820,18 @@ while not (temp=nil) do
 result:=temp;
 end;
 
-function cbutton.checkmouse:boolean;
+function TButton.checkmouse:boolean;
 
 var mx,my:integer;
 
 begin
 mx:=mousex-granny.x;
 my:=mousey-granny.y;
-if (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+if ((background.checkmouse=granny) or (granny=panel)) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
 
-procedure cbutton.highlight;
+procedure TButton.highlight;
 
 var c:integer;
 
@@ -772,7 +843,7 @@ if visible and not highlighted then begin
   end;
 end;
 
-procedure cbutton.unhighlight;
+procedure TButton.unhighlight;
 
 begin
 
@@ -783,7 +854,7 @@ if visible and highlighted then begin
   end;
 end;
 
-procedure cbutton.draw;
+procedure TButton.draw;
 
 var l2,a:integer;
 
@@ -799,7 +870,7 @@ granny.outtextxyz(x+(l div 2)-l2,y+(h div 2)-8*fsy,s,c2,fsx,fsy);
 end;
 
 
-procedure cbutton.show;
+procedure TButton.show;
 
 var i,j,k:integer;
     p:^integer;
@@ -819,7 +890,7 @@ visible:=true;
 end;
 end;
 
-procedure cbutton.hide;
+procedure TButton.hide;
 
 var i,j,k:integer;
     p:^integer;
@@ -839,10 +910,10 @@ if visible then begin
 end;
 
 
-procedure cbutton.select;
+procedure TButton.select;
 
 var c:integer;
-    temp:cbutton;
+    temp:TButton;
 
 begin
 if visible and not selected then begin
@@ -863,7 +934,7 @@ if visible and not selected then begin
    end;
 end;
 
-procedure cbutton.unselect;
+procedure TButton.unselect;
 
 begin
 
@@ -873,43 +944,43 @@ if visible and  selected then begin
   end;
 end;
 
-function cbutton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):cbutton;
+function TButton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
 
 begin
-next:=cbutton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
+next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
 next.setparent(self);
 result:=next;
 end;
 
-procedure cbutton.setparent(parent:cbutton);
+procedure TButton.setparent(parent:TButton);
 
 begin
 last:=parent;
 end;
 
-procedure cbutton.setdesc(desc:cbutton);
+procedure TButton.setdesc(desc:TButton);
 
 begin
 next:=desc;
 end;
 
-function cbutton.gofirst:cbutton;
+function TButton.gofirst:TButton;
 
 begin
 result:=self;
 while result.last<>nil do result:=result.last;
 end;
 
-procedure cbutton.checkall;
+procedure TButton.checkall;
 
-var temp:cbutton;
+var temp:TButton;
 
 begin
 temp:=self.gofirst;
 while temp<>nil do
   begin
   if temp.checkmouse then temp.highlight else temp.unhighlight;
-  if temp.checkmouse and (peek(base+$60030)=1) then begin
+  if temp.checkmouse and click {(peek(base+$60030)=1)} then begin
       if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
       temp.clicked:=1;
       poke(base+$60030,0);
@@ -918,7 +989,7 @@ while temp<>nil do
   end;
 end;
 
-procedure cbutton.box(ax,ay,al,ah,c:integer);
+procedure TButton.box(ax,ay,al,ah,c:integer);
 
 label p101,p102,p999;
 

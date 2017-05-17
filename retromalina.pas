@@ -498,7 +498,8 @@ end;
 procedure TWindows.Execute;
 
 var scr:integer;
-    wh:Window;
+    wh:TWindow;
+
 
 begin
 scr:=$30a00000;
@@ -511,6 +512,7 @@ repeat
     wh.draw(scr);
     wh:=wh.next;
   until wh=nil;
+  panel.draw(scr);
   windowsdone:=true;
   repeat sleep(1) until screenaddr<>scr;
   scr:=screenaddr;
@@ -541,9 +543,10 @@ var mb:tmousedata;
 
 begin
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
+ThreadSetpriority(ThreadGetCurrent,6);
 sleep(1);
   repeat
-    repeat m:=getmousereport; threadsleep(1); until m[0]<>255;
+    repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
     mousecount+=1;
     j:=0; for i:=0 to 7 do if m[i]<>0 then j+=1;
     if (j>1) or (mousecount<16) then
@@ -640,6 +643,7 @@ procedure TKeyboard.Execute;
 // $60028 - translated code
 // $60029 - modifiers
 // $6002A - raw code
+// This thread also tracks mouse clicks
 
 const rptcnt:integer=0;
       activekey:integer=0;
@@ -654,7 +658,8 @@ var ch:TKeyboardReport;
     i:integer;
 
 begin
-ThreadSetCPU(ThreadGetCurrent,CPU_ID_2);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
+ThreadSetpriority(ThreadGetCurrent,6);
 sleep(1);
 repeat
   waitvbl;
@@ -680,7 +685,7 @@ repeat
   if (mousek=1) and (click=0) then begin click:=1; clickcnt:=0; end;
   inc(clickcnt); if clickcnt>10 then  begin clickcnt:=10; click:=2; end;
   if (mousek=0) then click:=0;
-  if click=1 then poke (base+$60031,1) else poke (base+$60031,0);
+  if click=1 then mouseclick:=1 else mouseclick:=0; //poke (base+$60031,1) else poke (base+$60031,0);
 
   ch:=getkeyboardreport;
   if ch[0]<>255 then m:=ch[0];
@@ -924,7 +929,7 @@ procedure TRetro.Execute;
 // --- rev 21070111
 
 var id:integer;
-    wh:Window;
+    wh:TWindow;
     screen:integer;
 
 begin
@@ -1069,7 +1074,8 @@ amouse.start;
 
 akeyboard:=tkeyboard.create(true);
 akeyboard.start;
-background:=window.create(1792,1120,'');
+background:=TWindow.create(1792,1120,'');
+panel:=TPanel.create;
 windows:=twindows.create(true);
 windows.start;
 end;
@@ -1089,6 +1095,7 @@ repeat until running=0;
 filebuffer.terminate;
 amouse.terminate;
 akeyboard.terminate;
+windows.terminate;
 end;
 
 // -----  Screen convert procedures
