@@ -301,8 +301,8 @@ if ah>wh then h:=wh;
 
 if ax>-2048 then x:=ax;
 if ay>-2048 then y:=ay;
-if avx>-2048 then vx:=avx;
-if avy>-2048 then vy:=avy;
+if avx>-1 then vx:=avx;
+if avy>-1 then vy:=avy;
 
  end;
 
@@ -317,7 +317,7 @@ procedure TWindow.draw(dest:integer);
 var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
    wt:int64;
    q1,q2,q3:integer;
-   hsw,vsh:integer;
+   hsw,vsh,hsp,vsp:integer;
 
 begin
 
@@ -333,6 +333,9 @@ if decoration=nil then
   dsv:=0;
   hsw:=0;
   vsh:=0;
+  hsp:=0;
+  vsp:=0;
+
   end
 else
   begin
@@ -344,6 +347,8 @@ else
   if decoration.vscroll then dsv:=scrollwidth else dsv:=0;
   hsw:=round((l/wl)*l); if hsw<11 then hsw:=10;
   vsh:=round((h/wh)*h); if vsh<11 then vsh:=10;
+  hsp:=round((vx/(wl-l))*(l-hsw));
+  vsp:=round((vy/(wh-h))*(h-vsh));
   end;
 
 
@@ -383,12 +388,12 @@ else
     fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
 
     fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
-    fill2d(dest,x+3,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);                        //horizontal scroll bar
+    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);                        //horizontal scroll bar
 
     fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
 //    fill2d(dest,x+l+3,y,dsv,vsh,1792,scrollcolor+borderdelta-2);                        //vertical scroll bar
 
-    fill2d(dest,x+l+3,y+3,dsv-6,vsh-6,1792,activescrollcolor);                        //vertical scroll bar
+    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,1792,activescrollcolor);                        //vertical scroll bar
 
 
     fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
@@ -420,12 +425,21 @@ label p999;
 
 var window:TWindow;
     mmx,mmy,mmk,dt,dg,dh,dl,dsh,dsv:integer;
+    q,q2,sy2:integer;
 
 const state:integer=0;
       deltax:integer=0;
       deltay:integer=0;
-
+      sx:integer=0;
+      sy:integer=0;
+      hsw:integer=0;
+      vsp:integer=0;
+      vsh:integer=0;
+      hsp:integer=0;
+      oldhsp:integer=0;
+      oldvsp:integer=0;
 begin
+
 
 result:=background;
 
@@ -437,17 +451,64 @@ if mmk=0 then state:=0;
 
 // if mouse key pressed ans there is a window set to move, move it
 
+//hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
+//vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
+//hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
+//vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
+
 if mmk=1 then // find a window with mk=1
   begin
   window:=background;
   while (window.next<>nil) and (window.mk<>1) do window:=window.next;
   if window.mk=1 then
     begin
-    if state=0 then window.move(mmx-window.mx,mmy-window.my,0,0,0,0)
-    else if state=1 then window.move(window.x,window.y, mmx-window.x+deltax ,window.h,0,0)
-    else if state=2 then window.move(window.x,window.y, window.l, mmy-window.y+deltay ,0,0)
-    else window.move(window.x,window.y, mmx-window.x+deltax ,mmy-window.y+deltay, 0,0);
+
+
+    if state=0 then window.move(mmx-window.mx,mmy-window.my,0,0,-1,-1)
+    else if state=1 then
+      begin
+      q:=mmx-window.x+deltax;
+      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;//q:=window.wl-window.vx;
+      window.move(window.x,window.y, q ,window.h,-1,-1)
+      end
+    else if state=2 then
+      begin
+       q:=mmy-window.y+deltay;
+       if q+window.vy>window.wh then begin window.vy:=window.wh-q; if window.vy<0 then begin window.vy:=0; q:=window.wh; end; end;//q:=window.wl-window.vx;
+       window.move(window.x,window.y, window.l, q,-1,-1)
+       end
+
+    else if state=3 then
+      begin
+      q:=mmx-window.x+deltax;
+      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;//q:=window.wl-window.vx;
+      q2:=mmy-window.y+deltay;
+      if q2+window.vy>window.wh then begin window.vy:=window.wh-q2; if window.vy<0 then begin window.vy:=0; q2:=window.wh; end; end;//q:=window.wl-window.vx;
+
+
+      window.move(window.x,window.y, q ,q2, -1, -1)
+      end
+    else if state=4 then
+      begin
+      // sy2:=mmy-window.y-vsp;
+      // vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
+      // q:=round((mmy-sy-window.y+oldvsp)*window.wh/(window.h-vsh));
+      q:=round((mmy-window.y-sy)*(window.wh-window.h)/(window.h-vsh));
+      if q<0 then q:=0;
+      if q>window.wh-window.h then q:=window.wh-window.h;
+      window.move(window.x,window.y, {mmx-window.x+deltax ,mmy-window.y+deltay,}0,0,-1,q);
+      end
+    else if state=5 then
+      begin
+      q:=round((mmx-window.x-sx)*(window.wl-window.l)/(window.l-hsw));
+      if q<0 then q:=0;
+      if q>window.wl-window.l then q:=window.wl-window.l;
+      window.move(window.x,window.y, {mmx-window.x+deltax ,mmy-window.y+deltay,}0,0,q,-1);
+      end;
     result:=window;
+//    retromalina.box(0,0,300,100,0);
+//    retromalina.outtextxy(0,0,inttostr(state)+' q='+inttostr(q)+' sx='+inttostr(sy),15);
+
     goto p999;
     end;
   end;
@@ -511,20 +572,33 @@ result:=window;
 // now, here no windows to move and window=window to select
 // if the window is not selected, select it
 
-if (mmk=1) and (window.mk=0) then selectwindow(window);
+if (mmk=1) and (window.mk=0) then
+
+  selectwindow(window);
 
 //and set mouse correction amount
 window.mx:=mmx-window.x;
 window.my:=mmy-window.y;
 window.mk:=mmk;
 
+hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
+vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
+hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
+vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
+
 // now set the state according to clicked area
 
 if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y+window.h))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then begin state:=4;
+             oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh)); sy:=mmy-window.y-vsp; end      // vertical scroll bar
 else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
+else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.y+window.h)) and (mmy<(window.y+window.h+scrollwidth-1)) then begin state:=5;
+             oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));     sx:=mmx-window.x-hsp; end      // down border
 else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
 else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
 
+//retromalina.box(0,0,300,100,0);
+//retromalina.outtextxy(0,0,inttostr(state)+' hsp='+inttostr(hsp)+' hsw='+inttostr(hsw)+' vsp='+inttostr(vsp)+' vsh='+inttostr(vsh),15);
 p999:
 end;
 
@@ -825,8 +899,8 @@ function TButton.checkmouse:boolean;
 var mx,my:integer;
 
 begin
-mx:=mousex-granny.x;
-my:=mousey-granny.y;
+mx:=mousex-granny.x+granny.vx;
+my:=mousey-granny.y+granny.vy;
 if ((background.checkmouse=granny) or (granny=panel)) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
