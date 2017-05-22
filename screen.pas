@@ -150,8 +150,9 @@ cpuclock:=clockgetrate(8) div 1000000;
 repeat
 
   repeat sleep(1) until status.redraw;
+
   c1:=framecnt mod 60;
-  status.box(0,0,600,600,147);
+  status.box(0,0,300,300,147);
   status.outtextxy(10,10,'CPU load: ',157);
 
   i:=length(inttostr(round(100*avsct/16666)));
@@ -238,6 +239,8 @@ repeat
   if (cnt mod 120)=30 then cpuclock:=clockgetrate(8) div 1000000;
   cnt+=1;
   status.buttons.checkall;
+    if testbutton2.clicked=1 then begin
+     if status.wl=600 then status.resize(900,900) else status.resize(600,600); testbutton2.clicked:=0; end;
   status.redraw:=false;
 
   // compute average times
@@ -457,7 +460,8 @@ fi.outtextxy(10,10,'No file playing', 35);
 fi.move(10,50,360,300,0,0);
 
 status:=Twindow.create(600,600,'System status');
-status.cls(15);
+status.bg:=147;
+status.cls(147);
 status.move(400,50,300,300,0,0);
 
 oscilloscope1:=toscilloscope.create;
@@ -466,7 +470,7 @@ status1:=tstatus.create;
 status1.Start;
 
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
-testbutton2:=Tbutton.create(10,300,100,22,120,124,'Test button',status);
+testbutton2:=Tbutton.create(10,260,150,32,21,28,'Resize canvas',status);
 end;
 
 

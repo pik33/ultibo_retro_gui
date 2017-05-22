@@ -1004,21 +1004,21 @@ begin
 
 //init the framebuffer
 //TODO: if the screen is 1920x1080 init it to this resolution
-sleep(200);
-fb:=FramebufferDevicegetdefault;
+
+repeat fb:=FramebufferDevicegetdefault until fb<>nil;
 FramebufferDeviceRelease(fb);
-sleep(200);
+sleep(100);
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=1920;
 FramebufferProperties.PhysicalHeight:=1200;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(200);
+sleep(100);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
 for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-sleep(200);
+sleep(100);
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
@@ -1077,7 +1077,6 @@ akeyboard:=tkeyboard.create(true);
 akeyboard.start;
 background:=TWindow.create(1792,1120,'');
 panel:=TPanel.create;
-sleep(300);
 windows:=twindows.create(true);
 windows.start;
 end;

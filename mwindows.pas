@@ -53,16 +53,12 @@ type TWindow=class(TObject)
      active:boolean;                        // if false, window doesn't need redrawing
      title:string;                          // window title
      buttons:TButton;                       // widget chain start
-
+     mstate:integer;
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
 
      constructor create (al,ah:integer; atitle:string);
      destructor destroy; override;
-
-     // resizing window canvas
-
-     procedure resize(al,ah: integer);    // TODO
 
      // graphic methods
 
@@ -80,6 +76,7 @@ type TWindow=class(TObject)
                                                                         // al, ah - visible dimensions without decoration
                                                                         // avy, avy - upper left visible canvas pixel
      function checkmouse:TWindow;                                       // check and react to mouse events
+     procedure resize(nwl,nwh:integer);                                 // resize the canvas
      end;
 
      Tpanel=class(TWindow)
@@ -95,7 +92,7 @@ type TButton=class(TObject)
      fsx,fsy:integer;
      value:integer;
      gdata:pointer;
-     visible,highlighted,selected,radiobutton:boolean;
+     visible,highlighted,selected,radiobutton,selectable,down:boolean;
      radiogroup:integer;
      next,last:TButton;
      granny:TWindow;
@@ -200,6 +197,7 @@ var who:TWindow;
 
 begin
 inherited create;
+mstate:=0;
 if background<>nil then
   begin
   who:=background;
@@ -282,6 +280,35 @@ if decoration<>nil then
   end;
 end;
 
+procedure TWindow.resize(nwl,nwh:integer);
+
+label p999;
+
+var gd,gd2:pointer;
+    bl,bh:integer;
+    i:integer;
+
+begin
+if (nwl=wl) and (nwh=wh) then goto p999; // nothing to resize
+gd:=getmem(nwl*nwh);
+for i:=0 to nwl*nwh-1 do poke(integer(gd)+i,bg);
+if nwl>wl then bl:=wl else bl:=nwl;
+if nwh>wh then bh:=wh else bh:=nwh;
+blit(integer(gdata),0,0,integer(gd),0,0,bl,bh,wl,nwl);
+gd2:=gdata;
+gdata:=gd;
+wl:=nwl; wh:=nwh;
+waitvbl;
+waitvbl;
+freemem(gd2);
+if l>wl then l:=wl;
+if h>wh then h:=wh;
+if vx+l>wl then vx:=wl-l;
+if vy+h>wh then vy:=wh-h;
+p999:
+end;
+
+
 procedure TWindow.move(ax,ay,al,ah,avx,avy:integer);
 
 var q:integer;
@@ -306,11 +333,6 @@ if avy>-1 then vy:=avy;
 
  end;
 
-procedure TWindow.resize(al,ah: integer);
-
-begin
-//todo
-end;
 
 procedure TWindow.draw(dest:integer);
 
@@ -321,7 +343,7 @@ var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
 
 begin
 
-//redraw:=false;
+redraw:=false;
 
 if decoration=nil then
   begin
@@ -596,7 +618,7 @@ else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.
              oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));     sx:=mmx-window.x-hsp; end      // down border
 else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
 else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
-
+window.mstate:=state;
 //retromalina.box(0,0,300,100,0);
 //retromalina.outtextxy(0,0,inttostr(state)+' hsp='+inttostr(hsp)+' hsw='+inttostr(hsw)+' vsp='+inttostr(vsp)+' vsh='+inttostr(vsh),15);
 p999:
@@ -854,6 +876,7 @@ gdata:=getmem(4*al*ah);
 granny:=g;
 if granny.buttons=nil then granny.buttons:=self;
 visible:=false; highlighted:=false; selected:=false; radiobutton:=false;
+selectable:=false; down:=false;
 next:=nil; last:=nil;
 fsx:=1; fsy:=1;
 radiogroup:=0;
@@ -901,7 +924,7 @@ var mx,my:integer;
 begin
 mx:=mousex-granny.x+granny.vx;
 my:=mousey-granny.y+granny.vy;
-if ((background.checkmouse=granny) or (granny=panel)) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
 
@@ -933,7 +956,7 @@ procedure TButton.draw;
 var l2,a:integer;
 
 begin
-if selected then a:=-2 else a:=2;
+if selected or down then a:=-2 else a:=2;
 granny.box(x,y,l,h,c1+a);
 granny.box(x,y+3,l-3,h-3,c1-a);
 granny.putpixel(x,y+1,c1-a); granny.putpixel(x,y+2,c1-a); granny.putpixel(x+1,y+2,c1-a);
@@ -990,7 +1013,7 @@ var c:integer;
     temp:TButton;
 
 begin
-if visible and not selected then begin
+if visible and selectable and not selected then begin
   selected:=true;
   draw;
   temp:=self;
@@ -1012,7 +1035,7 @@ procedure TButton.unselect;
 
 begin
 
-if visible and  selected then begin
+if visible and selectable and selected then begin
   selected:=false;
   draw;
   end;
@@ -1047,20 +1070,31 @@ end;
 
 procedure TButton.checkall;
 
+label p999;
+
 var temp:TButton;
+    cm:boolean;
 
 begin
 temp:=self.gofirst;
 while temp<>nil do
   begin
-  if temp.checkmouse then temp.highlight else temp.unhighlight;
-  if temp.checkmouse and click {(peek(base+$60030)=1)} then begin
+  cm:=temp.checkmouse;
+//  retromalina.box(0,0,100,100,0) ;
+//  retromalina.outtextxy(0,0,inttostr(mousek),15);
+
+  if cm and (mousek=0) then begin temp.highlight; temp.down:=false; end;
+  if cm and (mousek=1) then begin temp.unhighlight; temp.down:=true; end;
+  if not cm then begin temp.down:=false; temp.unhighlight; end;
+  if cm and click {(peek(base+$60030)=1)} then begin
       if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
       temp.clicked:=1;
-      poke(base+$60030,0);
+    //  poke(base+$60030,0);
       end;
   temp:=temp.next;
+
   end;
+p999:
 end;
 
 procedure TButton.box(ax,ay,al,ah,c:integer);
