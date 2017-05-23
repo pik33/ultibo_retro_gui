@@ -24,7 +24,6 @@ uses
   retromouse,
   DWCOTG,
   retromalina,
- // cwindows,
   Unit6502,
   screen,
   mp3,
@@ -551,8 +550,8 @@ repeat
 //   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
 //   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
 
-//  if (key=0) and (nextsong=2) then begin nextsong:=0; key:=key_enter; end;      // play the next song
-//  if (key=0) and (nextsong=1) then begin nextsong:=2; key:=key_downarrow; end;  // select the nest song
+if (nextsong=2) then begin nextsong:=0; sel1.selectnext; end;      // play the next song
+if (nextsong=1) then begin nextsong:=2; end;  // select the nest song
 
 
 //  if wh=background then

@@ -23,13 +23,6 @@ type TWindow=class;
      TButton=class;
 
 
-type TDecoration=class(TObject)
-     title:pointer;
-     hscroll,vscroll,up,down,close:boolean;
-     constructor create;
-     destructor destroy;
-     end;
-
 
 //------------------------------------------------------------------------------
 // Basic window class
@@ -53,12 +46,21 @@ type TWindow=class(TObject)
      active:boolean;                        // if false, window doesn't need redrawing
      title:string;                          // window title
      buttons:TButton;                       // widget chain start
-     mstate:integer;
+     mstate:integer;                        // mouse position state
+
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
 
      constructor create (al,ah:integer; atitle:string);
      destructor destroy; override;
+
+     procedure draw(dest:integer);                                      // redraw a window
+     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
+                                                                        // al, ah - visible dimensions without decoration
+                                                                        // avy, avy - upper left visible canvas pixel
+     function checkmouse:TWindow;                                       // check and react to mouse events
+     procedure resize(nwl,nwh:integer);                                 // resize the canvas
+     procedure select;                                                  // select the window and place it on top
 
      // graphic methods
 
@@ -71,18 +73,24 @@ type TWindow=class(TObject)
      procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
      procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
 
-     procedure draw(dest:integer);                                      // redraw a window
-     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
-                                                                        // al, ah - visible dimensions without decoration
-                                                                        // avy, avy - upper left visible canvas pixel
-     function checkmouse:TWindow;                                       // check and react to mouse events
-     procedure resize(nwl,nwh:integer);                                 // resize the canvas
+     // TODO: add the rest of graphic procedures from retromalina unit
+
      end;
+
+//------------------------------------------------------------------------------
+// Panel. A special window displayed at the bottom of the screen.
+// A place for start button, minimized windows, speedbuttons etc
+// Always on top
+//------------------------------------------------------------------------------
+
 
      Tpanel=class(TWindow)
      constructor create;
      end;
 
+//------------------------------------------------------------------------------
+// File selector. A window with methods for directory display and file select.
+//------------------------------------------------------------------------------
 
 type Tfileselector=class(Twindow)
      done:boolean;
@@ -90,8 +98,6 @@ type Tfileselector=class(Twindow)
      currentdir2:string;
      filename:string;
      sr:TSearchRec;
-     //sel,selstart,ilf,ild:integer;
-     //filenames:filedesc;
      s:string;
      filenames:array[0..1000,0..2] of string;
      ilf,ild:integer;
@@ -103,9 +109,28 @@ type Tfileselector=class(Twindow)
      procedure dirlist;
      procedure sort;
      procedure checkselected;
-//  function checkmouse:boolean;
+     procedure selectnext;
 
-  end;
+// TODO: remove the mess. Add "Selectnext" method
+
+    end;
+
+//------------------------------------------------------------------------------
+// Window decoration
+//------------------------------------------------------------------------------
+
+
+type TDecoration=class(TObject)
+     title:pointer;
+     hscroll,vscroll,up,down,close:boolean;
+     constructor create;
+     destructor destroy;
+     end;
+
+
+//------------------------------------------------------------------------------
+// Button
+//------------------------------------------------------------------------------
 
 
 type TButton=class(TObject)
@@ -143,9 +168,10 @@ type TButton=class(TObject)
   end;
 
 
-var background:TWindow=nil;
-    panel:TPanel=nil;
+var background:TWindow=nil;  // A mother of all windows except the panel
+    panel:TPanel=nil;        // The panel
 
+// Theme colors.
 
     activecolor:integer=120;
     inactivecolor:integer=13;
@@ -157,12 +183,16 @@ var background:TWindow=nil;
     scrollcolor:integer=12;
     activescrollcolor:integer=124;
     titleheight:integer=24;
+
+// A temporary icon. TODO: Icon class and methods
+
     icon:array[0..15,0..15] of byte;
 
-procedure background_init(color:byte);
-//function window(l,h:integer; title:string):pointer;
-//function checkmouse:TWindow;
-procedure selectwindow(wh:TWindow);
+
+//------------------------------------------------------------------------------
+// Helper procedures
+//------------------------------------------------------------------------------
+
 procedure gouttextxy(g:pointer;x,y:integer; t:string;c:integer);
 procedure gputpixel(g:pointer; x,y,color:integer); inline;
 procedure makeicon;
@@ -172,6 +202,102 @@ procedure makeicon;
 implementation
 
 uses retromalina,blitter,retro;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Window methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+// Constructor.
+// Parameters:
+// wl: window canvas length
+// wh: window canvas height (the canvas can be resized later)
+// title - if empt, windows will have no decoration
+//------------------------------------------------------------------------------
+
+constructor TWindow.create (al,ah:integer; atitle:string);
+
+var who:TWindow;
+    i,j:integer;
+
+begin
+inherited create;
+mstate:=0;
+if background<>nil then   // there ia s background so create a normal window
+  begin
+  who:=background;
+  while who.next<>nil do who:=who.next;
+  makeicon;               // Temporary icon, todo: icon class
+  handle:=self;
+  x:=0;                   // initialize the fields
+  y:=0;
+  mx:=-1;
+  my:=-1;
+  mk:=0;
+  vx:=0;
+  vy:=0;
+  l:=0;
+  h:=0;
+  bg:=0;
+  wl:=al;
+  wh:=ah;
+  buttons:=nil;
+  next:=nil;
+  visible:=false;
+  resizable:=true;
+  prev:=who;
+  gdata:=getmem(wl*wh);  // get a memory for graphics. 8-bit only in this version
+  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,0); // clear the graphic memory
+  title:=atitle;
+  if atitle<>'' then     // create a decoration
+    begin
+    decoration:=TDecoration.create;
+    decoration.title:=getmem(wl*titleheight);
+    decoration.hscroll:=true;
+    decoration.vscroll:=true;
+    decoration.up:=true;
+    decoration.down:=true;
+    decoration.close:=true;
+    end
+  else decoration:=nil;
+  who.next:=self;
+  end
+else                    // no background, create one
+  begin
+  handle:=self;
+  prev:=nil;
+  next:=nil;
+  x:=0;
+  y:=0;                       // position on screen
+  l:=al;
+  h:=ah;                      // dimensions on screen
+  vx:=0;
+  vy:=0;                      // visible upper left
+  wl:=al;
+  wh:=ah;                     // windows l,h
+  bg:=202;                    // todo: get color from a theme
+  buttons:=nil;
+  gdata:=pointer(backgroundaddr);  // graphic memory address
+                                   // The window manager works at the top
+                                   // of the retromachine. The background window
+                                   // replaces the retromachine background with
+                                   // graphic memory a the same address, so
+                                   // non-windowed retromachine programs will not
+                                   // notice any difference when running on
+                                   // the window manager
+
+  decoration:=nil;            //+48
+  visible:=true;
+  redraw:=true;
+  mx:=-1;
+  my:=-1;
+  decoration:=nil;
+  title:='';
+  end;
+end;
 
 
 constructor TFileselector.create(adir:string);
@@ -364,103 +490,9 @@ if title<>nil then freemem(title);
 end;
 
 
-procedure background_init(color:byte);
-
-begin
-background.handle:=background;
-background.prev:=nil;
-background.next:=nil;
-background.x:=0;
-background.y:=0;                       // position on screen
-background.l:=1792;
-background.h:=1792;                    // dimensions on screen
-background.vx:=0;
-background.vy:=0;                      // visible upper left
-background.wl:=1792;
-background.wh:=1120;                   // windows l,h
-background.bg:=147;            // backround color
-background.gdata:=pointer($30000000);  // graphic memory
-background.decoration:=nil;            //+48
-background.visible:=true;
-background.redraw:=true;
-end;
 
 
 
-constructor TWindow.create (al,ah:integer; atitle:string);
-
-var who:TWindow;
-    i,j:integer;
-
-begin
-inherited create;
-mstate:=0;
-if background<>nil then
-  begin
-  who:=background;
-  while who.next<>nil do who:=who.next;
-
-  makeicon;
-
-  handle:=self;
-  x:=0;
-  y:=0;
-  mx:=-1;
-  my:=-1;
-  mk:=0;
-  vx:=0;
-  vy:=0;
-  l:=0;
-  h:=0;
-  bg:=0;
-  wl:=al;
-  wh:=ah;
-  buttons:=nil;
-  next:=nil;
-  visible:=false;
-  resizable:=true;
-  prev:=who;
-  gdata:=getmem(wl*wh);
-  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,0);
-  title:=atitle;
-  if atitle<>'' then
-    begin
-    decoration:=TDecoration.create;
-    decoration.title:=getmem(wl*titleheight);
-    decoration.hscroll:=true;
-    decoration.vscroll:=true;
-    decoration.up:=true;
-    decoration.down:=true;
-    decoration.close:=true;
-    end
-  else decoration:=nil;
-  who.next:=self;
-  end
-else
-  begin
-  handle:=self;
-  prev:=nil;
-  next:=nil;
-  x:=0;
-  y:=0;                       // position on screen
-  l:=al;
-  h:=ah;                    // dimensions on screen
-  vx:=0;
-  vy:=0;                      // visible upper left
-  wl:=al;
-  wh:=ah;                   // windows l,h
-  bg:=147;            // backround color
-  buttons:=nil;
-  gdata:=pointer($30000000);  // graphic memory
-  decoration:=nil;            //+48
-  visible:=true;
-  redraw:=true;     x:=0;
-  mx:=-1;
-  my:=-1;
-  decoration:=nil;
-  title:=atitle;
-  end;
-end;
 
 destructor TWindow.destroy;
 
@@ -656,7 +688,7 @@ if dblclick then
     end
   else filename:=lowercase(currentdir2+filenames[sel,0]);
   end;
-panel.box(100,0,500,22,11); panel.outtextxy(120,4,filename,0);
+//panel.box(100,0,500,22,11); panel.outtextxy(120,4,filename,0);
 if mk=0 then goto p999;
 sel1:=(my+vy-8) div 16;
 if sel1=sel then goto p999;
@@ -671,17 +703,44 @@ if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(
 
 sel:=sel1;
 
-box(4,16*sel+8,476,16,154);
+box(4,16*sel+8,476,16,157);
 s1:=filenames[sel,0];
 if length(s1)>40 then begin s1:=copy(s1,1,40); end;
 if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
 if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
-
-
-
-
-
 p999:
+end;
+
+
+procedure TFileselector.selectnext;
+
+var s1:string;
+
+
+begin
+if sel<ilf-1 then
+  begin
+  sel:=sel+1;
+  if filenames[sel,1]='(DIR)' then
+    begin
+    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
+    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
+    title:=currentdir2;
+    end
+  else filename:=lowercase(currentdir2+filenames[sel,0]);
+
+
+  box(4,16*sel-8,476,16,147);
+  s1:=filenames[sel-1,0];
+  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+  if filenames[sel-1,1]<>'(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(360,8+16*sel-16,filenames[sel-1,2],157);   end;
+  if filenames[sel-1,1]='(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(400,8+16*sel-16,'(DIR)',157);   end;
+  box(4,16*sel+8,476,16,157);
+  s1:=filenames[sel,0];
+  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+  if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
+  if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
+  end;
 end;
 
 function TWindow.checkmouse:TWindow;
@@ -841,7 +900,7 @@ result:=window;
 
 if (mmk=1) and (window.mk=0) then
 
-  selectwindow(window);
+  window.select;
 
 //and set mouse correction amount
 window.mx:=mmx-window.x;
@@ -874,20 +933,21 @@ p999:
 end;
 
 
-procedure selectwindow(wh:TWindow);
+procedure Twindow.select;
 
-var whh:TWindow;
+var who,whh:TWindow;
 
 begin
-if (wh.next<>nil) and (wh<>background) then
+who:=self;
+if (who.next<>nil) and (who<>background) then
   begin
-  wh.prev.next:=wh.next;
-  wh.next.prev:=wh.prev;
-  whh:=wh;
+  who.prev.next:=who.next;
+  who.next.prev:=who.prev;
+  whh:=who;
   repeat whh:=whh.next until whh.next=nil;
-  wh.next:=nil;
-  wh.prev:=whh;
-  whh.next:=wh;
+  who.next:=nil;
+  who.prev:=whh;
+  whh.next:=who;
   end;
 end;
 

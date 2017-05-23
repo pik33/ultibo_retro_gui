@@ -428,6 +428,7 @@ var fh,filetype:integer;                // this needs cleaning...
    mp3bufidx:integer=0;
    outbufidx:integer=0;
    framesize:integer;
+   backgroundaddr:integer=$30000000;
    screenaddr:integer=$30800000;
    redrawing:integer=$30800000;
    windowsdone:boolean=false;
