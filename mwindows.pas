@@ -83,6 +83,31 @@ type TWindow=class(TObject)
      constructor create;
      end;
 
+
+type Tfileselector=class(Twindow)
+     done:boolean;
+     currentdir:string;
+     currentdir2:string;
+     filename:string;
+     sr:TSearchRec;
+     //sel,selstart,ilf,ild:integer;
+     //filenames:filedesc;
+     s:string;
+     filenames:array[0..1000,0..2] of string;
+     ilf,ild:integer;
+     sel:integer;
+     selstart:integer;
+     drivetable:array['A'..'Z'] of boolean;
+     dir:string;
+     constructor create(adir:string);
+     procedure dirlist;
+     procedure sort;
+     procedure checkselected;
+//  function checkmouse:boolean;
+
+  end;
+
+
 type TButton=class(TObject)
      x,y:integer;                                                      // upper left pixel position on window
      l,h:integer;                                                      // dimensions
@@ -147,6 +172,178 @@ procedure makeicon;
 implementation
 
 uses retromalina,blitter,retro;
+
+
+constructor TFileselector.create(adir:string);
+
+
+var who:TWindow;
+    i,j:integer;
+
+begin
+//inherited create;
+mstate:=0;
+who:=background;
+while who.next<>nil do who:=who.next;
+dir:=adir;
+handle:=self;
+x:=0;
+y:=0;
+mx:=-1;
+my:=-1;
+mk:=0;
+vx:=0;
+vy:=0;
+l:=0;
+h:=0;
+bg:=0;
+wl:=480;
+wh:=1000;
+gdata:=getmem(wl*wh);
+
+
+
+dirlist;
+//sort;
+makeicon;
+
+
+
+  buttons:=nil;
+  next:=nil;
+  visible:=false;
+  resizable:=true;
+  prev:=who;
+//  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,147);
+  title:=adir;
+//  if atitle<>'' then
+
+    decoration:=TDecoration.create;
+    decoration.title:=getmem(wl*titleheight);
+    decoration.hscroll:=true;
+    decoration.vscroll:=true;
+    decoration.up:=true;
+    decoration.down:=true;
+    decoration.close:=true;
+
+//  else decoration:=nil;
+  who.next:=self;
+
+end;
+
+procedure TFileselector.sort;
+
+// A simple bubble sort for filenames
+
+var i,j:integer;
+    s1,s2,s3:string;
+
+begin
+repeat
+  j:=0;
+  for i:=0 to ilf-2 do
+    begin
+    if (copy(filenames[i,0],3,1)<>'\') and (lowercase(filenames[i,1]+filenames[i,0])>lowercase(filenames[i+1,1]+filenames[i+1,0])) then
+      begin
+      s1:=filenames[i,0]; s2:=filenames[i,1]; s3:=filenames[i,2];
+      filenames[i,0]:=filenames[i+1,0];
+      filenames[i,1]:=filenames[i+1,1];
+      filenames[i,2]:=filenames[i+1,2];
+      filenames[i+1,0]:=s1; filenames[i+1,1]:=s2; filenames[i+1,2]:=s3;
+      j:=1;
+      end;
+    end;
+until j=0;
+end;
+
+procedure TFileselector.dirlist;
+
+var c:char;
+    i,j:integer;
+    dd:boolean;
+
+begin
+for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
+currentdir2:=dir;
+setcurrentdir(currentdir2);
+currentdir2:=getcurrentdir;
+if copy(currentdir2,length(currentdir2),1)<>'\' then currentdir2:=currentdir2+'\';
+s:=currentdir2;
+ilf:=0;
+if length(currentdir2)=3 then
+for c:='A' to 'Z' do
+  begin
+  if drivetable[c] then
+    begin
+    filenames[ilf,0]:=c+':\';
+    filenames[ilf,1]:='(DIR)';
+    ilf+=1;
+    end;
+  end;
+
+currentdir:=currentdir2+'*';
+if findfirst(currentdir,fadirectory,sr)=0 then
+  repeat
+  if (sr.attr and faDirectory) = faDirectory then
+    begin
+    filenames[ilf,0]:=sr.name;
+    filenames[ilf,1]:='(DIR)';
+    ilf+=1;
+    end;
+  until (findnext(sr)<>0) or (ilf=1000);
+sysutils.findclose(sr);
+
+// ntfs no .. patch
+
+dd:=false;
+for i:=0 to ilf do if filenames[i,0]='..' then dd:=true;
+if (not dd) and (length(currentdir2)>3) then
+  begin
+  filenames[ilf,0]:='..';
+  filenames[ilf,1]:='(DIR)';
+  ilf+=1;
+  end;
+
+
+
+currentdir:=currentdir2+'*.*';
+if findfirst(currentdir,$20,sr)=0 then
+  repeat
+  filenames[ilf,0]:=sr.name;
+  filenames[ilf,1]:='z';
+  filenames[ilf,2]:=inttostr(sr.size);
+  ilf+=1;
+  until (findnext(sr)<>0) or (ilf=1000);
+sysutils.findclose(sr);
+
+sort;
+bg:=147;
+j:= 16*ilf+16;
+if j<500 then j:=500;
+resize(480,j) ;
+vx:=0; vy:=0;
+if wh<500 then h:=wh else h:=500;
+cls(bg);
+for i:=0 to ilf-1 do
+  begin
+//  {if filenames[i,1]<>'(DIR)' then l:=length(filenames[i,0])-4 else } l2:=length(filenames[i,0]);
+  {if filenames[i,1]<>'(DIR)' then  s:=copy(filenames[i,0],1,length(filenames[i,0])-4) else} s:=filenames[i,0];
+  if length(s)>40 then begin s:=copy(s,1,40); {l:=40;} end;
+  for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
+  if filenames[i,1]<>'(DIR)' then if length(filenames[i,2])<10 then for j:=10 downto length(filenames[i,2])+1 do filenames[i,2]:=' '+filenames[i,2];
+  if filenames[i,1]<>'(DIR)' then filenames[i,2]:=copy(filenames[i,2],1,1)+' '+copy(filenames[i,2],2,3)+' '+copy(filenames[i,2],5,3)+' '+copy(filenames[i,2],8,3);
+
+  if filenames[i,1]<>'(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(360,8+16*i,filenames[i,2],157);   end;
+  if filenames[i,1]='(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(400,8+16*i,'(DIR)',157);   end;
+  end;
+//cls(bg);
+
+
+sel:=0; selstart:=0;
+end;
+
+
+
 
 constructor TDecoration.create;
 
@@ -441,12 +638,58 @@ wt:=gettime-wt;
 //title:='Window time='+inttostr(wt)+' us';
 end;
 
+procedure TFileselector.checkselected;
+
+label p999;
+
+var s1:string;
+    sel1:integer;
+
+begin
+if dblclick then
+  begin
+  if filenames[sel,1]='(DIR)' then
+    begin
+    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
+    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
+    title:=currentdir2;
+    end
+  else filename:=lowercase(currentdir2+filenames[sel,0]);
+  end;
+panel.box(100,0,500,22,11); panel.outtextxy(120,4,filename,0);
+if mk=0 then goto p999;
+sel1:=(my+vy-8) div 16;
+if sel1=sel then goto p999;
+if sel1>ilf-1 then goto p999;
+if (my<8) or (my>h-8) then goto p999;
+if (mx<4) or (mx>l-4) then goto p999;
+box(4,16*sel+8,476,16,147);
+s1:=filenames[sel,0];
+if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(360,8+16*sel,filenames[sel,2],157);   end;
+if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(400,8+16*sel,'(DIR)',157);   end;
+
+sel:=sel1;
+
+box(4,16*sel+8,476,16,154);
+s1:=filenames[sel,0];
+if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
+if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
+
+
+
+
+
+p999:
+end;
+
 function TWindow.checkmouse:TWindow;
 
 label p999;
 
 var window:TWindow;
-    mmx,mmy,mmk,dt,dg,dh,dl,dsh,dsv:integer;
+    mmx,mmy,mmk,mmw,dt,dg,dh,dl,dsh,dsv:integer;
     q,q2,sy2:integer;
 
 const state:integer=0;
@@ -468,6 +711,7 @@ result:=background;
 mmx:=mousex;
 mmy:=mousey;
 mmk:=mousek;
+mmw:=mousewheel;
 
 if mmk=0 then state:=0;
 
@@ -482,6 +726,7 @@ if mmk=1 then // find a window with mk=1
   begin
   window:=background;
   while (window.next<>nil) and (window.mk<>1) do window:=window.next;
+
   if window.mk=1 then
     begin
 
@@ -619,6 +864,10 @@ else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.
 else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
 else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
 window.mstate:=state;
+if mmw=129 then begin mousewheel:=128; q:=window.vy-16; if q<0 then q:=0; window.vy:=q; end;
+if mmw=127 then begin mousewheel:=128; q:=window.vy+16; if q+window.h>window.wh then q:=window.wh-window.h; window.vy:=q; end;
+if window is TFileselector then TFileselector(window).checkselected;
+
 //retromalina.box(0,0,300,100,0);
 //retromalina.outtextxy(0,0,inttostr(state)+' hsp='+inttostr(hsp)+' hsw='+inttostr(hsw)+' vsp='+inttostr(vsp)+' vsh='+inttostr(vsh),15);
 p999:

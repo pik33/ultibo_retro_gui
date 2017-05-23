@@ -542,8 +542,8 @@ var mb:tmousedata;
     const mousecount:integer=0;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
-ThreadSetpriority(ThreadGetCurrent,6);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
   repeat
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
@@ -658,8 +658,8 @@ var ch:TKeyboardReport;
     i:integer;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
-ThreadSetpriority(ThreadGetCurrent,6);
+ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 repeat
   waitvbl;
@@ -679,7 +679,7 @@ repeat
   if (dblclick=3) and (mousek=0) then begin dblclick:=4; dblcnt:=0; end;
 
   inc(dblcnt); if dblcnt>10 then begin dblcnt:=10; dblclick:=0; end;
-  if dblclick=4 then mousedblclick:=1 else mousedblclick:=0;
+  if dblclick=4 then mousedblclick:=1 {else mousedblclick:=0};
 
   if peek(base+$60031)=2 then begin click:=2; clickcnt:=10; end;
   if (mousek=1) and (click=0) then begin click:=1; clickcnt:=0; end;

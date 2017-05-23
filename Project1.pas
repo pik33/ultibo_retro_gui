@@ -65,7 +65,7 @@ var s,currentdir,currentdir2:string;
         mp3buf:array[0..4096] of byte;
 
     wh,scope:Twindow;
-
+    sel1:TFileselector;
 
 //    mp3test:pointer;
 //    mp3testi:cardinal absolute mp3test;
@@ -520,8 +520,8 @@ for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 
 
-workdir:='C:\';
-dirlist('C:\');
+//workdir:='C:\';
+//dirlist('C:\');
 songtime:=0;
 siddelay:=20000;
 setcurrentdir(workdir);
@@ -529,7 +529,8 @@ ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
 threadsleep(1);
 startreportbuffer;
 startmousereportbuffer;
-
+sel1 :=Tfileselector.create('C:\');
+sel1.move(100,100,400,600,-1,-1);
 
 //------------------- The main loop
 
@@ -541,7 +542,7 @@ repeat
   wh:=background.checkmouse;
 //  if wh<>@background  then goto p998;
 //   box(600,100,200,500,0);
-//   outtextxy(600,100,'oscilloscope x '+inttostr(sc.x),15);
+//   outtextxy(600,100,'mousedoubleclick '+inttostr(mousedblclick),15);
 //   outtextxy(600,116,'oscilloscope y '+inttostr(sc.y),15);
 //   outtextxy(600,132,'oscilloscope wl '+inttostr(sc.wl),15);
 //   outtextxy(600,148,'oscilloscope wh '+inttostr(sc.wh),15);
@@ -550,45 +551,45 @@ repeat
 //   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
 //   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
 
-  if (key=0) and (nextsong=2) then begin nextsong:=0; key:=key_enter; end;      // play the next song
-  if (key=0) and (nextsong=1) then begin nextsong:=2; key:=key_downarrow; end;  // select the nest song
+//  if (key=0) and (nextsong=2) then begin nextsong:=0; key:=key_enter; end;      // play the next song
+//  if (key=0) and (nextsong=1) then begin nextsong:=2; key:=key_downarrow; end;  // select the nest song
 
 
-  if wh=background then
+//  if wh=background then
 
-    begin
-    wheel:=readwheel;
+//    begin
+//    wheel:=readwheel;
 
-    if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
-    if (key=0) and (wheel=1) then begin key:=key_uparrow;  end;
+//    if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
+//    if (key=0) and (wheel=1) then begin key:=key_uparrow;  end;
+//
+//
+ //   if (dblclick) and (key=0) and (mousex>896) and (wh=background) then begin key:=key_enter; end;    // dbl click on right panel=enter
 
-
-    if (dblclick) and (key=0) and (mousex>896) and (wh=background) then begin key:=key_enter; end;    // dbl click on right panel=enter
-
-    if (click) and (mousex>896) and (wh=background) then
-      begin
-
-      nsel:=(mousey-132) div 32;
-      if (nsel<=ild) and (nsel>=0) then
-        begin
-        box(920,132+32*sel,840,32,34);
-        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
-        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
-        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
-        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-        if filenames[sel+selstart,1]<>'(DIR)'then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
-        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
-        sel:=nsel;
-        box(920,132+32*sel,840,32,36);
-        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
-        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
-        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
-        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-        if filenames[sel+selstart,1]<>'(DIR)' then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
-        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
-        end;
-      end;
-    end;
+//    if (click) and (mousex>896) and (wh=background) then
+//      begin
+//
+//      nsel:=(mousey-132) div 32;
+//      if (nsel<=ild) and (nsel>=0) then
+//        begin
+//        box(920,132+32*sel,840,32,34);
+//        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
+//        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
+//        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
+//        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
+//        if filenames[sel+selstart,1]<>'(DIR)'then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
+//        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
+//        sel:=nsel;
+//        box(920,132+32*sel,840,32,36);
+//        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
+//        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
+//        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
+//        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
+//        if filenames[sel+selstart,1]<>'(DIR)' then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
+//        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
+//        end;
+//      end;
+//    end;
   p998:
   if key=ord('5') then begin siddelay:=20000; songfreq:=50; skip:=0; end
   else if key=ord('1') then begin siddelay:=10000; songfreq:=100; skip:=0; end
@@ -638,7 +639,7 @@ pauseaudio(1);
     vol123+=1; if vol123>73 then vol123:=73;
     setdbvolume(-vol123);
     end
-
+ {
   else if key=key_downarrow then
     begin
     if sel<ild then
@@ -713,7 +714,7 @@ pauseaudio(1);
           end;
         end;
       end
-
+  }
      else if key=ord('+') then  // next subsong
       begin
       if songs>0 then
@@ -773,12 +774,12 @@ pauseaudio(1);
 
      else if key=ord('w') then   // set 440 Hz
        begin
-       wh:=Twindow.create(600,600,'');
-       wh.title:='';//'Test window '+inttohex(integer(wh),8);
-       wh.cls(16*random(16)+2);
-       wh.outtextxy(10,10,'Window handle: '+inttostr(integer(wh)),136);
-       wh.outtextxy(10,42,'Moving window test line 1',152);
-       wh.box(100,100,100,100,40);
+  //     sel1 :=Tfileselector.create('C:\');
+       //wh.title:='';//'Test window '+inttohex(integer(wh),8);
+       //wh.cls(16*random(16)+2);
+       //wh.outtextxy(10,10,'Window handle: '+inttostr(integer(wh)),136);
+       //wh.outtextxy(10,42,'Moving window test line 1',152);
+       //wh.box(100,100,100,100,40);
  //      wh.outtextxy(10,74,'Moving window test line 2',168);
  //      wh.outtextxy(10,106,'Moving window test line 3',184);
  //      wh.outtextxy(10,138,'Moving window test line 4',200);
@@ -798,7 +799,7 @@ pauseaudio(1);
 //       wh.outtextxy(10,426,'Moving window test line 13',88);
 //       wh.outtextxy(10,458,'Moving window test line 14',104);
 //       wh.outtextxy(10,490,'Moving window test line 15',120);
-       wh.move(100,100,300,300,0,0);
+   //    sel1.move(100,100,400,600,-1,-1);
 //       for i:=10 to 800 do begin movewindow(wh,100,100,i,i,0,0); waitvbl; end;
 //       for i:=1 to 300 do begin movewindow(wh,100,100,800-i,800-i,0,0); waitvbl; end;
 //       for i:=1 to 300 do begin movewindow(wh,100+i,100+i,500,500,0,0); waitvbl; end;
@@ -807,16 +808,16 @@ pauseaudio(1);
 //       destroywindow(wh);
        end
 
-    else if key=key_enter then
+    else if sel1.filename<>'' then //  key=key_enter then
       begin
       av6502:=0;
-      if filenames[sel+selstart,1]='(DIR)' then
-        begin
-        if copy(filenames[sel+selstart,0],2,1)<>':' then dirlist(currentdir2+filenames[sel+selstart,0]+'\')
-        else begin currentdir2:=filenames[sel+selstart,0] ; dirlist(currentdir2); end;
-        end
+//      if filenames[sel+selstart,1]='(DIR)' then
+//        begin
+//        if copy(filenames[sel+selstart,0],2,1)<>':' then dirlist(currentdir2+filenames[sel+selstart,0]+'\')
+//        else begin currentdir2:=filenames[sel+selstart,0] ; dirlist(currentdir2); end;
+//       end
 
-      else
+//      else
 
         begin
         pause1a:=true;
@@ -833,9 +834,10 @@ pauseaudio(1);
         siddata[$2e]:=$7FFFF8;
         songtime:=0;
 
-        fn:= currentdir2+filenames[sel+selstart,0];
+        fn:= sel1.filename; // currentdir2+filenames[sel+selstart,0];
+        sel1.filename:='';
         sfh:=fileopen(fn,$40);
-        s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4);
+        s:=copy(fn,1,length(fn)-4);
         for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
         siddelay:=20000;
         filetype:=0;
@@ -878,7 +880,7 @@ pauseaudio(1);
           fi.outtextxy(10,10,'type: RSID, not yet supported',44);
           fileclose(sfh);
           end
-        else if filenames[sel+selstart,1]='mp3' then
+        else if copy(fn,length(fn)-2,3)='mp3' then
           begin
           filetype:=4;
           mp3open(sfh);
@@ -905,7 +907,7 @@ pauseaudio(1);
           pauseaudio(0);
           end
 
-         else if filenames[sel+selstart,1]='mp2' then
+         else if copy(fn,length(fn)-2,3)='mp2' then
           begin
           fileseek(sfh,0,fsfrombeginning);
        //   filebuffer.clear;
@@ -932,10 +934,10 @@ pauseaudio(1);
           pauseaudio(0);
           end
 
-         else if (filenames[sel+selstart,1]='mod')
-                       or (filenames[sel+selstart,1]='s3m')
-                       or (filenames[sel+selstart,1]='xm')
-                       or (filenames[sel+selstart,1]='it')
+         else if (copy(fn,length(fn)-2,3)='mod')
+                       or (copy(fn,length(fn)-2,3)='s3m')
+                       or (copy(fn,length(fn)-1,2)='xm')
+                       or (copy(fn,length(fn)-1,2)='it')
                        then
           begin
           fileclose(sfh);
@@ -988,7 +990,7 @@ pauseaudio(1);
           end
 
 
-         else if filenames[sel+selstart,1]='s48' then
+         else if copy(fn,length(fn)-2,3)='s48' then
            begin
            fileseek(sfh,$2800,fsfrombeginning);
            filebuffer.clear;
