@@ -27,7 +27,6 @@ uses
   Unit6502,
   screen,
   mp3,
-//  syscalls,
   blitter,
  // retro,
   simpleaudio,scripttest,xmp, mwindows;
@@ -66,16 +65,6 @@ var s,currentdir,currentdir2:string;
     wh,scope:Twindow;
     sel1:TFileselector;
 
-//    mp3test:pointer;
-//    mp3testi:cardinal absolute mp3test;
-//
-//   mp3buf:byte absolute $20000000;
-//   outbuf:byte absolute $21000000;
-//    mp3bufidx:integer=0;
-//   outbufidx:integer=0;
-//    info:mp3_info_t;
-//    framesize:integer;
-
 // ---- procedures
 
 procedure waveopen (var fh:integer);
@@ -111,11 +100,7 @@ if head.data<>1635017060 then
 // visualize wave data
 
 fi.box(0,0,600,600,15);
-
-fi.outtextxy(10,10,  'type:             RIFF',178);
-
-
-
+fi.outtextxy(10,10,     'type:             RIFF',178);
 fi.outtextxy (10,30 ,   'size:             '+inttostr(head.size),178);
 fi.outtextxy (10,50 ,   'pcm type:         '+inttostr(head.pcm),178);
 fi.outtextxy (10,70 ,   'channels:         '+inttostr(head.channels),178);
@@ -164,23 +149,9 @@ if skip>0 then begin
 // visualize wave data
 
 fi.box(0,0,600,600,15);
-//outtextxyz(42,156,'type:              mp3',177,2,2);
 fi.outtextxy (10,10 ,'type:           mp3',177);
-
-
-//outtextxyz(42,228+24,'channels:         '+inttostr(head.channels),177,2,2);
-//outtextxyz(42,260+24,'sample rate:      '+inttostr(head.srate),177,2,2);
-//outtextxyz(42,292+24,'bitrate:          ',177,2,2);
-
 fi.outtextxy (10,30 ,   'channels:     '+inttostr(head.channels),177);
 fi.outtextxy (10,50 ,   'sample rate:  '+inttostr(head.srate),177);
-//fi.outtextxy (10,70 ,   'bitrate:       ',177,2,2);
-
-
-// determine the number of samples
-
-//box(18,912,800,32,244);
-//outtextxyz(18,912,'MP3 file, '+inttostr(head.srate)+' Hz',250,2,2);
 end;
 
 procedure sidopen (var fh:integer);
@@ -217,22 +188,7 @@ if version>1 then begin
 for i:=1 to 32 do if byte(atitle[i])=$F1 then atitle[i]:=char(26);
 for i:=1 to 32 do if byte(author[i])=$F1 then author[i]:=char(26);
 fi.box(0,0,600,600,15);
-//fi.outtextxy(42,156,'type: PSID',177,2,2);
 fi.outtextxy (10,10,'type:      PSID',178);
-
-//outtextxyz(42,164+24,'version: '+inttostr(version),177,2,2);
-//outtextxyz(42,196+24,'offset: ' +inttohex(offset,4),177,2,2);
-//outtextxyz(42,228+24,'load: '+inttohex(load,4),177-144*b,2,2);
-//outtextxyz(42,260+24,'init: '+inttohex(init,4),177,2,2);
-//outtextxyz(42,292+24,'play: '+inttohex(play,4),177,2,2);
-//outtextxyz(42,324+24,'songs: '+inttostr(songs),177,2,2);
-//outtextxyz(42,356+24,'startsong: '+inttostr(startsong),177,2,2);
-//outtextxyz(42,388+24,'speed: '+inttohex(speed,8),177,2,2);
-//outtextxyz(42,420+24,'title: '+atitle,177,2,2);
-//outtextxyz(42,452+24,'author: '+author,177,2,2);
-//outtextxyz(42,484+24,'copyright: '+copyright,177,2,2);
-//outtextxyz(42,516+24,'flags: '+inttohex(flags,4),177,2,2);
-
 fi.outtextxy (10,30 ,'version:   '+inttostr(version),178);
 fi.outtextxy (10,50 ,'offset:    '+inttohex(offset,4),178);
 fi.outtextxy (10,70 ,'load:      '+inttohex(load,4),178-144*b);
@@ -247,7 +203,6 @@ fi.outtextxy (10,230,'copyright: '+copyright,178);
 fi.outtextxy (10,250,'flags:     '+inttohex(flags,4),178);
 song:=startsong-1;
 
-//reset6502;
 for i:=0 to 65535 do write6502(i,0);
 repeat
   il:=fileread(fh,b,1);
@@ -260,11 +215,10 @@ i:=lpeek(base+$60000);
 repeat until lpeek(base+$60000)>(i+4);
 jsr6502(song,init);
 cia:=read6502($dc04)+256*read6502($dc05);
-//outtextxyz(42,548+24,'cia: '+inttohex(read6502($dc04)+256*read6502($dc05),4),177,2,2);
 fi.outtextxy (10,270,'cia:       '+inttohex(read6502($dc04)+256*read6502($dc05),4),178);
 end;
 
-
+   {
 procedure sort;
 
 // A simple bubble sort for filenames
@@ -289,7 +243,9 @@ repeat
 until j=0;
 end;
 
+    }
 
+{
 procedure dirlist(dir:string);
 
 var c:char;
@@ -456,6 +412,8 @@ l:=length(s);
 outtextxyz(1344-8*l,75,s,44,2,2);
 end;
 
+}
+{
 procedure initframebuffer;
 
 begin
@@ -473,7 +431,7 @@ FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
 
 end;
-
+ }
 //------------------- The main program
 
 begin

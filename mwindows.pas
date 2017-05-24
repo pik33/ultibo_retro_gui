@@ -4,7 +4,7 @@ unit mwindows;
 
 //------------------------------------------------------------------------------
 // The window manager unit for use with the retromachine
-// v.0.01 - 20170517
+// v.0.02 - 20170524
 // Piotr Kardasz pik33@o2.pl
 // gpl v. 2.0 or higher
 // alpha code quality
@@ -149,6 +149,7 @@ type TButton=class(TObject)
 
   constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
   destructor destroy; override;
+  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
   function checkmouse:boolean;
   procedure highlight;
   procedure unhighlight;
@@ -157,7 +158,7 @@ type TButton=class(TObject)
   procedure select;
   procedure unselect;
   procedure draw;
-  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
+
   procedure setparent(parent:TButton);
   procedure setdesc(desc:TButton);
   function gofirst:TButton;
@@ -211,7 +212,7 @@ uses retromalina,blitter,retro;
 
 
 //------------------------------------------------------------------------------
-// Constructor.
+// TWindow constructor.
 // Parameters:
 // wl: window canvas length
 // wh: window canvas height (the canvas can be resized later)
@@ -300,198 +301,9 @@ else                    // no background, create one
 end;
 
 
-constructor TFileselector.create(adir:string);
-
-
-var who:TWindow;
-    i,j:integer;
-
-begin
-//inherited create;
-mstate:=0;
-who:=background;
-while who.next<>nil do who:=who.next;
-dir:=adir;
-handle:=self;
-x:=0;
-y:=0;
-mx:=-1;
-my:=-1;
-mk:=0;
-vx:=0;
-vy:=0;
-l:=0;
-h:=0;
-bg:=0;
-wl:=480;
-wh:=1000;
-gdata:=getmem(wl*wh);
-
-
-
-dirlist;
-//sort;
-makeicon;
-
-
-
-  buttons:=nil;
-  next:=nil;
-  visible:=false;
-  resizable:=true;
-  prev:=who;
-//  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,147);
-  title:=adir;
-//  if atitle<>'' then
-
-    decoration:=TDecoration.create;
-    decoration.title:=getmem(wl*titleheight);
-    decoration.hscroll:=true;
-    decoration.vscroll:=true;
-    decoration.up:=true;
-    decoration.down:=true;
-    decoration.close:=true;
-
-//  else decoration:=nil;
-  who.next:=self;
-
-end;
-
-procedure TFileselector.sort;
-
-// A simple bubble sort for filenames
-
-var i,j:integer;
-    s1,s2,s3:string;
-
-begin
-repeat
-  j:=0;
-  for i:=0 to ilf-2 do
-    begin
-    if (copy(filenames[i,0],3,1)<>'\') and (lowercase(filenames[i,1]+filenames[i,0])>lowercase(filenames[i+1,1]+filenames[i+1,0])) then
-      begin
-      s1:=filenames[i,0]; s2:=filenames[i,1]; s3:=filenames[i,2];
-      filenames[i,0]:=filenames[i+1,0];
-      filenames[i,1]:=filenames[i+1,1];
-      filenames[i,2]:=filenames[i+1,2];
-      filenames[i+1,0]:=s1; filenames[i+1,1]:=s2; filenames[i+1,2]:=s3;
-      j:=1;
-      end;
-    end;
-until j=0;
-end;
-
-procedure TFileselector.dirlist;
-
-var c:char;
-    i,j:integer;
-    dd:boolean;
-
-begin
-for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
-currentdir2:=dir;
-setcurrentdir(currentdir2);
-currentdir2:=getcurrentdir;
-if copy(currentdir2,length(currentdir2),1)<>'\' then currentdir2:=currentdir2+'\';
-s:=currentdir2;
-ilf:=0;
-if length(currentdir2)=3 then
-for c:='A' to 'Z' do
-  begin
-  if drivetable[c] then
-    begin
-    filenames[ilf,0]:=c+':\';
-    filenames[ilf,1]:='(DIR)';
-    ilf+=1;
-    end;
-  end;
-
-currentdir:=currentdir2+'*';
-if findfirst(currentdir,fadirectory,sr)=0 then
-  repeat
-  if (sr.attr and faDirectory) = faDirectory then
-    begin
-    filenames[ilf,0]:=sr.name;
-    filenames[ilf,1]:='(DIR)';
-    ilf+=1;
-    end;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-// ntfs no .. patch
-
-dd:=false;
-for i:=0 to ilf do if filenames[i,0]='..' then dd:=true;
-if (not dd) and (length(currentdir2)>3) then
-  begin
-  filenames[ilf,0]:='..';
-  filenames[ilf,1]:='(DIR)';
-  ilf+=1;
-  end;
-
-
-
-currentdir:=currentdir2+'*.*';
-if findfirst(currentdir,$20,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='z';
-  filenames[ilf,2]:=inttostr(sr.size);
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-sort;
-bg:=147;
-j:= 16*ilf+16;
-if j<500 then j:=500;
-resize(480,j) ;
-vx:=0; vy:=0;
-if wh<500 then h:=wh else h:=500;
-cls(bg);
-for i:=0 to ilf-1 do
-  begin
-//  {if filenames[i,1]<>'(DIR)' then l:=length(filenames[i,0])-4 else } l2:=length(filenames[i,0]);
-  {if filenames[i,1]<>'(DIR)' then  s:=copy(filenames[i,0],1,length(filenames[i,0])-4) else} s:=filenames[i,0];
-  if length(s)>40 then begin s:=copy(s,1,40); {l:=40;} end;
-  for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-  if filenames[i,1]<>'(DIR)' then if length(filenames[i,2])<10 then for j:=10 downto length(filenames[i,2])+1 do filenames[i,2]:=' '+filenames[i,2];
-  if filenames[i,1]<>'(DIR)' then filenames[i,2]:=copy(filenames[i,2],1,1)+' '+copy(filenames[i,2],2,3)+' '+copy(filenames[i,2],5,3)+' '+copy(filenames[i,2],8,3);
-
-  if filenames[i,1]<>'(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(360,8+16*i,filenames[i,2],157);   end;
-  if filenames[i,1]='(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(400,8+16*i,'(DIR)',157);   end;
-  end;
-//cls(bg);
-
-
-sel:=0; selstart:=0;
-end;
-
-
-
-
-constructor TDecoration.create;
-
-begin
-inherited create;
-title:=nil;
-hscroll:=false;
-vscroll:=false;
-up:=false;
-down:=false;
-close:=false;
-end;
-
-destructor TDecoration.destroy;
-
-begin
-if title<>nil then freemem(title);
-end;
-
-
-
-
+//------------------------------------------------------------------------------
+// TWindow destructor
+//------------------------------------------------------------------------------
 
 
 destructor TWindow.destroy;
@@ -509,59 +321,11 @@ if decoration<>nil then
   end;
 end;
 
-procedure TWindow.resize(nwl,nwh:integer);
-
-label p999;
-
-var gd,gd2:pointer;
-    bl,bh:integer;
-    i:integer;
-
-begin
-if (nwl=wl) and (nwh=wh) then goto p999; // nothing to resize
-gd:=getmem(nwl*nwh);
-for i:=0 to nwl*nwh-1 do poke(integer(gd)+i,bg);
-if nwl>wl then bl:=wl else bl:=nwl;
-if nwh>wh then bh:=wh else bh:=nwh;
-blit(integer(gdata),0,0,integer(gd),0,0,bl,bh,wl,nwl);
-gd2:=gdata;
-gdata:=gd;
-wl:=nwl; wh:=nwh;
-waitvbl;
-waitvbl;
-freemem(gd2);
-if l>wl then l:=wl;
-if h>wh then h:=wh;
-if vx+l>wl then vx:=wl-l;
-if vy+h>wh then vy:=wh-h;
-p999:
-end;
-
-
-procedure TWindow.move(ax,ay,al,ah,avx,avy:integer);
-
-var q:integer;
-
-begin
-if ay>1090 then ay:=1090;
-if al>0 then l:=al;        // now set new window parameters
-if ah>0 then h:=ah;
-
-q:=8*length(title)+96;
-if (decoration<>nil) and (al>0) and (al<q) then l:=q;
-if (ah>0) and (ah<64) then h:=64;
-if al>wl then l:=wl;
-if ah>wh then h:=wh;
-
-
-
-if ax>-2048 then x:=ax;
-if ay>-2048 then y:=ay;
-if avx>-1 then vx:=avx;
-if avy>-1 then vy:=avy;
-
- end;
-
+//------------------------------------------------------------------------------
+// TWindow draw method
+// Draw a window on compositing canvas
+// dest - address of the canvas
+//------------------------------------------------------------------------------
 
 procedure TWindow.draw(dest:integer);
 
@@ -571,10 +335,8 @@ var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
    hsw,vsh,hsp,vsp:integer;
 
 begin
-
-redraw:=false;
-
-if decoration=nil then
+redraw:=false; // tell the other procedures that the drawing is on its way
+if decoration=nil then  // adjust window dimensions
   begin
   dg:=0;
   dh:=0;
@@ -586,7 +348,6 @@ if decoration=nil then
   vsh:=0;
   hsp:=0;
   vsp:=0;
-
   end
 else
   begin
@@ -601,19 +362,15 @@ else
   hsp:=round((vx/(wl-l))*(l-hsw));
   vsp:=round((vy/(wh-h))*(h-vsh));
   end;
-
-
+// If the window is the background, move it as fast as it is possible to the canvas
+// Todo: check if DMA can be better here; fastmove function uses CPU
 if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);   wt:=gettime-wt; end
 else
   begin
   wt:=gettime;
-  if buttons<>nil then buttons.draw;
-  dma_blit(6,integer(gdata),vx,vy,dest,x,y,l,h,wl,1792);
-
-//  if x<dl then dx:=dl-x else dx:=0;
-//  if y<(dt+dl) then dy:=dt+dl-y else dy:=0;
-
-  if next<>nil then
+  if buttons<>nil then buttons.draw;                      // update the wigdets
+  dma_blit(6,integer(gdata),vx,vy,dest,x,y,l,h,wl,1792);  // then blit the window to the canvas
+  if next<>nil then                                       // and draw the decoration
     begin
     c:=inactivecolor;
     ct:=inactivetextcolor;
@@ -639,12 +396,10 @@ else
     fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
 
     fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
-    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);                        //horizontal scroll bar
+    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);    //horizontal scroll bar active part
 
     fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
-//    fill2d(dest,x+l+3,y,dsv,vsh,1792,scrollcolor+borderdelta-2);                        //vertical scroll bar
-
-    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,1792,activescrollcolor);                        //vertical scroll bar
+    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,1792,activescrollcolor);    //vertical scroll bar active part
 
 
     fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
@@ -659,7 +414,7 @@ else
        for i:=0 to 15 do
          for j:=0 to 15 do
            if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j])
-                                  else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
+                                else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
     else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
     for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+q3+close_icon[i+16*j]);
     for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
@@ -667,81 +422,47 @@ else
   end;
   redraw:=true;
 wt:=gettime-wt;
-//title:='Window time='+inttostr(wt)+' us';
 end;
 
-procedure TFileselector.checkselected;
 
-label p999;
+//------------------------------------------------------------------------------
+// TWindow move method
+// move and resize the window
+// ax,ay - new position on screen if >-2048
+// al,ah - new visible dimensions without decoration if >0
+// avy,avy - new upper left visible canvas pixel if >-1
+//------------------------------------------------------------------------------
 
-var s1:string;
-    sel1:integer;
+procedure TWindow.move(ax,ay,al,ah,avx,avy:integer);
+
+var q:integer;
 
 begin
-if dblclick then
-  begin
-  if filenames[sel,1]='(DIR)' then
-    begin
-    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
-    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
-    title:=currentdir2;
-    end
-  else filename:=lowercase(currentdir2+filenames[sel,0]);
-  end;
-//panel.box(100,0,500,22,11); panel.outtextxy(120,4,filename,0);
-if mk=0 then goto p999;
-sel1:=(my+vy-8) div 16;
-if sel1=sel then goto p999;
-if sel1>ilf-1 then goto p999;
-if (my<8) or (my>h-8) then goto p999;
-if (mx<4) or (mx>l-4) then goto p999;
-box(4,16*sel+8,476,16,147);
-s1:=filenames[sel,0];
-if length(s1)>40 then begin s1:=copy(s1,1,40); end;
-if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(360,8+16*sel,filenames[sel,2],157);   end;
-if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(400,8+16*sel,'(DIR)',157);   end;
+if ay>1090 then ay:=1090;
+if al>0 then l:=al;        // now set new window parameters
+if ah>0 then h:=ah;
 
-sel:=sel1;
+q:=8*length(title)+96;
+if (decoration<>nil) and (al>0) and (al<q) then l:=q;
+if (ah>0) and (ah<64) then h:=64;
+if al>wl then l:=wl;
+if ah>wh then h:=wh;
 
-box(4,16*sel+8,476,16,157);
-s1:=filenames[sel,0];
-if length(s1)>40 then begin s1:=copy(s1,1,40); end;
-if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
-if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
-p999:
+if ax>-2048 then x:=ax;
+if ay>-2048 then y:=ay;
+if avx>-1 then vx:=avx;
+if avy>-1 then vy:=avy;
+
 end;
 
 
-procedure TFileselector.selectnext;
-
-var s1:string;
-
-
-begin
-if sel<ilf-1 then
-  begin
-  sel:=sel+1;
-  if filenames[sel,1]='(DIR)' then
-    begin
-    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
-    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
-    title:=currentdir2;
-    end
-  else filename:=lowercase(currentdir2+filenames[sel,0]);
-
-
-  box(4,16*sel-8,476,16,147);
-  s1:=filenames[sel-1,0];
-  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
-  if filenames[sel-1,1]<>'(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(360,8+16*sel-16,filenames[sel-1,2],157);   end;
-  if filenames[sel-1,1]='(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(400,8+16*sel-16,'(DIR)',157);   end;
-  box(4,16*sel+8,476,16,157);
-  s1:=filenames[sel,0];
-  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
-  if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
-  if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
-  end;
-end;
+//------------------------------------------------------------------------------
+// Twindow checkmouse function
+// This function should be called every vblank for the background window
+// Called for any window returns the window handler for the window on which
+// there is the mouse cursor and reacts to events:
+// by selecting, resizing or moving clicked window
+//------------------------------------------------------------------------------
 
 function TWindow.checkmouse:TWindow;
 
@@ -776,11 +497,6 @@ if mmk=0 then state:=0;
 
 // if mouse key pressed ans there is a window set to move, move it
 
-//hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
-//vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
-//hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
-//vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
-
 if mmk=1 then // find a window with mk=1
   begin
   window:=background;
@@ -794,13 +510,13 @@ if mmk=1 then // find a window with mk=1
     else if state=1 then
       begin
       q:=mmx-window.x+deltax;
-      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;//q:=window.wl-window.vx;
+      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;
       window.move(window.x,window.y, q ,window.h,-1,-1)
       end
     else if state=2 then
       begin
        q:=mmy-window.y+deltay;
-       if q+window.vy>window.wh then begin window.vy:=window.wh-q; if window.vy<0 then begin window.vy:=0; q:=window.wh; end; end;//q:=window.wl-window.vx;
+       if q+window.vy>window.wh then begin window.vy:=window.wh-q; if window.vy<0 then begin window.vy:=0; q:=window.wh; end; end;
        window.move(window.x,window.y, window.l, q,-1,-1)
        end
 
@@ -816,25 +532,19 @@ if mmk=1 then // find a window with mk=1
       end
     else if state=4 then
       begin
-      // sy2:=mmy-window.y-vsp;
-      // vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
-      // q:=round((mmy-sy-window.y+oldvsp)*window.wh/(window.h-vsh));
       q:=round((mmy-window.y-sy)*(window.wh-window.h)/(window.h-vsh));
       if q<0 then q:=0;
       if q>window.wh-window.h then q:=window.wh-window.h;
-      window.move(window.x,window.y, {mmx-window.x+deltax ,mmy-window.y+deltay,}0,0,-1,q);
+      window.move(window.x,window.y,0,0,-1,q);
       end
     else if state=5 then
       begin
       q:=round((mmx-window.x-sx)*(window.wl-window.l)/(window.l-hsw));
       if q<0 then q:=0;
       if q>window.wl-window.l then q:=window.wl-window.l;
-      window.move(window.x,window.y, {mmx-window.x+deltax ,mmy-window.y+deltay,}0,0,q,-1);
+      window.move(window.x,window.y,0,0,q,-1);
       end;
     result:=window;
-//    retromalina.box(0,0,300,100,0);
-//    retromalina.outtextxy(0,0,inttostr(state)+' q='+inttostr(q)+' sx='+inttostr(sy),15);
-
     goto p999;
     end;
   end;
@@ -916,22 +626,58 @@ vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
 
 if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y+window.h))) then begin state:=0; deltax:=0; deltay:=0 end      // window
 else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then begin state:=4;
-             oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh)); sy:=mmy-window.y-vsp; end      // vertical scroll bar
+             oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh)); sy:=mmy-window.y-vsp; end                                   // vertical scroll bar
 else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
 else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.y+window.h)) and (mmy<(window.y+window.h+scrollwidth-1)) then begin state:=5;
-             oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));     sx:=mmx-window.x-hsp; end      // down border
+             oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));     sx:=mmx-window.x-hsp; end                               // horizontal scroll bar
 else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
 else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
 window.mstate:=state;
 if mmw=129 then begin mousewheel:=128; q:=window.vy-16; if q<0 then q:=0; window.vy:=q; end;
 if mmw=127 then begin mousewheel:=128; q:=window.vy+16; if q+window.h>window.wh then q:=window.wh-window.h; window.vy:=q; end;
 if window is TFileselector then TFileselector(window).checkselected;
-
-//retromalina.box(0,0,300,100,0);
-//retromalina.outtextxy(0,0,inttostr(state)+' hsp='+inttostr(hsp)+' hsw='+inttostr(hsw)+' vsp='+inttostr(vsp)+' vsh='+inttostr(vsh),15);
 p999:
 end;
 
+
+//------------------------------------------------------------------------------
+// TWindow resize method
+// Resize the window canvas
+//------------------------------------------------------------------------------
+
+
+procedure TWindow.resize(nwl,nwh:integer);
+
+label p999;
+
+var gd,gd2:pointer;
+    bl,bh:integer;
+    i:integer;
+
+begin
+if (nwl=wl) and (nwh=wh) then goto p999; // nothing to resize
+gd:=getmem(nwl*nwh);
+for i:=0 to nwl*nwh-1 do poke(integer(gd)+i,bg);
+if nwl>wl then bl:=wl else bl:=nwl;
+if nwh>wh then bh:=wh else bh:=nwh;
+blit(integer(gdata),0,0,integer(gd),0,0,bl,bh,wl,nwl);
+gd2:=gdata;
+gdata:=gd;
+wl:=nwl; wh:=nwh;
+waitvbl;
+waitvbl;
+freemem(gd2);
+if l>wl then l:=wl;
+if h>wh then h:=wh;
+if vx+l>wl then vx:=wl-l;
+if vy+h>wh then vy:=wh-h;
+p999:
+end;
+
+//------------------------------------------------------------------------------
+// TWindow select method
+// select the window and place it on top
+//------------------------------------------------------------------------------
 
 procedure Twindow.select;
 
@@ -951,6 +697,14 @@ if (who.next<>nil) and (who<>background) then
   end;
 end;
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TWindow graphic methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+// cls - clear window and fill with color
+
 procedure TWindow.cls(c:integer);
 
 var i,al:integer;
@@ -958,6 +712,9 @@ var i,al:integer;
 begin
 box(0,0,wl,wh,c);
 end;
+
+
+//putpixel - put a pixel to window at ay, ay position in color color
 
 procedure TWindow.putpixel(ax,ay,color:integer); inline;
 
@@ -971,6 +728,9 @@ adr:=cardinal(gdata)+ax+wl*ay;
 poke(adr,color);
 p999:
 end;
+
+
+// getpixel - get a pixel color at position ax, ay
 
 function TWindow.getpixel(ax,ay:integer):integer; inline;
 
@@ -986,18 +746,8 @@ p999:
 end;
 
 
-procedure gputpixel(g:pointer; x,y,color:integer); inline;
-
-label p999;
-
-var adr:integer;
-
-begin
-if (x<0) or (x>=1792) or (y<0) or (y>1120) then goto p999;
-adr:=cardinal(g)+x+1792*y;
-poke(adr,color);
-p999:
-end;
+// putchar - put a 8x16 char ch on the window at ax,ay with color col
+// The char definitions are in SystemFont array
 
 procedure TWindow.putchar(ax,ay:integer;ch:char;col:integer);
 
@@ -1017,23 +767,8 @@ for i:=0 to 15 do
   end;
 end;
 
-procedure gputchar(g:pointer; x,y:integer;ch:char;col:integer);
 
-
-var i,j,start:integer;
-  b:byte;
-
-begin
-for i:=0 to 15 do
-  begin
-  b:=systemfont[ord(ch),i];
-  for j:=0 to 7 do
-    begin
-    if (b and (1 shl j))<>0 then
-      gputpixel(g,x+j,y+i,col);
-    end;
-  end;
-end;
+// putcharz - put a zoomed char, xz,yz - zoom
 
 procedure TWindow.putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);
 
@@ -1055,6 +790,9 @@ for i:=0 to 15 do
   end;
 end;
 
+
+// outtextxy - output a string from x,y position; c-color
+
 procedure TWindow.outtextxy(ax,ay:integer; t:string;c:integer);
 
 var i:integer;
@@ -1063,13 +801,9 @@ begin
 for i:=1 to length(t) do putchar(ax+8*i-8,ay,t[i],c);
 end;
 
-procedure gouttextxy(g:Pointer;x,y:integer; t:string;c:integer);
 
-var i:integer;
 
-begin
-for i:=1 to length(t) do gputchar(g,x+8*i-8,y,t[i],c);
-end;
+// outtextxyz - output a zoomed string
 
 procedure TWindow.outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);
 
@@ -1078,6 +812,10 @@ var i:integer;
 begin
 for i:=0 to length(t)-1 do putcharz(ax+8*xz*i,ay,t[i+1],c,xz,yz);
 end;
+
+
+
+// box - draw a filled box
 
 procedure TWindow.box(ax,ay,al,ah,c:integer);
 
@@ -1128,8 +866,19 @@ p101:        strb r3,[r0],#1  // inner loop
 p999:
 end;
 
-constructor TPanel.create;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TPanel methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
+
+//------------------------------------------------------------------------------
+// Constructor
+//------------------------------------------------------------------------------
+
+
+constructor TPanel.create;
 
 var i,j:integer;
 
@@ -1158,22 +907,309 @@ begin
 end;
 
 
-procedure makeicon;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TFileSelector methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
-var x,y,q:integer;
+
+//------------------------------------------------------------------------------
+// Constructor. A starting directory as a parameter
+//------------------------------------------------------------------------------
+
+
+constructor TFileselector.create(adir:string);
+
+
+var who:TWindow;
+    i,j:integer;
 
 begin
-for x:=0 to 15 do
-  for y:=0 to 15 do
+mstate:=0;
+who:=background;
+while who.next<>nil do who:=who.next;
+dir:=adir;
+handle:=self;
+x:=0;
+y:=0;
+mx:=-1;
+my:=-1;
+mk:=0;
+vx:=0;
+vy:=0;
+l:=0;
+h:=0;
+bg:=0;
+wl:=480;
+wh:=1000;
+gdata:=getmem(wl*wh);
+dirlist;
+makeicon;
+buttons:=nil;
+next:=nil;
+visible:=false;
+resizable:=true;
+prev:=who;
+title:=adir;
+decoration:=TDecoration.create;
+decoration.title:=getmem(wl*titleheight);
+decoration.hscroll:=true;
+decoration.vscroll:=true;
+decoration.up:=true;
+decoration.down:=true;
+decoration.close:=true;
+who.next:=self;
+end;
+
+
+//------------------------------------------------------------------------------
+// TPanel dirlist method
+// Lists a directory in the file selector
+// To be called when there is a need to change directory
+//------------------------------------------------------------------------------
+
+
+procedure TFileselector.dirlist;
+
+var c:char;
+    i,j:integer;
+    dd:boolean;
+
+begin
+for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
+currentdir2:=dir;
+setcurrentdir(currentdir2);
+currentdir2:=getcurrentdir;
+if copy(currentdir2,length(currentdir2),1)<>'\' then currentdir2:=currentdir2+'\';
+s:=currentdir2;
+ilf:=0;
+if length(currentdir2)=3 then
+for c:='A' to 'Z' do
+  begin
+  if drivetable[c] then
     begin
-    q:=balls[2*x+2*y*32];
-    if ((q shr 8) and 255) >= (q and 255) then icon[x,y]:=((q and 255) shr 4) else icon[x,y]:=32+(q and 255) shr 4;
-    if q=0 then icon[x,y]:=0;
+    filenames[ilf,0]:=c+':\';
+    filenames[ilf,1]:='(DIR)';
+    ilf+=1;
     end;
+  end;
+
+currentdir:=currentdir2+'*';
+if findfirst(currentdir,fadirectory,sr)=0 then
+  repeat
+  if (sr.attr and faDirectory) = faDirectory then
+    begin
+    filenames[ilf,0]:=sr.name;
+    filenames[ilf,1]:='(DIR)';
+    ilf+=1;
+    end;
+  until (findnext(sr)<>0) or (ilf=1000);
+sysutils.findclose(sr);
+
+// ntfs no .. patch
+
+dd:=false;
+for i:=0 to ilf do if filenames[i,0]='..' then dd:=true;
+if (not dd) and (length(currentdir2)>3) then
+  begin
+  filenames[ilf,0]:='..';
+  filenames[ilf,1]:='(DIR)';
+  ilf+=1;
+  end;
+
+currentdir:=currentdir2+'*.*';
+if findfirst(currentdir,$20,sr)=0 then
+  repeat
+  filenames[ilf,0]:=sr.name;
+  filenames[ilf,1]:='z';
+  filenames[ilf,2]:=inttostr(sr.size);
+  ilf+=1;
+  until (findnext(sr)<>0) or (ilf=1000);
+sysutils.findclose(sr);
+
+sort;
+bg:=147;
+j:= 16*ilf+16;
+if j<500 then j:=500;
+resize(480,j) ;
+vx:=0; vy:=0;
+if wh<500 then h:=wh else h:=500;
+cls(bg);
+for i:=0 to ilf-1 do
+  begin
+  s:=filenames[i,0];
+  if length(s)>40 then begin s:=copy(s,1,40); {l:=40;} end;
+  for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
+  if filenames[i,1]<>'(DIR)' then if length(filenames[i,2])<10 then for j:=10 downto length(filenames[i,2])+1 do filenames[i,2]:=' '+filenames[i,2];
+  if filenames[i,1]<>'(DIR)' then filenames[i,2]:=copy(filenames[i,2],1,1)+' '+copy(filenames[i,2],2,3)+' '+copy(filenames[i,2],5,3)+' '+copy(filenames[i,2],8,3);
+
+  if filenames[i,1]<>'(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(360,8+16*i,filenames[i,2],157);   end;
+  if filenames[i,1]='(DIR)' then begin outtextxy(8,8+16*i,s,157);  outtextxy(400,8+16*i,'(DIR)',157);   end;
+  end;
+sel:=0; selstart:=0;
+end;
+
+
+//------------------------------------------------------------------------------
+// TFileselector sort method
+// A simple bubble sort for filenames
+// -----------------------------------------------------------------------------
+
+
+procedure TFileselector.sort;
+
+var i,j:integer;
+    s1,s2,s3:string;
+
+begin
+repeat
+  j:=0;
+  for i:=0 to ilf-2 do
+    begin
+    if (copy(filenames[i,0],3,1)<>'\') and (lowercase(filenames[i,1]+filenames[i,0])>lowercase(filenames[i+1,1]+filenames[i+1,0])) then
+      begin
+      s1:=filenames[i,0]; s2:=filenames[i,1]; s3:=filenames[i,2];
+      filenames[i,0]:=filenames[i+1,0];
+      filenames[i,1]:=filenames[i+1,1];
+      filenames[i,2]:=filenames[i+1,2];
+      filenames[i+1,0]:=s1; filenames[i+1,1]:=s2; filenames[i+1,2]:=s3;
+      j:=1;
+      end;
+    end;
+until j=0;
+end;
+
+
+//------------------------------------------------------------------------------
+// TFileselector checkselected method;
+// On clicks, select a file entry
+// On double click, set filename variable to clicked file name
+//------------------------------------------------------------------------------
+
+procedure TFileselector.checkselected;
+
+label p999;
+
+var s1:string;
+    sel1:integer;
+
+begin
+if dblclick then
+  begin
+  if filenames[sel,1]='(DIR)' then
+    begin
+    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
+    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
+    title:=currentdir2;
+    end
+  else filename:=lowercase(currentdir2+filenames[sel,0]);
+  end;
+
+if mk=0 then goto p999;
+sel1:=(my+vy-8) div 16;
+if sel1=sel then goto p999;
+if sel1>ilf-1 then goto p999;
+if (my<8) or (my>h-8) then goto p999;
+if (mx<4) or (mx>l-4) then goto p999;
+box(4,16*sel+8,476,16,147);
+s1:=filenames[sel,0];
+if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(360,8+16*sel,filenames[sel,2],157);   end;
+if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,157);  outtextxy(400,8+16*sel,'(DIR)',157);   end;
+
+sel:=sel1;
+
+box(4,16*sel+8,476,16,157);
+s1:=filenames[sel,0];
+if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
+if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
+p999:
+end;
+
+
+//------------------------------------------------------------------------------
+// TFileselector selectnext method
+// A temporary method for selecting next entry in the file list
+//------------------------------------------------------------------------------
+
+procedure TFileselector.selectnext;
+
+var s1:string;
+
+begin
+if sel<ilf-1 then
+  begin
+  sel:=sel+1;
+  if filenames[sel,1]='(DIR)' then
+    begin
+    if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
+    else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
+    title:=currentdir2;
+    end
+  else filename:=lowercase(currentdir2+filenames[sel,0]);
+
+  box(4,16*sel-8,476,16,147);
+  s1:=filenames[sel-1,0];
+  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+  if filenames[sel-1,1]<>'(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(360,8+16*sel-16,filenames[sel-1,2],157);   end;
+  if filenames[sel-1,1]='(DIR)' then begin outtextxy(8,8+16*sel-16,s1,157);  outtextxy(400,8+16*sel-16,'(DIR)',157);   end;
+  box(4,16*sel+8,476,16,157);
+  s1:=filenames[sel,0];
+  if length(s1)>40 then begin s1:=copy(s1,1,40); end;
+  if filenames[sel,1]<>'(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(360,8+16*sel,filenames[sel,2],147);   end;
+  if filenames[sel,1]='(DIR)' then begin outtextxy(8,8+16*sel,s1,147);  outtextxy(400,8+16*sel,'(DIR)',147);   end;
+  end;
 end;
 
 //------------------------------------------------------------------------------
-// button
+//------------------------------------------------------------------------------
+// Window decoration
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+// Constructor
+
+constructor TDecoration.create;
+
+begin
+inherited create;
+title:=nil;
+hscroll:=false;
+vscroll:=false;
+up:=false;
+down:=false;
+close:=false;
+end;
+
+
+// Destructor
+
+destructor TDecoration.destroy;
+
+begin
+if title<>nil then freemem(title);
+end;
+
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TButton - a button widget
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+// TButton constructor
+// Parameters: ax,ay: position in window
+// al,ah - width and height
+// ac1 - button main color
+// ac2 - button text color
+// aname - text on the button
+// g - windows on which the button will be displayed
+// todo: icon
 //------------------------------------------------------------------------------
 
 constructor TButton.create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
@@ -1193,6 +1229,11 @@ self.show;
 end;
 
 
+//------------------------------------------------------------------------------
+// TButton destructor
+//------------------------------------------------------------------------------
+
+
 destructor TButton.destroy;
 
 begin
@@ -1206,25 +1247,23 @@ if last=nil then granny.buttons:=nil;
 inherited destroy;
 end;
 
+//------------------------------------------------------------------------------
+// TButton append function
+// Creates a button and appends it to the widget chain
+//------------------------------------------------------------------------------
 
-procedure TButton.setvalue(v:integer);
-
-begin
-value:=v;
-end;
-
-function TButton.findselected:TButton;
-
-var temp:TButton;
+function TButton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
 
 begin
-temp:=self.gofirst;
-while not (temp=nil) do
-  begin
-  if temp.selected then break else temp:=temp.next;
-  end;
-result:=temp;
+next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
+next.setparent(self);
+result:=next;
 end;
+
+//------------------------------------------------------------------------------
+// TButton checkmouse method
+// Check if the mouse cursor is on the button
+//------------------------------------------------------------------------------
 
 function TButton.checkmouse:boolean;
 
@@ -1236,6 +1275,10 @@ my:=mousey-granny.y+granny.vy;
 if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
+
+//------------------------------------------------------------------------------
+// TButton highlight metod - highlight the button
+//------------------------------------------------------------------------------
 
 procedure TButton.highlight;
 
@@ -1249,6 +1292,11 @@ if visible and not highlighted then begin
   end;
 end;
 
+//------------------------------------------------------------------------------
+// TButton unhighlight metod - restore the button's normal color
+//------------------------------------------------------------------------------
+
+
 procedure TButton.unhighlight;
 
 begin
@@ -1260,21 +1308,11 @@ if visible and highlighted then begin
   end;
 end;
 
-procedure TButton.draw;
 
-var l2,a:integer;
-
-begin
-if selected or down then a:=-2 else a:=2;
-granny.box(x,y,l,h,c1+a);
-granny.box(x,y+3,l-3,h-3,c1-a);
-granny.putpixel(x,y+1,c1-a); granny.putpixel(x,y+2,c1-a); granny.putpixel(x+1,y+2,c1-a);
-granny.putpixel(x+l-3,y+h-2,c1-a); granny.putpixel(x+l-3,y+h-1,c1-a); granny.putpixel(x+l-2,y+h-1,c1-a);
-granny.box(x+3,y+3,l-6,h-6,c1);
-l2:=length(s)*4*fsx;
-granny.outtextxyz(x+(l div 2)-l2,y+(h div 2)-8*fsy,s,c2,fsx,fsy);
-end;
-
+//------------------------------------------------------------------------------
+// TButton show metod - make a button visible. Obsolete in this version
+// The visible atribute change now changes visibility without need to call this
+//------------------------------------------------------------------------------
 
 procedure TButton.show;
 
@@ -1282,19 +1320,24 @@ var i,j,k:integer;
     p:^integer;
 
 begin
-if not visible then begin
-p:=gdata;
-k:=0;
-for i:=y to y+h-1 do
-  for j:=x to x+l-1 do
-    begin
-    (p+k)^:=granny.getpixel(j,i);
-    k+=1;
-    end;
-draw;
-visible:=true;
+if not visible then
+  begin
+  p:=gdata;
+  k:=0;
+  for i:=y to y+h-1 do
+    for j:=x to x+l-1 do
+      begin
+      (p+k)^:=granny.getpixel(j,i);
+      k+=1;
+      end;
+  draw;
+  visible:=true;
+  end;
 end;
-end;
+
+//------------------------------------------------------------------------------
+// TButton hide metod - make a button disappear. Obsolete in this version
+//------------------------------------------------------------------------------
 
 procedure TButton.hide;
 
@@ -1316,7 +1359,13 @@ if visible then begin
 end;
 
 
+//------------------------------------------------------------------------------
+// TButton select method.
+// -----------------------------------------------------------------------------
+
 procedure TButton.select;
+
+// TODO: use radiobutton groups
 
 var c:integer;
     temp:TButton;
@@ -1340,6 +1389,11 @@ if visible and selectable and not selected then begin
    end;
 end;
 
+
+//------------------------------------------------------------------------------
+// TButton unselect method.
+// -----------------------------------------------------------------------------
+
 procedure TButton.unselect;
 
 begin
@@ -1350,13 +1404,29 @@ if visible and selectable and selected then begin
   end;
 end;
 
-function TButton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
+
+//------------------------------------------------------------------------------
+//TButton draw method
+//------------------------------------------------------------------------------
+
+procedure TButton.draw;
+
+var l2,a:integer;
 
 begin
-next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
-next.setparent(self);
-result:=next;
+if selected or down then a:=-2 else a:=2;
+granny.box(x,y,l,h,c1+a);
+granny.box(x,y+3,l-3,h-3,c1-a);
+granny.putpixel(x,y+1,c1-a); granny.putpixel(x,y+2,c1-a); granny.putpixel(x+1,y+2,c1-a);
+granny.putpixel(x+l-3,y+h-2,c1-a); granny.putpixel(x+l-3,y+h-1,c1-a); granny.putpixel(x+l-2,y+h-1,c1-a);
+granny.box(x+3,y+3,l-6,h-6,c1);
+l2:=length(s)*4*fsx;
+granny.outtextxyz(x+(l div 2)-l2,y+(h div 2)-8*fsy,s,c2,fsx,fsy);
 end;
+
+//------------------------------------------------------------------------------
+// TButton setparent, setdesc methods - set the parent/descendent in the widget chain
+//------------------------------------------------------------------------------
 
 procedure TButton.setparent(parent:TButton);
 
@@ -1370,12 +1440,54 @@ begin
 next:=desc;
 end;
 
+
+//------------------------------------------------------------------------------
+// TButton gofirst - find the first button in the widget chain
+//------------------------------------------------------------------------------
+
 function TButton.gofirst:TButton;
 
 begin
 result:=self;
 while result.last<>nil do result:=result.last;
 end;
+
+//------------------------------------------------------------------------------
+// TButton findselected - find the selected button in the widget chain
+//------------------------------------------------------------------------------
+
+function TButton.findselected:TButton;
+
+// todo:use radiobutton groups
+
+var temp:TButton;
+
+begin
+temp:=self.gofirst;
+while not (temp=nil) do
+  begin
+  if temp.selected then break else temp:=temp.next;
+  end;
+result:=temp;
+end;
+
+
+//------------------------------------------------------------------------------
+// TButton setvalue - set a value property of the button
+//------------------------------------------------------------------------------
+
+procedure TButton.setvalue(v:integer);
+
+begin
+value:=v;
+end;
+
+
+//------------------------------------------------------------------------------
+// TButton checkall metod
+// checks all widgets in the chain for events
+// and reacts
+//------------------------------------------------------------------------------
 
 procedure TButton.checkall;
 
@@ -1389,22 +1501,24 @@ temp:=self.gofirst;
 while temp<>nil do
   begin
   cm:=temp.checkmouse;
-//  retromalina.box(0,0,100,100,0) ;
-//  retromalina.outtextxy(0,0,inttostr(mousek),15);
-
   if cm and (mousek=0) then begin temp.highlight; temp.down:=false; end;
   if cm and (mousek=1) then begin temp.unhighlight; temp.down:=true; end;
   if not cm then begin temp.down:=false; temp.unhighlight; end;
-  if cm and click {(peek(base+$60030)=1)} then begin
-      if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
-      temp.clicked:=1;
-    //  poke(base+$60030,0);
-      end;
+  if cm and click {(peek(base+$60030)=1)} then
+    begin
+    if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
+    temp.clicked:=1;
+    end;
   temp:=temp.next;
-
   end;
 p999:
 end;
+
+
+//------------------------------------------------------------------------------
+// TButton box method
+// draw a box on the button surface
+//------------------------------------------------------------------------------
 
 procedure TButton.box(ax,ay,al,ah,c:integer);
 
@@ -1455,7 +1569,79 @@ p101:        strb r3,[r0],#1  // inner loop
 p999:
 end;
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Additional temporary helper procedures
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
+// Put pixel on a non assigned canvas given by the pointer
+
+procedure gputpixel(g:pointer; x,y,color:integer); inline;
+
+label p999;
+
+var adr:integer;
+
+begin
+if (x<0) or (x>=1792) or (y<0) or (y>1120) then goto p999;
+adr:=cardinal(g)+x+1792*y;
+poke(adr,color);
+p999:
+end;
+
+// Put char on a non assigned canvas given by the pointer
+
+procedure gputchar(g:pointer; x,y:integer;ch:char;col:integer);
+
+
+var i,j,start:integer;
+  b:byte;
+
+begin
+for i:=0 to 15 do
+  begin
+  b:=systemfont[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (1 shl j))<>0 then
+      gputpixel(g,x+j,y+i,col);
+    end;
+  end;
+end;
+
+
+// Output a string on a non assigned canvas given by the pointer
+
+
+procedure gouttextxy(g:Pointer;x,y:integer; t:string;c:integer);
+
+var i:integer;
+
+begin
+for i:=1 to length(t) do gputchar(g,x+8*i-8,y,t[i],c);
+end;
+
+
+// Make a temporary icon for a window from the red ball sprite
+
+procedure makeicon;
+
+var x,y,q:integer;
+
+begin
+for x:=0 to 15 do
+  for y:=0 to 15 do
+    begin
+    q:=balls[2*x+2*y*32];
+    if ((q shr 8) and 255) >= (q and 255) then icon[x,y]:=((q and 255) shr 4) else icon[x,y]:=32+(q and 255) shr 4;
+    if q=0 then icon[x,y]:=0;
+    end;
+end;
+
+//------------------------------------------------------------------------------
+// The end of the unit
+//------------------------------------------------------------------------------
 
 end.
 
