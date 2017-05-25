@@ -13,7 +13,7 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, retro;
 
 const mapbase=$30800000;
       framewidth=4;
@@ -21,7 +21,7 @@ const mapbase=$30800000;
 type TWindow=class;
      TDecoration=class;
      TButton=class;
-
+     TIcon=class;
 
 
 //------------------------------------------------------------------------------
@@ -46,6 +46,7 @@ type TWindow=class(TObject)
      active:boolean;                        // if false, window doesn't need redrawing
      title:string;                          // window title
      buttons:TButton;                       // widget chain start
+     icons:TIcon;
      mstate:integer;                        // mouse position state
 
      // The constructor. al, ah - graphic canvas dimensions
@@ -147,26 +148,51 @@ type TButton=class(TObject)
      next,last:TButton;
      granny:TWindow;
 
-  constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
-  destructor destroy; override;
-  function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
-  function checkmouse:boolean;
-  procedure highlight;
-  procedure unhighlight;
-  procedure show;
-  procedure hide;
-  procedure select;
-  procedure unselect;
-  procedure draw;
+     constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
+     destructor destroy; override;
+     function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
+     function checkmouse:boolean;
+     procedure highlight;
+     procedure unhighlight;
+     procedure show;
+     procedure hide;
+     procedure select;
+     procedure unselect;
+     procedure draw;
 
-  procedure setparent(parent:TButton);
-  procedure setdesc(desc:TButton);
-  function gofirst:TButton;
-  function findselected:TButton;
-  procedure setvalue(v:integer);
-  procedure checkall;
-  procedure box(ax,ay,al,ah,c:integer);
-  end;
+     procedure setparent(parent:TButton);
+     procedure setdesc(desc:TButton);
+     function gofirst:TButton;
+     function findselected:TButton;
+     procedure setvalue(v:integer);
+     procedure checkall;
+     procedure box(ax,ay,al,ah,c:integer);
+     end;
+
+
+
+type TIcon=class(TObject)
+
+     x,y,l,h:integer;
+     size:integer;
+     title:string;
+     granny:TWindow;
+     icon16:TIcon16;
+     icon32:TIcon32;
+     icon48:TIcon48;
+     highlighted:boolean;
+     bg:array[0..2303] of byte;
+     bg2:array[0..2047] of byte;
+     next,last:TIcon;
+     constructor create(atitle:string;g:TWindow);
+     procedure draw;
+     procedure move(ax,ay:integer);
+     function append(atitle:string):TIcon;
+     function checkmouse:boolean;
+     procedure highlight;
+     procedure unhighlight;
+     procedure checkall;
+     end;
 
 
 var background:TWindow=nil;  // A mother of all windows except the panel
@@ -202,7 +228,7 @@ procedure makeicon;
 
 implementation
 
-uses retromalina,blitter,retro;
+uses retromalina,blitter;
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -246,6 +272,7 @@ if background<>nil then   // there ia s background so create a normal window
   wl:=al;
   wh:=ah;
   buttons:=nil;
+  icons:=nil;
   next:=nil;
   visible:=false;
   resizable:=true;
@@ -281,6 +308,7 @@ else                    // no background, create one
   wh:=ah;                     // windows l,h
   bg:=202;                    // todo: get color from a theme
   buttons:=nil;
+  icons:=nil;
   gdata:=pointer(backgroundaddr);  // graphic memory address
                                    // The window manager works at the top
                                    // of the retromachine. The background window
@@ -1567,6 +1595,149 @@ p101:        strb r3,[r0],#1  // inner loop
              end;
 
 p999:
+end;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TIcon class
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+constructor TIcon.create(atitle:string; g:TWindow);
+begin
+inherited create;
+title:=atitle;
+granny:=g;
+if granny.icons=nil then granny.icons:=self;
+next:=nil; last:=nil;
+highlighted:=false;
+end;
+
+
+function TIcon.append(atitle:string):TIcon;
+
+var temp,temp2:TIcon;
+
+begin
+temp:=TIcon.create(atitle,granny);
+temp2:=self;
+while temp2.next<>nil do temp2:=temp2.next;
+temp2.next:=temp;
+temp.last:=temp2;
+result:=temp;
+end;
+
+
+procedure Ticon.draw;
+
+var i,j,ll:integer;
+
+begin
+blit(integer(granny.gdata),40+x,16+y,integer(@bg),0,0,48,48,granny.wl,48);
+for i:=0 to 47 do
+  for j:=0 to 47 do
+    begin
+    if icon48[j+48*i]<>0 then granny.putpixel(40+x+j,16+y+i,icon48[j+48*i]);
+    end;
+blit(integer(granny.gdata),x,y+72,integer(@bg2),0,0,128,16,granny.wl,48);
+for i:=0 to 15 do
+  for j:=0 to 127 do
+    begin
+    bg2[j+128*i]:=granny.getpixel(x+j,y+72+i);
+    end;
+ll:=length(title);
+background.outtextxy(x+64-(ll *4),y+72,title,0);
+end;
+
+procedure TIcon.move(ax,ay:integer);
+
+var i,j:integer;
+
+begin
+for i:=0 to 47 do
+  for j:=0 to 47 do
+    begin
+    granny.putpixel(40+x+j,16+y+i,bg[j+48*i]);
+    end;
+for i:=0 to 15 do
+  for j:=0 to 127 do
+    begin
+    granny.putpixel(x+j,y+72+i,bg2[j+128*i]);
+    end;
+
+  x:=ax; y:=ay; draw;
+end;
+
+function TIcon.checkmouse:boolean;
+
+var mx,my:integer;
+
+begin
+if granny<>background then
+  begin
+  mx:=mousex-granny.x+granny.vx;
+  my:=mousey-granny.y+granny.vy;
+  end
+else
+  begin
+  mx:=mousex;
+  my:=mousey;
+  end;
+if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+end;
+
+procedure TIcon.highlight;
+
+var i,j,q:integer;
+
+begin
+if not highlighted then
+  begin
+  highlighted:=true;
+  for i:=0 to 95 do
+    begin
+    for j:=0 to 127 do
+      begin
+      q:=granny.getpixel(x+j,y+i);
+      if q=granny.bg then granny.putpixel(x+j,y+i,q-5);
+      end;
+    end;
+  end;
+end;
+
+procedure TIcon.unhighlight;
+
+var i,j,q:integer;
+
+begin
+if highlighted then
+  begin
+  highlighted:=false;
+  for i:=0 to 95 do
+    begin
+    for j:=0 to 127 do
+      begin
+      q:=granny.getpixel(x+j,y+i);
+      if q=granny.bg-5 then granny.putpixel(x+j,y+i,q+5);
+      end;
+    end;
+  end;
+end;
+
+procedure TIcon.checkall;
+
+var temp:TIcon;
+
+begin
+temp:=self;
+while temp.last<>nil do temp:=temp.last;
+
+repeat
+  if temp.checkmouse then temp.highlight else temp.unhighlight;
+  temp:=temp.next;
+until temp=nil;
+
 end;
 
 //------------------------------------------------------------------------------

@@ -7,6 +7,8 @@ uses
   GlobalConfig,
   GlobalConst,
   GlobalTypes,
+
+
   Platform,
   Threads,
   dos,
@@ -19,6 +21,8 @@ uses
   FATFS,       {Include the FAT file system driver}
   ntfs,
   BCM2710,
+  ds1307,
+  rtc,
   Ultibo,
   retrokeyboard,    {Keyboard uses USB so that will be included automatically}
   retromouse,
@@ -28,7 +32,8 @@ uses
   screen,
   mp3,
   blitter,
- // retro,
+//  timezone;
+  retro,
   simpleaudio,scripttest,xmp, mwindows;
 
 
@@ -64,7 +69,7 @@ var s,currentdir,currentdir2:string;
 
     wh,scope:Twindow;
     sel1:TFileselector;
-
+    testicon, trash, calculator, console:TIcon;
 // ---- procedures
 
 procedure waveopen (var fh:integer);
@@ -218,225 +223,11 @@ cia:=read6502($dc04)+256*read6502($dc05);
 fi.outtextxy (10,270,'cia:       '+inttohex(read6502($dc04)+256*read6502($dc05),4),178);
 end;
 
-   {
-procedure sort;
 
-// A simple bubble sort for filenames
-
-var i,j:integer;
-    s,s2:string;
-
-begin
-repeat
-  j:=0;
-  for i:=0 to ilf-2 do
-    begin
-    if (copy(filenames[i,0],3,1)<>'\') and (lowercase(filenames[i,1]+filenames[i,0])>lowercase(filenames[i+1,1]+filenames[i+1,0])) then
-      begin
-      s:=filenames[i,0]; s2:=filenames[i,1];
-      filenames[i,0]:=filenames[i+1,0];
-      filenames[i,1]:=filenames[i+1,1];
-      filenames[i+1,0]:=s; filenames[i+1,1]:=s2;
-      j:=1;
-      end;
-    end;
-until j=0;
-end;
-
-    }
-
-{
-procedure dirlist(dir:string);
-
-var c:char;
-    i:integer;
-    dd:boolean;
-
-begin
-for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
-currentdir2:=dir;
-setcurrentdir(currentdir2);
-currentdir2:=getcurrentdir;
-if copy(currentdir2,length(currentdir2),1)<>'\' then currentdir2:=currentdir2+'\';
-box2(897,67,1782,115,36);
-box2(897,118,1782,1008,34);
-s:=currentdir2;
-if length(s)>55 then s:=copy(s,1,55);
-l:=length(s);
-outtextxyz(1344-8*l,75,s,44,2,2);
-ilf:=0;
-if length(currentdir2)=3 then
-for c:='A' to 'Z' do
-  begin
-  if drivetable[c] then
-    begin
-    filenames[ilf,0]:=c+':\';
-    filenames[ilf,1]:='(DIR)';
-    ilf+=1;
-    end;
-  end;
-
-currentdir:=currentdir2+'*';
-if findfirst(currentdir,fadirectory,sr)=0 then
-  repeat
-  if (sr.attr and faDirectory) = faDirectory then
-    begin
-    filenames[ilf,0]:=sr.name;
-    filenames[ilf,1]:='(DIR)';
-    ilf+=1;
-    end;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-// ntfs no .. patch
-
-dd:=false;
-for i:=0 to ilf do if filenames[i,0]='..' then dd:=true;
-if (not dd) and (length(currentdir2)>3) then
-  begin
-  filenames[ilf,0]:='..';
-  filenames[ilf,1]:='(DIR)';
-  ilf+=1;
-  end;
-//box(100,100,100,100,0); if dd then outtextxy(100,100,'true',40) else outtextxy(100,100,'false',40);
-
-
-currentdir:=currentdir2+'*.sid';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='sid';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.dmp';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='dmp';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.wav';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='wav';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.mp3';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='mp3';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.mp2';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='mp2';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.s48';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='s48';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.mod';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='mod';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.xm';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='xm';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.s3m';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='s3m';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-currentdir:=currentdir2+'*.it';
-if findfirst(currentdir,faAnyFile,sr)=0 then
-  repeat
-  filenames[ilf,0]:=sr.name;
-  filenames[ilf,1]:='it';
-  ilf+=1;
-  until (findnext(sr)<>0) or (ilf=1000);
-sysutils.findclose(sr);
-
-sort;
-
-box(920,132,840,32,36);
-if ilf<26 then ild:=ilf-1 else ild:=26;
-for i:=0 to ild do
-  begin
-  if filenames[i,1]<>'(DIR)' then l:=length(filenames[i,0])-4 else  l:=length(filenames[i,0]);
-  if filenames[i,1]<>'(DIR)' then  s:=copy(filenames[i,0],1,length(filenames[i,0])-4) else s:=filenames[i,0];
-  if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
-  for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-  if filenames[i,1]<>'(DIR)' then outtextxyz(1344-8*l,132+32*i,s,44,2,2);
-  if filenames[i,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*i,s,44,2,2);  outtextxyz(1672,132+32*i,'(DIR)',44,2,2);   end;
-  end;
-sel:=0; selstart:=0;
-box2(897,67,1782,115,36);
-s:=currentdir2;
-if length(s)>55 then s:=copy(s,1,55);
-l:=length(s);
-outtextxyz(1344-8*l,75,s,44,2,2);
-end;
-
-}
-{
-procedure initframebuffer;
-
-begin
-fb:=FramebufferDevicegetdefault;
-FramebufferDeviceRelease(fb);
-Sleep(100);
-FramebufferProperties.Depth:=32;
-FramebufferProperties.PhysicalWidth:=1920;
-FramebufferProperties.PhysicalHeight:=1200;
-FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
-FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
-FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(100);
-FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address);
-
-end;
- }
 //------------------- The main program
 
 begin
 
-//background_init(147);
 initmachine;
 initscreen;
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
@@ -457,14 +248,16 @@ else
   systemrestart(0);
   end;
 
-if fileexists(drive+'now.txt') then
-  begin
-  assignfile(f,drive+'now.txt');
-  reset(f);
-  read(f,hh); read(f,mm); read(f,ss);
-  closefile(f);
-  settime(hh,mm,ss,0);
-  end;
+t:=SysRTCGetTime;
+if t=0 then
+  if fileexists(drive+'now.txt') then
+    begin
+    assignfile(f,drive+'now.txt');
+    reset(f);
+    read(f,hh); read(f,mm); read(f,ss);
+    closefile(f);
+    settime(hh,mm,ss,0);
+    end;
 
 if fileexists(drive+'kernel7_l.img') then
   begin
@@ -474,11 +267,6 @@ if fileexists(drive+'kernel7_l.img') then
 
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
-
-
-
-//workdir:='C:\';
-//dirlist('C:\');
 songtime:=0;
 siddelay:=20000;
 setcurrentdir(workdir);
@@ -487,26 +275,32 @@ threadsleep(1);
 startreportbuffer;
 startmousereportbuffer;
 sel1 :=Tfileselector.create('C:\');
-sel1.move(100,100,400,600,-1,-1);
+sel1.move(900,100,400,600,-1,-1);
+testicon:=TIcon.create('My computer',background);
+testicon.icon48:=i48_computer;
+testicon.x:=0; testicon.y:=0; testicon.size:=48; testicon.l:=128; testicon.h:=96; testicon.draw;
+trash:=testicon.append('Trash');
+trash.icon48:=i48_trash;
+trash.x:=0; trash.y:=960; trash.size:=48; trash.l:=128; trash.h:=96; trash.draw;
+calculator:=Testicon.append('Calculator');
+calculator.icon48:=i48_calculator;
+calculator.x:=128; calculator.y:=0; calculator.size:=48; calculator.l:=128; calculator.h:=96; calculator.draw;
+console:=Testicon.append('Console');
+console.icon48:=i48_terminal;
+console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; console.draw;
 
 //------------------- The main loop
 
 repeat
-
+//t:=SysRTCGetTime;
+//box(0,0,200,32,0);
+//outtextxy(0,0,inttostr(t),15);
+  background.icons.checkall;
   refreshscreen;
   key:=readkey and $FF;
   wh:=panel.checkmouse;
   wh:=background.checkmouse;
 //  if wh<>@background  then goto p998;
-//   box(600,100,200,500,0);
-//   outtextxy(600,100,'mousedoubleclick '+inttostr(mousedblclick),15);
-//   outtextxy(600,116,'oscilloscope y '+inttostr(sc.y),15);
-//   outtextxy(600,132,'oscilloscope wl '+inttostr(sc.wl),15);
-//   outtextxy(600,148,'oscilloscope wh '+inttostr(sc.wh),15);
-//   outtextxy(600,164,'oscilloscope vx '+inttostr(sc.vx),15);
-//   outtextxy(600,180,'oscilloscope vy '+inttostr(sc.vy),15);
-//   outtextxy(600,196,'oscilloscope l '+inttostr(sc.l),15);
-//   outtextxy(600,212,'oscilloscope h '+inttostr(sc.h),15);
 
 if (nextsong=2) then begin nextsong:=0; sel1.selectnext; end;      // play the next song
 if (nextsong=1) then begin nextsong:=2; end;  // select the nest song
