@@ -334,11 +334,11 @@ setpallette(ataripallette,1);
 setpallette(ataripallette,2);
 setpallette(ataripallette,3);
 
-sethidecolor(250,0,$80);   // the sprites will hide behind these colors
-sethidecolor(44,0,$80);
-sethidecolor(190,0,$80);
-sethidecolor(188,0,$80);
-sethidecolor(154,0,$80);
+//sethidecolor(250,0,$80);   // the sprites will hide behind these colors
+//sethidecolor(44,0,$80);
+//sethidecolor(190,0,$80);
+//sethidecolor(188,0,$80);
+//sethidecolor(154,0,$80);
 
 // prepare the scroll bar
 

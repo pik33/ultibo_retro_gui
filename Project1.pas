@@ -265,6 +265,8 @@ if fileexists(drive+'kernel7_l.img') then
   RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
   end;
 
+fh:=fileopen(drive+'wallpaper.rbm',$40);
+fileread(fh,pointer($30000000)^,1792*1120);
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 songtime:=0;
@@ -293,8 +295,8 @@ console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; c
 
 repeat
 //t:=SysRTCGetTime;
-//box(0,0,200,32,0);
-//outtextxy(0,0,inttostr(t),15);
+//box(1000,800,200,32,0);
+//outtextxy(1000,800,inttostr(console.mx)+' '+inttostr(console.my),15);
   background.icons.checkall;
   refreshscreen;
   key:=readkey and $FF;

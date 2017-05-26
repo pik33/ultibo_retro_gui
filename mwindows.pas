@@ -174,6 +174,7 @@ type TButton=class(TObject)
 type TIcon=class(TObject)
 
      x,y,l,h:integer;
+     mx,my:integer;
      size:integer;
      title:string;
      granny:TWindow;
@@ -181,8 +182,8 @@ type TIcon=class(TObject)
      icon32:TIcon32;
      icon48:TIcon48;
      highlighted:boolean;
-     bg:array[0..2303] of byte;
-     bg2:array[0..2047] of byte;
+     bg:array[0..12287] of byte;
+//     bg2:array[0..2047] of byte;
      next,last:TIcon;
      constructor create(atitle:string;g:TWindow);
      procedure draw;
@@ -191,6 +192,7 @@ type TIcon=class(TObject)
      function checkmouse:boolean;
      procedure highlight;
      procedure unhighlight;
+     procedure arrange;
      procedure checkall;
      end;
 
@@ -1634,110 +1636,179 @@ procedure Ticon.draw;
 var i,j,ll:integer;
 
 begin
-blit(integer(granny.gdata),40+x,16+y,integer(@bg),0,0,48,48,granny.wl,48);
+blit8(integer(granny.gdata),x,y,integer(@bg),0,0,128,96,granny.wl,128);
 for i:=0 to 47 do
   for j:=0 to 47 do
     begin
     if icon48[j+48*i]<>0 then granny.putpixel(40+x+j,16+y+i,icon48[j+48*i]);
     end;
-blit(integer(granny.gdata),x,y+72,integer(@bg2),0,0,128,16,granny.wl,48);
-for i:=0 to 15 do
-  for j:=0 to 127 do
-    begin
-    bg2[j+128*i]:=granny.getpixel(x+j,y+72+i);
-    end;
 ll:=length(title);
-background.outtextxy(x+64-(ll *4),y+72,title,0);
+if ll=15 then begin title:=copy(title,1,15); ll:=15; end;
+granny.outtextxy(x+64-(ll *4),y+72,title,0);
+granny.outtextxy(x+65-(ll *4),y+73,title,15);
 end;
 
 procedure TIcon.move(ax,ay:integer);
 
+label p999;
+
 var i,j:integer;
 
 begin
-for i:=0 to 47 do
-  for j:=0 to 47 do
-    begin
-    granny.putpixel(40+x+j,16+y+i,bg[j+48*i]);
-    end;
-for i:=0 to 15 do
-  for j:=0 to 127 do
-    begin
-    granny.putpixel(x+j,y+72+i,bg2[j+128*i]);
-    end;
-
-  x:=ax; y:=ay; draw;
+if (ax=x) and (ay=y) then goto p999;
+blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
+x:=ax; y:=ay; draw;
+p999:
 end;
 
 function TIcon.checkmouse:boolean;
 
-var mx,my:integer;
+var mmx,mmy:integer;
 
 begin
 if granny<>background then
   begin
-  mx:=mousex-granny.x+granny.vx;
-  my:=mousey-granny.y+granny.vy;
+  mmx:=mousex-granny.x+granny.vx;
+  mmy:=mousey-granny.y+granny.vy;
   end
 else
   begin
-  mx:=mousex;
-  my:=mousey;
+  mmx:=mousex;
+  mmy:=mousey;
   end;
-if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (mmy>y) and (mmy<y+h) and (mmx>x) and (mmx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
 procedure TIcon.highlight;
 
-var i,j,q:integer;
+var i,j,q,c1,c2,ll:integer;
 
 begin
 if not highlighted then
   begin
   highlighted:=true;
+  blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
   for i:=0 to 95 do
     begin
     for j:=0 to 127 do
       begin
       q:=granny.getpixel(x+j,y+i);
-      if q=granny.bg then granny.putpixel(x+j,y+i,q-5);
+      c1:=q and $F0; c2:=q and $0F; c2:=c2 div 2; if c2<0 then c2:=0; q:=c1+c2;
+      granny.putpixel(x+j,y+i,q);
       end;
     end;
+  for i:=0 to 47 do
+    for j:=0 to 47 do
+      begin
+      if icon48[j+48*i]<>0 then granny.putpixel(40+x+j,16+y+i,icon48[j+48*i]);
+      end;
+  ll:=length(title);
+  if ll=15 then begin title:=copy(title,1,15); ll:=15; end;
+  granny.outtextxy(x+64-(ll *4),y+72,title,0);
+  granny.outtextxy(x+65-(ll *4),y+73,title,15);
+
   end;
 end;
 
 procedure TIcon.unhighlight;
 
-var i,j,q:integer;
+var i,j,q,ll:integer;
 
 begin
 if highlighted then
   begin
   highlighted:=false;
-  for i:=0 to 95 do
-    begin
-    for j:=0 to 127 do
+  blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
+  for i:=0 to 47 do
+    for j:=0 to 47 do
       begin
-      q:=granny.getpixel(x+j,y+i);
-      if q=granny.bg-5 then granny.putpixel(x+j,y+i,q+5);
+      if icon48[j+48*i]<>0 then granny.putpixel(40+x+j,16+y+i,icon48[j+48*i]);
       end;
+  ll:=length(title);
+  if ll=15 then begin title:=copy(title,1,15); ll:=15; end;
+  granny.outtextxy(x+64-(ll *4),y+72,title,0);
+  granny.outtextxy(x+65-(ll *4),y+73,title,15);
+  end;
+end;
+
+procedure TIcon.arrange;
+
+var temp,temp2:TIcon;
+    ax,ay:integer;
+
+begin
+temp:=self;
+while temp.next<>nil do temp:=temp.next;
+ax:=128*round(temp.x/128);
+ay:=96*round(temp.y/96);
+temp2:=temp;
+while temp2.last<>nil do
+  begin
+  temp2:=temp2.last;
+  if (temp2.x=ax) and (temp2.y=ay) then
+    begin
+    ay:=ay+96;
+    if ay>1100 then begin ay:=0; ax:=ax+128; end;
     end;
   end;
+temp.move(ax,ay);
 end;
 
 procedure TIcon.checkall;
 
-var temp:TIcon;
+label p999;
+var temp,temp3:TIcon;
+mk:integer;
+const state:integer=0;
+      mmx:integer=0;
+      mmy:integer=0;
+      temp2:TIcon=nil;
 
 begin
 temp:=self;
+mk:=mousek;
 while temp.last<>nil do temp:=temp.last;
+//while temp.next<>nil do begin temp.unhighlight; temp:=temp.next; end;
+//while temp.last<>nil do temp:=temp.last;
+if mk=0 then state:=0;
+if (state=0) then arrange;
+if (state=1) and (mk=1) then
+  begin
+  temp2.unhighlight;
+  temp2.move(mousex-temp2.mx,mousey-temp2.my);
+  goto p999;
+  end;
 
 repeat
-  if temp.checkmouse then temp.highlight else temp.unhighlight;
+  if temp.checkmouse and (mk=0) then
+    begin
+    temp.highlight;
+    temp.mx:=mousex-temp.x;
+    temp.my:=mousey-temp.y;
+    while temp.next<>nil do begin temp:=temp.next; temp.unhighlight; end;
+    goto p999;
+    end
+  else if temp.checkmouse and (mk=1) then
+    begin
+    if state=0 then
+      begin
+      state:=1;
+      temp2:=temp;
+      if temp2.last<>nil then temp2.last.next:=temp2.next else begin granny.icons:=temp2.next; granny.icons.last:=nil; end;;
+      if temp2.next<>nil then temp2.next.last:=temp2.last;
+      temp3:=granny.icons; while temp3.next<>nil do temp3:=temp3.next;
+      temp3.next:=temp2; temp2.last:=temp3; temp2.next:=nil;
+      end
+    else
+      begin
+      temp.unhighlight;
+      temp.move(mousex-temp.mx,mousey-temp.my);
+      end;
+    end
+    else temp.unhighlight;
   temp:=temp.next;
 until temp=nil;
-
+p999:
 end;
 
 //------------------------------------------------------------------------------

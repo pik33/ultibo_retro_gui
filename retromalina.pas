@@ -1789,7 +1789,7 @@ var i,j:integer;
     b1,b2:integer;
 
 begin
-if lpeek(base+$60008)<16 then
+//if lpeek(base+$60008)<16 then
   begin
   from:=from+x;
   too:=too+x2;
