@@ -22,7 +22,9 @@ type TWindow=class;
      TDecoration=class;
      TButton=class;
      TIcon=class;
-
+     TMenuItem=class;
+     TMenu=class;
+     TStatusBar=class;
 
 //------------------------------------------------------------------------------
 // Basic window class
@@ -37,7 +39,7 @@ type TWindow=class(TObject)
      mx,my,mk:integer;                      // mouse events
      wl,wh:integer;                         // windows l,h
      bg:integer;                            // background color
-     gdata:pointer;                         // graphic memory
+     canvas:pointer;                         // graphic memory
      decoration:TDecoration;                // the decoration or nil if none
      visible:boolean;                       // visible or hidden
      resizable:boolean;                     // if true windows not resizable
@@ -47,7 +49,11 @@ type TWindow=class(TObject)
      title:string;                          // window title
      buttons:TButton;                       // widget chain start
      icons:TIcon;
+     menu:TMenu;
+     statusbar:TStatusbar;
      mstate:integer;                        // mouse position state
+     dclick:boolean;
+     needclose:boolean;
 
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
@@ -140,9 +146,10 @@ type TButton=class(TObject)
      c1,c2:integer;                                                    // basic background color, text color
      clicked:integer;                                                  // mouse event
      s:string;                                                         // title
-     fsx,fsy:integer;
+     fsx,fsy:integer;                                                  // font size x,y
+
      value:integer;
-     gdata:pointer;
+     canvas:pointer;
      visible,highlighted,selected,radiobutton,selectable,down:boolean;
      radiogroup:integer;
      next,last:TButton;
@@ -178,6 +185,7 @@ type TIcon=class(TObject)
      size:integer;
      title:string;
      granny:TWindow;
+     g2:TMenuItem;
      icon16:TIcon16;
      icon32:TIcon32;
      icon48:TIcon48;
@@ -185,6 +193,8 @@ type TIcon=class(TObject)
      bg:array[0..12287] of byte;
 //     bg2:array[0..2047] of byte;
      next,last:TIcon;
+     clicked,dblclicked:boolean;
+ //    ondblclick:procedure;
      constructor create(atitle:string;g:TWindow);
      procedure draw;
      procedure move(ax,ay:integer);
@@ -194,8 +204,27 @@ type TIcon=class(TObject)
      procedure unhighlight;
      procedure arrange;
      procedure checkall;
+
      end;
 
+
+//
+
+type TMenuItem=class(TObject)
+     title:string;
+     icon:TIcon;
+     next,last,sub:TMenuItem;
+     end;
+
+     TMenu=class (TObject)
+     item:TMenuItem;
+     granny:TWindow;
+     end;
+
+     TStatusBar=class (TObject)
+     height:integer;
+     canvas:pointer;
+     end;
 
 var background:TWindow=nil;  // A mother of all windows except the panel
     panel:TPanel=nil;        // The panel
@@ -216,6 +245,8 @@ var background:TWindow=nil;  // A mother of all windows except the panel
 // A temporary icon. TODO: Icon class and methods
 
     icon:array[0..15,0..15] of byte;
+
+
 
 
 //------------------------------------------------------------------------------
@@ -255,6 +286,8 @@ var who:TWindow;
 begin
 inherited create;
 mstate:=0;
+dclick:=false;
+needclose:=false;
 if background<>nil then   // there ia s background so create a normal window
   begin
   who:=background;
@@ -279,8 +312,8 @@ if background<>nil then   // there ia s background so create a normal window
   visible:=false;
   resizable:=true;
   prev:=who;
-  gdata:=getmem(wl*wh);  // get a memory for graphics. 8-bit only in this version
-  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,0); // clear the graphic memory
+  canvas:=getmem(wl*wh);  // get a memory for graphics. 8-bit only in this version
+  for i:=0 to wl*wh-1 do poke(cardinal(canvas)+i,0); // clear the graphic memory
   title:=atitle;
   if atitle<>'' then     // create a decoration
     begin
@@ -311,7 +344,7 @@ else                    // no background, create one
   bg:=202;                    // todo: get color from a theme
   buttons:=nil;
   icons:=nil;
-  gdata:=pointer(backgroundaddr);  // graphic memory address
+  canvas:=pointer(backgroundaddr);  // graphic memory address
                                    // The window manager works at the top
                                    // of the retromachine. The background window
                                    // replaces the retromachine background with
@@ -344,7 +377,7 @@ begin
 visible:=false;
 prev.next:=next;
 if next<>nil then next.prev:=prev;
-if gdata<>nil then freemem(gdata);
+if canvas<>nil then freemem(canvas);
 if decoration<>nil then
   begin
   decoration.destroy
@@ -399,7 +432,7 @@ else
   begin
   wt:=gettime;
   if buttons<>nil then buttons.draw;                      // update the wigdets
-  dma_blit(6,integer(gdata),vx,vy,dest,x,y,l,h,wl,1792);  // then blit the window to the canvas
+  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,1792);  // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
     c:=inactivecolor;
@@ -417,6 +450,7 @@ else
     if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
     if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
     if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
+    if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) and (mousek=1) then needclose:=true;
 
 
     fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
@@ -491,7 +525,7 @@ end;
 // This function should be called every vblank for the background window
 // Called for any window returns the window handler for the window on which
 // there is the mouse cursor and reacts to events:
-// by selecting, resizing or moving clicked window
+// by selecting, resizing or moving the clicked window
 //------------------------------------------------------------------------------
 
 function TWindow.checkmouse:TWindow;
@@ -523,7 +557,7 @@ mmy:=mousey;
 mmk:=mousek;
 mmw:=mousewheel;
 
-if mmk=0 then state:=0;
+if mmk=0 then state:=6;
 
 // if mouse key pressed ans there is a window set to move, move it
 
@@ -634,7 +668,10 @@ while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-d
     end
   end;
 result:=window;
-
+//retromalina.box(1000,800,200,32,0);
+//retromalina.outtextxy(1000,800,window.title,15);
+// todo: HERE::::: check all widgets on this window !!!
+if window.buttons<> nil then window.buttons.checkall;
 // now, here no windows to move and window=window to select
 // if the window is not selected, select it
 
@@ -654,7 +691,8 @@ vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
 
 // now set the state according to clicked area
 
-if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y+window.h))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y {window.h}))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+else if (mmx<(window.x+window.l)) and (mmy<(window.y + window.h )) then begin state:=6; deltax:=0; deltay:=0 end      // window
 else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then begin state:=4;
              oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh)); sy:=mmy-window.y-vsp; end                                   // vertical scroll bar
 else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
@@ -690,9 +728,9 @@ gd:=getmem(nwl*nwh);
 for i:=0 to nwl*nwh-1 do poke(integer(gd)+i,bg);
 if nwl>wl then bl:=wl else bl:=nwl;
 if nwh>wh then bh:=wh else bh:=nwh;
-blit(integer(gdata),0,0,integer(gd),0,0,bl,bh,wl,nwl);
-gd2:=gdata;
-gdata:=gd;
+blit(integer(canvas),0,0,integer(gd),0,0,bl,bh,wl,nwl);
+gd2:=canvas;
+canvas:=gd;
 wl:=nwl; wh:=nwh;
 waitvbl;
 waitvbl;
@@ -754,7 +792,7 @@ var adr:integer;
 
 begin
 if (ax<0) or (ax>=wl) or (ay<0) or (ay>wh) then goto p999;
-adr:=cardinal(gdata)+ax+wl*ay;
+adr:=cardinal(canvas)+ax+wl*ay;
 poke(adr,color);
 p999:
 end;
@@ -770,7 +808,7 @@ var adr:integer;
 
 begin
 if (ax<0) or (ax>=wl) or (ay<0) or (ay>wh) then goto p999;
-adr:=cardinal(gdata)+ax+wl*ay;
+adr:=cardinal(canvas)+ax+wl*ay;
 result:=peek(adr);
 p999:
 end;
@@ -856,7 +894,7 @@ var screenptr:cardinal;
 
 begin
 
-screenptr:=integer(gdata);
+screenptr:=integer(canvas);
 xres:=wl;
 yres:=wh;
 if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
@@ -931,8 +969,8 @@ begin
   visible:=false;
   resizable:=false;
   prev:=nil;
-  gdata:=getmem(wl*wh);
-  for i:=0 to wl*wh-1 do poke(cardinal(gdata)+i,bg);
+  canvas:=getmem(wl*wh);
+  for i:=0 to wl*wh-1 do poke(cardinal(canvas)+i,bg);
   decoration:=nil;
 end;
 
@@ -973,7 +1011,7 @@ h:=0;
 bg:=0;
 wl:=480;
 wh:=1000;
-gdata:=getmem(wl*wh);
+canvas:=getmem(wl*wh);
 dirlist;
 makeicon;
 buttons:=nil;
@@ -1247,7 +1285,7 @@ constructor TButton.create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
 begin
 inherited create;
 x:=ax; y:=ay; l:=al; h:=ah; c1:=ac1; c2:=ac2; s:=aname;
-gdata:=getmem(4*al*ah);
+canvas:=getmem(4*al*ah);
 granny:=g;
 if granny.buttons=nil then granny.buttons:=self;
 visible:=false; highlighted:=false; selected:=false; radiobutton:=false;
@@ -1268,7 +1306,7 @@ destructor TButton.destroy;
 
 begin
 if visible then hide;
-freemem(gdata);
+freemem(canvas);
 if (last=nil) and (next<>nil) then next.setparent(nil)
 else if next<>nil then next.setparent(last);
 if (next=nil) and (last<>nil) then last.setdesc(nil)
@@ -1284,10 +1322,18 @@ end;
 
 function TButton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
 
+var temp:TButton;
+
 begin
-next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,self.granny);
-next.setparent(self);
-result:=next;
+temp:=self;
+while temp.next<>nil do temp:=temp.next;
+temp.next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,temp.granny);
+next.setparent(temp);
+result:=temp.next;
+temp:=temp.next;
+temp.fsx:=fsx;
+temp.fsy:=fsy;                                                  // font size x,y
+temp.draw;
 end;
 
 //------------------------------------------------------------------------------
@@ -1302,7 +1348,7 @@ var mx,my:integer;
 begin
 mx:=mousex-granny.x+granny.vx;
 my:=mousey-granny.y+granny.vy;
-if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
+if {((background.checkmouse=granny) or (granny=panel)) and }((granny.mstate=0) or (granny.mstate=6)) and (my>y) and (my<y+h) and (mx>x) and (mx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
 
@@ -1352,7 +1398,7 @@ var i,j,k:integer;
 begin
 if not visible then
   begin
-  p:=gdata;
+  p:=canvas;
   k:=0;
   for i:=y to y+h-1 do
     for j:=x to x+l-1 do
@@ -1376,7 +1422,7 @@ var i,j,k:integer;
 
 begin
 if visible then begin
-  p:=gdata;
+  p:=canvas;
   k:=0;
   for i:=y to y+h-1 do
     for j:=x to x+l-1 do
@@ -1531,14 +1577,17 @@ temp:=self.gofirst;
 while temp<>nil do
   begin
   cm:=temp.checkmouse;
-  if cm and (mousek=0) then begin temp.highlight; temp.down:=false; end;
-  if cm and (mousek=1) then begin temp.unhighlight; temp.down:=true; end;
+  if cm and  temp.down and (mousek=0) then temp.clicked:=1;
+  if cm and (mousek=0) then begin temp.down:=false; temp.highlight; end;
+  if cm and (mousek=1) then begin temp.down:=true; temp.unhighlight;  end;
   if not cm then begin temp.down:=false; temp.unhighlight; end;
-  if cm and click {(peek(base+$60030)=1)} then
-    begin
-    if (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
-    temp.clicked:=1;
-    end;
+  if cm then dblclick;
+//  if cm and  {(peek(base+$60030)=1)} then
+//    begin
+ //   if (temp.selectable) and (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
+//    temp.clicked:=1;
+ //   dblclick; //todo: add field
+ //   end;
   temp:=temp.next;
   end;
 p999:
@@ -1559,7 +1608,7 @@ var screenptr:cardinal;
 
 begin
 
-screenptr:=integer(gdata);
+screenptr:=integer(canvas);
 xres:=l;
 yres:=h;
 if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
@@ -1613,6 +1662,7 @@ title:=atitle;
 granny:=g;
 if granny.icons=nil then granny.icons:=self;
 next:=nil; last:=nil;
+clicked:=false; dblclicked:=false;
 highlighted:=false;
 end;
 
@@ -1636,7 +1686,7 @@ procedure Ticon.draw;
 var i,j,ll:integer;
 
 begin
-blit8(integer(granny.gdata),x,y,integer(@bg),0,0,128,96,granny.wl,128);
+blit8(integer(granny.canvas),x,y,integer(@bg),0,0,128,96,granny.wl,128);
 for i:=0 to 47 do
   for j:=0 to 47 do
     begin
@@ -1656,7 +1706,7 @@ var i,j:integer;
 
 begin
 if (ax=x) and (ay=y) then goto p999;
-blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
+blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
 x:=ax; y:=ay; draw;
 p999:
 end;
@@ -1687,7 +1737,7 @@ begin
 if not highlighted then
   begin
   highlighted:=true;
-  blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
+  blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 95 do
     begin
     for j:=0 to 127 do
@@ -1718,7 +1768,7 @@ begin
 if highlighted then
   begin
   highlighted:=false;
-  blit8(integer(@bg),0,0,integer(granny.gdata),x,y,128,96,128,granny.wl);
+  blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 47 do
     for j:=0 to 47 do
       begin
@@ -1780,6 +1830,7 @@ if (state=1) and (mk=1) then
   end;
 
 repeat
+  if temp.checkmouse and dblclick then temp.dblclicked:=true;
   if temp.checkmouse and (mk=0) then
     begin
     temp.highlight;

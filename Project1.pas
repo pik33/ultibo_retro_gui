@@ -34,7 +34,7 @@ uses
   blitter,
 //  timezone;
   retro,
-  simpleaudio,scripttest,xmp, mwindows;
+  simpleaudio,scripttest,xmp, mwindows,calculatorunit;
 
 
 label p101, p102 ,p999, p998;
@@ -69,7 +69,9 @@ var s,currentdir,currentdir2:string;
 
     wh,scope:Twindow;
     sel1:TFileselector;
-    testicon, trash, calculator, console:TIcon;
+    testicon, trash, calculator, console,player:TIcon;
+    calculatorthread:TCalculatorthread=nil;
+
 // ---- procedures
 
 procedure waveopen (var fh:integer);
@@ -290,14 +292,27 @@ calculator.x:=128; calculator.y:=0; calculator.size:=48; calculator.l:=128; calc
 console:=Testicon.append('Console');
 console.icon48:=i48_terminal;
 console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; console.draw;
+player:=Testicon.append('Player');
+player.icon48:=i48_player;
+player.x:=384; player.y:=0; player.size:=48; player.l:=128; player.h:=96; player.draw;
 
 //------------------- The main loop
 
 repeat
 //t:=SysRTCGetTime;
-//box(1000,800,200,32,0);
-//outtextxy(1000,800,inttostr(console.mx)+' '+inttostr(console.my),15);
+
   background.icons.checkall;
+  if calculator.dblclicked then
+     begin
+     calculator.dblclicked:=false;
+     if cw=nil then
+       begin
+       calculatorthread:=TCalculatorthread.create(true);
+       calculatorthread.start;
+       end;
+     end;
+  if cw<>nil then
+    if cw.needclose then begin calculatorthread.terminate; end;
   refreshscreen;
   key:=readkey and $FF;
   wh:=panel.checkmouse;
@@ -308,41 +323,7 @@ if (nextsong=2) then begin nextsong:=0; sel1.selectnext; end;      // play the n
 if (nextsong=1) then begin nextsong:=2; end;  // select the nest song
 
 
-//  if wh=background then
 
-//    begin
-//    wheel:=readwheel;
-
-//    if (key=0) and (wheel=-1) then begin key:=key_downarrow;  end;
-//    if (key=0) and (wheel=1) then begin key:=key_uparrow;  end;
-//
-//
- //   if (dblclick) and (key=0) and (mousex>896) and (wh=background) then begin key:=key_enter; end;    // dbl click on right panel=enter
-
-//    if (click) and (mousex>896) and (wh=background) then
-//      begin
-//
-//      nsel:=(mousey-132) div 32;
-//      if (nsel<=ild) and (nsel>=0) then
-//        begin
-//        box(920,132+32*sel,840,32,34);
-//        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
-//        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
-//        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
-//        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-//        if filenames[sel+selstart,1]<>'(DIR)'then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
-//        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
-//        sel:=nsel;
-//        box(920,132+32*sel,840,32,36);
-//        if filenames[sel+selstart,1]<>'(DIR)' then l:=length(filenames[sel+selstart,0])-4 else  l:=length(filenames[sel+selstart,0]);
-//        if filenames[sel+selstart,1]<>'(DIR)' then  s:=copy(filenames[sel+selstart,0],1,length(filenames[sel+selstart,0])-4) else s:=filenames[sel+selstart,0];
-//        if length(s)>40 then begin s:=copy(s,1,40); l:=40; end;
-//        for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-//        if filenames[sel+selstart,1]<>'(DIR)' then outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);
-//        if filenames[sel+selstart,1]='(DIR)' then begin outtextxyz(1344-8*l,132+32*(sel),s,44,2,2);  outtextxyz(1672,132+32*(sel),'(DIR)',44,2,2);   end;
-//        end;
-//      end;
-//    end;
   p998:
   if key=ord('5') then begin siddelay:=20000; songfreq:=50; skip:=0; end
   else if key=ord('1') then begin siddelay:=10000; songfreq:=100; skip:=0; end

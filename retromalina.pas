@@ -500,7 +500,7 @@ procedure TWindows.Execute;
 
 var scr:integer;
     wh:TWindow;
-
+const dblinvalid=0;
 
 begin
 scr:=$30a00000;

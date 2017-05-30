@@ -238,7 +238,7 @@ repeat
     end;
   if (cnt mod 120)=30 then cpuclock:=clockgetrate(8) div 1000000;
   cnt+=1;
-  status.buttons.checkall;
+//  status.buttons.checkall;
     if testbutton2.clicked=1 then begin
      if status.wl=600 then status.resize(900,900) else status.resize(600,600); testbutton2.clicked:=0; end;
   status.redraw:=false;
@@ -489,7 +489,7 @@ begin
 clock:=timetostr(now);
 waitvbl;
 //repeat sleep(1) until background.redraw;
-panel.buttons.checkall;
+//panel.buttons.checkall;
 screentime:=gettime;
 frame:=(framecnt mod 32) div 2;
 
