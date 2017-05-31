@@ -34,7 +34,7 @@ uses
   blitter,
 //  timezone;
   retro,
-  simpleaudio,scripttest,xmp, mwindows,calculatorunit;
+  simpleaudio,scripttest,xmp, mwindows,calculatorunit, icons, sysinfo,playerunit;
 
 
 label p101, p102 ,p999, p998;
@@ -59,7 +59,7 @@ var s,currentdir,currentdir2:string;
     drivetable:array['A'..'Z'] of boolean;
     c:char;
     f:textfile;
-    drive:string;
+
     key:integer;
     wheel:integer;
     t,tt,ttt,tttt:int64;
@@ -69,8 +69,10 @@ var s,currentdir,currentdir2:string;
 
     wh,scope:Twindow;
     sel1:TFileselector;
-    testicon, trash, calculator, console,player:TIcon;
+    testicon, trash, calculator, console,player,status:TIcon;
     calculatorthread:TCalculatorthread=nil;
+    sysinfothread:TSysinfothread=nil;
+    playerthread:TPlayerthread=nil;
 
 // ---- procedures
 
@@ -295,6 +297,9 @@ console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; c
 player:=Testicon.append('Player');
 player.icon48:=i48_player;
 player.x:=384; player.y:=0; player.size:=48; player.l:=128; player.h:=96; player.draw;
+status:=Testicon.append('System status');
+status.icon48:=i48_sysinfo;
+status.x:=512; status.y:=0; status.size:=48; status.l:=128; status.h:=96; status.draw;
 
 //------------------- The main loop
 
@@ -302,17 +307,41 @@ repeat
 //t:=SysRTCGetTime;
 
   background.icons.checkall;
-  if calculator.dblclicked then
+if calculator.dblclicked then
+   begin
+   calculator.dblclicked:=false;
+   if cw=nil then
      begin
-     calculator.dblclicked:=false;
-     if cw=nil then
-       begin
-       calculatorthread:=TCalculatorthread.create(true);
-       calculatorthread.start;
-       end;
+     calculatorthread:=TCalculatorthread.create(true);
+     calculatorthread.start;
      end;
-  if cw<>nil then
-    if cw.needclose then begin calculatorthread.terminate; end;
+   end;
+if cw<>nil then
+  if cw.needclose then begin calculatorthread.terminate; end;
+if status.dblclicked then
+   begin
+   status.dblclicked:=false;
+   if si=nil then
+     begin
+     sysinfothread:=TSysinfothread.create(true);
+     sysinfothread.start;
+     end;
+   end;
+if si<>nil then
+  if si.needclose then begin sysinfothread.terminate; end;
+
+if player.dblclicked then
+   begin
+   player.dblclicked:=false;
+   if pl=nil then
+     begin
+     playerthread:=TPlayerthread.create(true);
+     playerthread.start;
+     end;
+   end;
+if pl<>nil then
+  if pl.needclose then begin playerthread.terminate; end;
+
   refreshscreen;
   key:=readkey and $FF;
   wh:=panel.checkmouse;
@@ -809,7 +838,7 @@ pauseaudio(1);
         end;
     end;
 
-  until (mousek=3) or (key=key_escape) ;
+  until {(mousek=3) or }(key=key_escape) ;
   pauseaudio(1);
   if sfh>0 then fileclose(sfh);
   setcurrentdir(workdir);

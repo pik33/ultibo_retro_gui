@@ -53,7 +53,7 @@
 //    2F06_0034 - current dl position ----TODO
 //    2F06_0040 - 2F06_007C sprite control long 0 31..16 y pos  15..0 x pos
 //                                         long 1 30..16 y zoom 15..0 x zoom
-//    2F06_0080 - 206009C dynamic sprite data pointer
+//    2F06_0080 - 2F06_009C dynamic sprite data pointer
 //    2F06_00A0 - text cursor position
 //    2F06_00A4 - text color
 //    2F06_00A8 - background color
@@ -65,7 +65,12 @@
 //    2F06_0100 - 2F06_01FF - blitter DMA ctrl blocks
 //    2F06_0200 - 2F06_0207 - blitter fill color area
 //    2F06_0210 - 2F06_FFFF - reserved
-//
+
+//    2F06_0300 - system data area
+//    2F06_0300 - CPU clock
+//    2F06_0304 - CPU temperature
+
+
 //    2F07_0000 - 2F08_FFFF - 2x64k long audio buffer for noise shaper
 //    2F0D_0000  -  2FFF_FFFF - retromachine system area
 //    3000_0000  -  30FF_FFFF - virtual framebuffer area
@@ -218,14 +223,6 @@ type
      end;
 
      TKeyboard= class(TThread)
-     private
-     protected
-       procedure Execute; override;
-     public
-      Constructor Create(CreateSuspended : boolean);
-     end;
-
-     TWindows= class(TThread)
      private
      protected
        procedure Execute; override;
@@ -432,6 +429,7 @@ var fh,filetype:integer;                // this needs cleaning...
    screenaddr:integer=$30800000;
    redrawing:integer=$30800000;
    windowsdone:boolean=false;
+       drive:string;
 
 // prototypes
 
@@ -488,37 +486,6 @@ uses blitter;
 procedure scrconvert(src,screen:pointer); forward;
 procedure scrconvert32(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
-
-constructor TWindows.Create(CreateSuspended : boolean);
-
-begin
-FreeOnTerminate := True;
-inherited Create(CreateSuspended);
-end;
-
-procedure TWindows.Execute;
-
-var scr:integer;
-    wh:TWindow;
-const dblinvalid=0;
-
-begin
-scr:=$30a00000;
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_2);
-sleep(1);
-repeat
-  windowsdone:=false;
-  wh:=background;
-  repeat
-    wh.draw(scr);
-    wh:=wh.next;
-  until wh=nil;
-  panel.draw(scr);
-  windowsdone:=true;
-  repeat sleep(1) until screenaddr<>scr;
-  scr:=screenaddr;
-until terminated;
-end;
 
 
 // ---- TMouse thread methods --------------------------------------------------

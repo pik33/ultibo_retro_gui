@@ -13,18 +13,29 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils, retro;
+  Classes, SysUtils, threads, retro, icons;
 
 const mapbase=$30800000;
       framewidth=4;
 
 type TWindow=class;
      TDecoration=class;
+     TWidget=class;
      TButton=class;
      TIcon=class;
      TMenuItem=class;
      TMenu=class;
      TStatusBar=class;
+
+
+     TWindows= class(TThread)
+     private
+     protected
+       procedure Execute; override;
+     public
+      Constructor Create(CreateSuspended : boolean);
+     end;
+
 
 //------------------------------------------------------------------------------
 // Basic window class
@@ -47,7 +58,7 @@ type TWindow=class(TObject)
      redraw:boolean;                        // set true by redrawing process after redraw
      active:boolean;                        // if false, window doesn't need redrawing
      title:string;                          // window title
-     buttons:TButton;                       // widget chain start
+     buttons:TWidget;                       // widget chain start
      icons:TIcon;
      menu:TMenu;
      statusbar:TStatusbar;
@@ -135,12 +146,25 @@ type TDecoration=class(TObject)
      end;
 
 
+type TWidget=class(TObject)
+
+     next,prev:TWidget;
+     granny:TWindow;
+     procedure draw;
+     procedure checkall;
+     procedure setparent(parent:TWidget);
+     procedure setdesc(desc:TWidget);
+     function gofirst:TWidget;
+
+     end;
+
+
 //------------------------------------------------------------------------------
 // Button
 //------------------------------------------------------------------------------
 
 
-type TButton=class(TObject)
+type TButton=class(TWidget)
      x,y:integer;                                                      // upper left pixel position on window
      l,h:integer;                                                      // dimensions
      c1,c2:integer;                                                    // basic background color, text color
@@ -152,8 +176,8 @@ type TButton=class(TObject)
      canvas:pointer;
      visible,highlighted,selected,radiobutton,selectable,down:boolean;
      radiogroup:integer;
-     next,last:TButton;
-     granny:TWindow;
+
+
 
      constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
      destructor destroy; override;
@@ -167,9 +191,9 @@ type TButton=class(TObject)
      procedure unselect;
      procedure draw;
 
-     procedure setparent(parent:TButton);
-     procedure setdesc(desc:TButton);
-     function gofirst:TButton;
+//     procedure setparent(parent:TButton);
+//     procedure setdesc(desc:TButton);
+//     function gofirst:TButton;
      function findselected:TButton;
      procedure setvalue(v:integer);
      procedure checkall;
@@ -192,7 +216,7 @@ type TIcon=class(TObject)
      highlighted:boolean;
      bg:array[0..12287] of byte;
 //     bg2:array[0..2047] of byte;
-     next,last:TIcon;
+     next,prev:TIcon;
      clicked,dblclicked:boolean;
  //    ondblclick:procedure;
      constructor create(atitle:string;g:TWindow);
@@ -213,7 +237,7 @@ type TIcon=class(TObject)
 type TMenuItem=class(TObject)
      title:string;
      icon:TIcon;
-     next,last,sub:TMenuItem;
+     next,prev,sub:TMenuItem;
      end;
 
      TMenu=class (TObject)
@@ -237,7 +261,7 @@ var background:TWindow=nil;  // A mother of all windows except the panel
     inactivetextcolor:integer=0;
     borderwidth:integer=6;
     scrollwidth:integer=16;
-    borderdelta:integer=-2;
+    borderdelta:integer=2;
     scrollcolor:integer=12;
     activescrollcolor:integer=124;
     titleheight:integer=24;
@@ -262,6 +286,46 @@ procedure makeicon;
 implementation
 
 uses retromalina,blitter;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Main window thread
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+constructor TWindows.Create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+procedure TWindows.Execute;
+
+var scr:integer;
+    wh:TWindow;
+const dblinvalid=0;
+
+begin
+scr:=$30a00000;
+ThreadSetAffinity(ThreadGetCurrent,4);
+sleep(1);
+repeat
+  windowsdone:=false;
+  wh:=background;
+  repeat
+    wh.draw(scr);
+    wh:=wh.next;
+  until wh=nil;
+  panel.draw(scr);
+  windowsdone:=true;
+  repeat sleep(1) until screenaddr<>scr;
+  scr:=screenaddr;
+until terminated;
+end;
+
+
+
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -432,7 +496,7 @@ else
   begin
   wt:=gettime;
   if buttons<>nil then buttons.draw;                      // update the wigdets
-  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,1792);  // then blit the window to the canvas
+  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,1792); // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
     c:=inactivecolor;
@@ -1264,6 +1328,53 @@ end;
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+// TWidget - universal widget class
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+procedure TWidget.draw;
+
+begin
+if self is Tbutton then TButton(self).draw;
+end;
+
+procedure TWidget.checkall;
+
+begin
+if self is Tbutton then TButton(self).checkall;
+end;
+
+
+//------------------------------------------------------------------------------
+// TWidget setparent, setdesc methods - set the parent/descendent in the widget chain
+//------------------------------------------------------------------------------
+
+procedure TWidget.setparent(parent:TWidget);
+
+begin
+prev:=parent;
+end;
+
+procedure TWidget.setdesc(desc:TWidget);
+
+begin
+next:=desc;
+end;
+
+
+//------------------------------------------------------------------------------
+// TWidget gofirst - find the first widget in the widget chain
+//------------------------------------------------------------------------------
+
+function TWidget.gofirst:TWidget;
+
+begin
+result:=self;
+while result.prev<>nil do result:=result.prev;
+end;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // TButton - a button widget
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -1290,7 +1401,7 @@ granny:=g;
 if granny.buttons=nil then granny.buttons:=self;
 visible:=false; highlighted:=false; selected:=false; radiobutton:=false;
 selectable:=false; down:=false;
-next:=nil; last:=nil;
+next:=nil; prev:=nil;
 fsx:=1; fsy:=1;
 radiogroup:=0;
 self.show;
@@ -1307,11 +1418,11 @@ destructor TButton.destroy;
 begin
 if visible then hide;
 freemem(canvas);
-if (last=nil) and (next<>nil) then next.setparent(nil)
-else if next<>nil then next.setparent(last);
-if (next=nil) and (last<>nil) then last.setdesc(nil)
-else if last<>nil then last.setdesc(next);
-if last=nil then granny.buttons:=nil;
+if (prev=nil) and (next<>nil) then next.setparent(nil)
+else if next<>nil then next.setparent(prev);
+if (next=nil) and (prev<>nil) then prev.setdesc(nil)
+else if prev<>nil then prev.setdesc(next);
+if prev=nil then granny.buttons:=nil;
 inherited destroy;
 end;
 
@@ -1322,18 +1433,19 @@ end;
 
 function TButton.append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
 
-var temp:TButton;
+var temp:TWidget;
+    temp2:TButton;
 
 begin
 temp:=self;
 while temp.next<>nil do temp:=temp.next;
 temp.next:=TButton.create(ax,ay,al,ah,ac1,ac2,aname,temp.granny);
 next.setparent(temp);
-result:=temp.next;
-temp:=temp.next;
-temp.fsx:=fsx;
-temp.fsy:=fsy;                                                  // font size x,y
-temp.draw;
+temp2:=TButton(temp.next);
+result:=temp2; //:=temp.next;
+temp2.fsx:=fsx;
+temp2.fsy:=fsy;                                                  // font size x,y
+temp2.draw;
 end;
 
 //------------------------------------------------------------------------------
@@ -1451,15 +1563,15 @@ if visible and selectable and not selected then begin
   selected:=true;
   draw;
   temp:=self;
-  while temp.last<>nil do
+  while temp.prev<>nil do
     begin
-    temp:=temp.last;
+    temp:=tbutton(temp.prev);
     temp.unselect;
     end;
   temp:=self;
   while temp.next<>nil do
     begin
-    temp:=temp.next;
+    temp:=tbutton(temp.next);
     temp.unselect;
     end;
    end;
@@ -1500,33 +1612,7 @@ l2:=length(s)*4*fsx;
 granny.outtextxyz(x+(l div 2)-l2,y+(h div 2)-8*fsy,s,c2,fsx,fsy);
 end;
 
-//------------------------------------------------------------------------------
-// TButton setparent, setdesc methods - set the parent/descendent in the widget chain
-//------------------------------------------------------------------------------
 
-procedure TButton.setparent(parent:TButton);
-
-begin
-last:=parent;
-end;
-
-procedure TButton.setdesc(desc:TButton);
-
-begin
-next:=desc;
-end;
-
-
-//------------------------------------------------------------------------------
-// TButton gofirst - find the first button in the widget chain
-//------------------------------------------------------------------------------
-
-function TButton.gofirst:TButton;
-
-begin
-result:=self;
-while result.last<>nil do result:=result.last;
-end;
 
 //------------------------------------------------------------------------------
 // TButton findselected - find the selected button in the widget chain
@@ -1539,10 +1625,10 @@ function TButton.findselected:TButton;
 var temp:TButton;
 
 begin
-temp:=self.gofirst;
+temp:=tbutton(self.gofirst);
 while not (temp=nil) do
   begin
-  if temp.selected then break else temp:=temp.next;
+  if temp.selected then break else temp:=tbutton(temp.next);
   end;
 result:=temp;
 end;
@@ -1573,7 +1659,7 @@ var temp:TButton;
     cm:boolean;
 
 begin
-temp:=self.gofirst;
+temp:=tbutton(self.gofirst);
 while temp<>nil do
   begin
   cm:=temp.checkmouse;
@@ -1588,7 +1674,7 @@ while temp<>nil do
 //    temp.clicked:=1;
  //   dblclick; //todo: add field
  //   end;
-  temp:=temp.next;
+  temp:=tbutton(temp.next);
   end;
 p999:
 end;
@@ -1661,7 +1747,7 @@ inherited create;
 title:=atitle;
 granny:=g;
 if granny.icons=nil then granny.icons:=self;
-next:=nil; last:=nil;
+next:=nil; prev:=nil;
 clicked:=false; dblclicked:=false;
 highlighted:=false;
 end;
@@ -1676,7 +1762,7 @@ temp:=TIcon.create(atitle,granny);
 temp2:=self;
 while temp2.next<>nil do temp2:=temp2.next;
 temp2.next:=temp;
-temp.last:=temp2;
+temp.prev:=temp2;
 result:=temp;
 end;
 
@@ -1792,9 +1878,9 @@ while temp.next<>nil do temp:=temp.next;
 ax:=128*round(temp.x/128);
 ay:=96*round(temp.y/96);
 temp2:=temp;
-while temp2.last<>nil do
+while temp2.prev<>nil do
   begin
-  temp2:=temp2.last;
+  temp2:=temp2.prev;
   if (temp2.x=ax) and (temp2.y=ay) then
     begin
     ay:=ay+96;
@@ -1817,9 +1903,9 @@ const state:integer=0;
 begin
 temp:=self;
 mk:=mousek;
-while temp.last<>nil do temp:=temp.last;
+while temp.prev<>nil do temp:=temp.prev;
 //while temp.next<>nil do begin temp.unhighlight; temp:=temp.next; end;
-//while temp.last<>nil do temp:=temp.last;
+//while temp.prev<>nil do temp:=temp.prev;
 if mk=0 then state:=0;
 if (state=0) then arrange;
 if (state=1) and (mk=1) then
@@ -1845,10 +1931,10 @@ repeat
       begin
       state:=1;
       temp2:=temp;
-      if temp2.last<>nil then temp2.last.next:=temp2.next else begin granny.icons:=temp2.next; granny.icons.last:=nil; end;;
-      if temp2.next<>nil then temp2.next.last:=temp2.last;
+      if temp2.prev<>nil then temp2.prev.next:=temp2.next else begin granny.icons:=temp2.next; granny.icons.prev:=nil; end;;
+      if temp2.next<>nil then temp2.next.prev:=temp2.prev;
       temp3:=granny.icons; while temp3.next<>nil do temp3:=temp3.next;
-      temp3.next:=temp2; temp2.last:=temp3; temp2.next:=nil;
+      temp3.next:=temp2; temp2.prev:=temp3; temp2.next:=nil;
       end
     else
       begin

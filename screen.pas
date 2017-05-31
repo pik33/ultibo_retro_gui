@@ -25,14 +25,14 @@ type bmppixel=array[0..2] of byte;
    Constructor Create;
   end;
 
- TStatus= class(TThread)
+ {TStatus= class(TThread)
   private
   protected
     procedure Execute; override;
   public
    Constructor Create;
   end;
-
+  }
 var test:integer ;
     licznik:integer=0;
     songname:string;
@@ -77,7 +77,7 @@ var test:integer ;
    fi,np,sc,status:Twindow;
 
    oscilloscope1:TOscilloscope;
-   status1:TStatus;
+//   status1:TStatus;
 //   fileinfo1:TFileInfo
    testbutton,testbutton2:TButton;
 
@@ -119,7 +119,7 @@ repeat
   sc.outtextxy(0,0,inttostr(t),15);
   until terminated;
 end;
-
+{
 constructor TStatus.Create;
 
 begin
@@ -257,7 +257,7 @@ repeat
 
   until terminated;
 end;
-
+}
 
 procedure rainbow(a:integer); //1011
 
@@ -457,20 +457,20 @@ np.move(10,635,840,80,0,0);
 fi:=Twindow.create(600,600,'File information');      //884,187
 fi.cls(15);
 fi.outtextxy(10,10,'No file playing', 35);
-fi.move(10,50,360,300,0,0);
+fi.move(10,150,360,300,0,0);
 
-status:=Twindow.create(600,600,'System status');
-status.bg:=147;
-status.cls(147);
-status.move(400,50,300,300,0,0);
+//status:=Twindow.create(600,600,'System status');
+//status.bg:=147;
+//status.cls(147);
+//status.move(400,50,300,300,0,0);
 
 oscilloscope1:=toscilloscope.create;
 oscilloscope1.Start;
-status1:=tstatus.create;
-status1.Start;
+//status1:=tstatus.create;
+//status1.Start;
 
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
-testbutton2:=Tbutton.create(10,260,150,32,21,28,'Resize canvas',status);
+//testbutton2:=Tbutton.create(10,260,150,32,21,28,'Resize canvas',status);
 end;
 
 
