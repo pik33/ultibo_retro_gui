@@ -65,7 +65,7 @@ type TWindow=class(TObject)
      mstate:integer;                        // mouse position state
      dclick:boolean;
      needclose:boolean;
-
+     activey:integer;
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
 
@@ -270,7 +270,7 @@ var background:TWindow=nil;  // A mother of all windows except the panel
 
     icon:array[0..15,0..15] of byte;
 
-
+    semaphore:boolean=false;
 
 
 //------------------------------------------------------------------------------
@@ -349,6 +349,7 @@ var who:TWindow;
 
 begin
 inherited create;
+semaphore:=true;
 mstate:=0;
 dclick:=false;
 needclose:=false;
@@ -388,8 +389,9 @@ if background<>nil then   // there ia s background so create a normal window
     decoration.up:=true;
     decoration.down:=true;
     decoration.close:=true;
+    activey:=0;
     end
-  else decoration:=nil;
+  else begin decoration:=nil; activey:=24; end;
   who.next:=self;
   end
 else                    // no background, create one
@@ -425,6 +427,7 @@ else                    // no background, create one
   decoration:=nil;
   title:='';
   end;
+semaphore:=false;
 end;
 
 
@@ -621,7 +624,12 @@ mmy:=mousey;
 mmk:=mousek;
 mmw:=mousewheel;
 
-if mmk=0 then state:=6;
+if mmk=0 then
+  begin
+  state:=6;
+  window:=background;
+  while (window.next<>nil) do begin window.mk:=0; window:=window.next; end;
+  end;
 
 // if mouse key pressed ans there is a window set to move, move it
 
@@ -741,7 +749,7 @@ if window.buttons<> nil then window.buttons.checkall;
 
 if (mmk=1) and (window.mk=0) then
 
-  window.select;
+  if semaphore=false then window.select;
 
 //and set mouse correction amount
 window.mx:=mmx-window.x;
@@ -754,7 +762,7 @@ hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
 vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
 
 // now set the state according to clicked area
-
+if (not(window.resizable)) and (mmy>window.y+window.activey) then begin state:=6; goto p999; end;
 if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y {window.h}))) then begin state:=0; deltax:=0; deltay:=0 end      // window
 else if (mmx<(window.x+window.l)) and (mmy<(window.y + window.h )) then begin state:=6; deltax:=0; deltay:=0 end      // window
 else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then begin state:=4;
@@ -1058,6 +1066,7 @@ var who:TWindow;
     i,j:integer;
 
 begin
+semaphore:=true;
 mstate:=0;
 who:=background;
 while who.next<>nil do who:=who.next;
@@ -1092,6 +1101,7 @@ decoration.up:=true;
 decoration.down:=true;
 decoration.close:=true;
 who.next:=self;
+semaphore:=false;
 end;
 
 
@@ -2023,4 +2033,5 @@ end;
 //------------------------------------------------------------------------------
 
 end.
+
 

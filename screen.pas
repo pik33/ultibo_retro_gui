@@ -17,13 +17,13 @@ const ver='The retromachine player v. 0.23u --- 2017.04.26';
 
 type bmppixel=array[0..2] of byte;
 
-  TOscilloscope= class(TThread)
-  private
-  protected
-    procedure Execute; override;
-  public
-   Constructor Create;
-  end;
+ // TOscilloscope= class(TThread)
+//  private
+//  protected
+//    procedure Execute; override;
+//  public
+//   Constructor Create;
+//  end;
 
  {TStatus= class(TThread)
   private
@@ -76,7 +76,7 @@ var test:integer ;
    screentime:int64;
    fi,np,sc,status:Twindow;
 
-   oscilloscope1:TOscilloscope;
+//   oscilloscope1:TOscilloscope;
 //   status1:TStatus;
 //   fileinfo1:TFileInfo
    testbutton,testbutton2:TButton;
@@ -88,15 +88,15 @@ procedure writebmp;
 
 implementation
 
-uses globalconst,simpleaudio,retromouse,blitter;
-
+uses globalconst,simpleaudio,retromouse,blitter,playerunit;
+    {
 constructor TOscilloscope.Create;
 
 begin
 FreeOnTerminate := True;
 inherited Create(true);
-end;
-
+end; }
+   {
 procedure TOscilloscope.Execute;
 
 var scr:integer;
@@ -118,7 +118,8 @@ repeat
   t:=gettime-t;
   sc.outtextxy(0,0,inttostr(t),15);
   until terminated;
-end;
+end; }
+
 {
 constructor TStatus.Create;
 
@@ -440,32 +441,32 @@ spr5dy:=6;
 spr6dx:=7;
 spr6dy:=7;
 
-sc:=Twindow.create(884,187,'Oscilloscope');      //884,187
-sc.decoration.hscroll:=false;
-sc.decoration.vscroll:=false;
-sc.resizable:=false;
-sc.move(10,410,884,187,0,0);
+//sc:=Twindow.create(884,187,'Oscilloscope');      //884,187
+//sc.decoration.hscroll:=false;
+//sc.decoration.vscroll:=false;
+//sc.resizable:=false;
+//sc.move(10,410,884,187,0,0);
 
-np:=Twindow.create(840,80,'Now playing');      //840,132     18,864,840,132,244
-np.decoration.hscroll:=false;
-np.decoration.vscroll:=false;
-np.cls(0);
-np.resizable:=false;
-np.move(10,635,840,80,0,0);
+//np:=Twindow.create(840,80,'Now playing');      //840,132     18,864,840,132,244
+//np.decoration.hscroll:=false;
+//np.decoration.vscroll:=false;
+//np.cls(0);
+//np.resizable:=false;
+//np.move(10,635,840,80,0,0);
 
 
-fi:=Twindow.create(600,600,'File information');      //884,187
-fi.cls(15);
-fi.outtextxy(10,10,'No file playing', 35);
-fi.move(10,150,360,300,0,0);
+//fi:=Twindow.create(600,600,'File information');      //884,187
+//fi.cls(15);
+//fi.outtextxy(10,10,'No file playing', 35);
+//fi.move(10,150,360,300,0,0);
 
 //status:=Twindow.create(600,600,'System status');
 //status.bg:=147;
 //status.cls(147);
 //status.move(400,50,300,300,0,0);
 
-oscilloscope1:=toscilloscope.create;
-oscilloscope1.Start;
+//oscilloscope1:=toscilloscope.create;
+//oscilloscope1.Start;
 //status1:=tstatus.create;
 //status1.Start;
 
@@ -515,7 +516,7 @@ hhs:=inttostr(hh); if hh<10 then hhs:='0'+hhs;
 songfreq:=1000000 div siddelay;
 if songs>1 then s1:=songname+', song '+inttostr(song+1)
 else s1:=songname;
-
+ {
 if filetype=0 then s2:='SIDCog DMP file, '+inttostr(songfreq)+' Hz'
 else if filetype=1 then s2:='PSID file, '+inttostr(1000000 div siddelay)+' Hz'
 else if filetype=3 then s2:='Wave file, '+inttostr(head.srate)+' Hz'
@@ -523,18 +524,30 @@ else if filetype=4 then s2:='MP3 file, '+inttostr(head.srate)+' Hz, ' + inttostr
 else if filetype=5 then s2:='MP2 file'
 else if filetype=6 then s2:='Module file';
 if s1='' then begin s1:='No file playing'; s2:=''; end;
+  }
+if filetype=0 then s2:=inttostr(songfreq)
+else if filetype=1 then s2:=inttostr(1000000 div siddelay)
+else if filetype=3 then s2:='??'   //'Wave file, '+inttostr(head.srate)+' Hz'
+else if filetype=4 then s2:=inttostr(head.brate)
+else if filetype=5 then s2:=inttostr(head.brate)
+else if filetype=6 then s2:='??'; //'Module file';
+if s1='' then begin s1:='No file playing'; s2:=''; end;
 
 sl1:=8*length(s1);
 sl2:=8*length(s2);
 if sl1>sl2 then i:=16+sl1 else i:=16+sl2;
 if i<192 then i:=192;
-np.l:=i;
-np.box(0,8,i,16,0);
-np.outtextxy((i-sl1) div 2,8,s1,250);
-np.box(0,32,i,16,0);
-np.outtextxy((i-sl2) div 2,32,s2,250);
-np.box(0,56,i,32,0);
-np.outtextxyz((i-128) div 2,56,hhs+':'+mms+':'+sss,190,2,1);
+//np.l:=i;
+//np.box(0,8,i,16,0);
+s1:=copy(s1,1,38);
+if pl<>nil then begin pl.box(222,52,304,16,0); pl.outtextxy(222,52,s1,200); end;
+if pl<>nil then pl.box(220,84,32,16,0);
+if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,200);
+s2:=inttostr((SA_getcurrentfreq) div 1000);
+if pl<>nil then pl.box(309,84,24,16,0);
+if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
+
+
 
 
 

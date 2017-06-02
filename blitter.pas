@@ -275,7 +275,7 @@ ctrl1[chn,6]:=$0;                                   // unused
 ctrl1[chn,7]:=$0;                                   // unused
 CleanDataCacheRange(_blitter_dmacb+$20*chn,32);     // now push this into RAM
 cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
-cleanDataCacheRange(too+x2+y2*bpl2,lines*bpl2); // destination range cache clean
+cleanDataCacheRange(too+x2+y2*bpl2,(lines+1)*bpl2); // destination range cache clean
 
 // Init the hardware
 //cs^:=$80EE0003;
@@ -283,7 +283,7 @@ dma_enable:=dma_enable or (1 shl chn); // enable dma channel # dma_chn
 conblk^:=nocache+_blitter_dmacb+$20*chn;             // init DMA ctr block
 cs^:=$00110003;                              // start DMA
 repeat until (cs^ and 1) =0 ;                //
-InvalidateDataCacheRange(too+x2+y2*bpl2,lines*bpl2);                     // !!!
+InvalidateDataCacheRange(too+x2+y2*bpl2,(lines+1)*bpl2);                     // !!!
 p999:
 end;
 

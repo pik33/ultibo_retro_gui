@@ -44,16 +44,16 @@ const cpuclock:integer=0;
 begin
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
-si:=Twindow.create(300,280,'System status');
+si:=Twindow.create(300,290,'System status');
 si.bg:=147;
 si.cls(147);
-si.move(400,500,300,280,0,0);
+si.move(400,500,300,290,0,0);
 si.decoration.hscroll:=false;
 si.decoration.vscroll:=false;
 si.needclose:=false;
 repeat
 
-repeat sleep(2) until si.redraw;
+repeat sleep(1) until si.redraw;
 
 c1:=framecnt mod 60;
 si.box(0,0,300,300,147);
@@ -132,6 +132,10 @@ si.outtextxy(10,232,'SID waveforms:',157);
 if channel1on=1 then si.outtextxyz(154,232,inttostr(peek(base+$d404)shr 4),122,2,1);  // SID waveform
 if channel2on=1 then si.outtextxyz(184,232,inttostr(peek(base+$d40b)shr 4),202,2,1);
 if channel3on=1 then si.outtextxyz(214,232,inttostr(peek(base+$d412)shr 4),42,2,1);
+
+//si.outtextxy(10,252,'windows count: '+inttostr(windowcount),157);
+//si.outtextxy(10,272,'windows time: '+inttostr(windowtime),157);
+
 
 if (cnt mod 60)=0 then
   begin
