@@ -429,7 +429,7 @@ var fh,filetype:integer;                // this needs cleaning...
    screenaddr:integer=$30800000;
    redrawing:integer=$30800000;
    windowsdone:boolean=false;
-       drive:string;
+    drive:string;
 
 // prototypes
 

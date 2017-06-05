@@ -36,11 +36,7 @@ var test:integer ;
     tbb:array[0..15] of integer;
 
 
-   bmphead:array[0..53] of byte=(
-        $42,$4d,$36,$e0,$5b,$00,$00,$00,$00,$00,$36,$00,$00,$00,$28,$00,
-        $00,$00,$00,$07,$00,$00,$60,$04,$00,$00,$01,$00,$18,$00,$00,$00,
-        $00,$00,$00,$e0,$5b,$00,$23,$2e,$00,$00,$23,$2e,$00,$00,$00,$00,
-        $00,$00,$00,$00,$00,$00);
+
    bmpbuf:packed array[0..2007039] of bmppixel;
    bmpi:integer;
    bmpp:bmppixel absolute bmpi;
@@ -57,40 +53,12 @@ var test:integer ;
 procedure initscreen;
 procedure refreshscreen;
 procedure mandelbrot;
-procedure writebmp;
+
 
 implementation
 
 uses globalconst,simpleaudio,retromouse,blitter,playerunit;
 
-procedure rainbow(a:integer); //1011
-
-begin
-box2(10,a,1782,1012,48+16);
-box2(10,a+2,1782,1014,48+17);
-box2(10,a+4,1782,1016,48+18);
-box2(10,a+6,1782,1018,48+19);
-box2(10,a+8,1782,1020,48+20);
-box2(10,a+10,1782,1022,48+21);
-box2(10,a+12,1782,1024,48+22);
-box2(10,a+14,1782,1026,48+23);
-box2(10,a+16,1782,1028,48+24);
-box2(10,a+18,1782,1030,48+25);
-box2(10,a+20,1782,1032,48+26);
-box2(10,a+22,1782,1034,48+27);
-box2(10,a+24,1782,1036,48+28);
-box2(10,a+26,1782,1038,48+29);
-box2(10,a+28,1782,1040,48+30);
-box2(10,a+30,1782,1042,48+31);
-box2(10,a+32,1782,1044,48+32);
-box2(10,a+34,1782,1046,48+33);
-box2(10,a+36,1782,1048,48+34);
-box2(10,a+38,1782,1050,48+35);
-box2(10,a+40,1782,1052,48+36);
-box2(10,a+42,1782,1054,48+37);
-box2(10,a+44,1782,1056,48+38);
-box2(10,a+46,1782,1058,48+39);
-end;
 
 
 procedure initscreen;
@@ -122,19 +90,7 @@ setpallette(ataripallette,3);
 
 // prepare the scroll bar
 
-rainbow(811);
-i:=displaystart;
-outtextxyz(24,819,'A retromachine SID and WAV player by pik33 --- inspired by Johannes Ahlebrand''s Parallax Propeller SIDCog ---',89,2,2);
-cleandatacacherange(i,1120*1792);
-blit8(i,10,811,i+$200000,10,911,1771,48,1792,1792);
-rainbow(911);
-outtextxyz(24,919,' F1,F2,F3 - channels 1..3 on/off; 1-100 Hz, 2-200 Hz, 3-150 Hz, 4-400 Hz, 5-50 Hz; P - pause; up/down/enter - ',89,2,2);
-cleandatacacherange(i,1120*1792);
-blit8(i,10,911,i+$200000,10,959,1771,48,1792,1792);
-rainbow(1011);
-outtextxyz(24,1019,'select; F-432 Hz; G-440 Hz; Q-volume up; A-volume down; + - next subsong; - - previous subsong; ESC-reboot -- ',89,2,2);
-cleandatacacherange(i,1120*1792);
-blit8(i,10,1011,i+$200000,10,1007,1771,48,1792,1792);
+
 
 
 // -------------- Now prepare the screen
@@ -236,32 +192,7 @@ background.redraw:=false;
 end;
 
 
-procedure writebmp;
 
-var bmp_fh,i,j,k,idx:integer;
-    b:byte;
-    s:string;
-
-begin
-//pauseaudio(1);
-s:=timetostr(now);
-for i:=1 to length(s) do if s[i]=':' then s[i]:='_';
-bmp_fh:=filecreate('d:\dump'+s+'.bmp');
-filewrite(bmp_fh,bmphead[0],54);
-k:=0;
-for i:=1119 downto 0 do
-  for j:=0 to 1791 do
-   begin
-   idx:=peek(displaystart+(1792*i+j)); // get a color index
-   bmpi:=systempallette[0,idx];        // get a color from the pallette
-   bmpbuf[k]:=bmpp;                    // bmp is 24 bit while pallette is integer
-   k+=1;
-   end;
-for i:=0 to 119 do begin filewrite(bmp_fh,bmpbuf[i*17920],53760); threadsleep(10); end;
-fileclose(fh);
-//sleep(1000);
-//pauseaudio(0);
-end;
 
 procedure mandelbrot;
 

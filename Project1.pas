@@ -33,20 +33,15 @@ uses
   mp3,
   blitter,
 //  timezone;
-  retro,
-  simpleaudio,scripttest,xmp, mwindows,calculatorunit, icons, sysinfo,playerunit;
+  retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
+  playerunit, captureunit, mandelbrot;
 
 
 label p101, p102 ,p999, p998, p997;
 
 
-var s,currentdir,currentdir2,ext:string;
-    sr:tsearchrec;
-    filenames:array[0..1000,0..1] of string;
-    hh,mm,ss,l,i,j,ilf,ild:integer;
-    sel:integer=0;
-    selstart:integer=0;
-    nsel:integer;
+var s,ext:string;
+    hh,mm,ss,i,j:integer;
     buf:array[0..25] of  byte;
     longbuf:array[0..4095] of byte;
     fn:string;
@@ -69,9 +64,10 @@ var s,currentdir,currentdir2,ext:string;
 
     wh,scope:Twindow;
 
-    testicon, trash, calculator, console,player,status:TIcon;
+    testicon, trash, calculator, console,player,status,mandel:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
+    mandelthread:Tmandelthread=nil;
 
 
 // ---- procedures
@@ -282,24 +278,27 @@ startreportbuffer;
 startmousereportbuffer;
 //sel1 :=Tfileselector.create('C:\');
 //sel1.move(900,100,400,600,-1,-1);
-testicon:=TIcon.create('My computer',background);
-testicon.icon48:=i48_computer;
-testicon.x:=0; testicon.y:=0; testicon.size:=48; testicon.l:=128; testicon.h:=96; testicon.draw;
+testicon:=TIcon.create('Drive C',background);
+testicon.icon48:=i48_hdd;
+testicon.x:=0; testicon.y:=192; testicon.size:=48; testicon.l:=128; testicon.h:=96; testicon.draw;
 trash:=testicon.append('Trash');
 trash.icon48:=i48_trash;
 trash.x:=0; trash.y:=960; trash.size:=48; trash.l:=128; trash.h:=96; trash.draw;
 calculator:=Testicon.append('Calculator');
 calculator.icon48:=i48_calculator;
-calculator.x:=128; calculator.y:=0; calculator.size:=48; calculator.l:=128; calculator.h:=96; calculator.draw;
+calculator.x:=256; calculator.y:=0; calculator.size:=48; calculator.l:=128; calculator.h:=96; calculator.draw;
 console:=Testicon.append('Console');
 console.icon48:=i48_terminal;
-console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; console.draw;
+console.x:=384; console.y:=0; console.size:=48; console.l:=128; console.h:=96; console.draw;
 player:=Testicon.append('RetAMP Player');
 player.icon48:=i48_player;
-player.x:=384; player.y:=0; player.size:=48; player.l:=128; player.h:=96; player.draw;
+player.x:=512; player.y:=0; player.size:=48; player.l:=128; player.h:=96; player.draw;
 status:=Testicon.append('System status');
 status.icon48:=i48_sysinfo;
-status.x:=512; status.y:=0; status.size:=48; status.l:=128; status.h:=96; status.draw;
+status.x:=640; status.y:=0; status.size:=48; status.l:=128; status.h:=96; status.draw;
+mandel:=Testicon.append('Mandelbrot');
+mandel.icon48:=i48_mandelbrot;
+mandel.x:=768; mandel.y:=0; mandel.size:=48; mandel.l:=128; mandel.h:=96; mandel.draw;
 
 //------------------- The main loop
 
@@ -337,6 +336,15 @@ if player.dblclicked then
      begin
      playerthread:=TPlayerthread.create(true);
      playerthread.start;
+     end;
+   end;
+if mandel.dblclicked then
+   begin
+   mandel.dblclicked:=false;
+   if man=nil then
+     begin
+     mandelthread:=Tmandelthread.create(true);
+     mandelthread.start;
      end;
    end;
 // if pl<>nil then
