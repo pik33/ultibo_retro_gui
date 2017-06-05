@@ -538,18 +538,18 @@ mousetype:=0;
       end;
 //    mousetype:=0;
     j:=0;
-    for i:=0 to 30 do if mousereports[i,7]<>m[7]  then j+=1;
-    for i:=0 to 30 do if mousereports[i,6]<>m[6]  then j+=1;
-    for i:=0 to 30 do if mousereports[i,5]<>m[5]  then j+=1;
-    for i:=0 to 30 do if mousereports[i,4]<>m[4]  then j+=1;
+    for i:=0 to 6 do if mousereports[i,7]<>m[7]  then j+=1;
+    for i:=0 to 6 do if mousereports[i,6]<>m[6]  then j+=1;
+    for i:=0 to 6 do if mousereports[i,5]<>m[5]  then j+=1;
+    for i:=0 to 6 do if mousereports[i,4]<>m[4]  then j+=1;
     if j=0 then begin mousetype:=0; goto p101; end;
 
     j:=0;
-    for i:=0 to 30 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
-    for i:=0 to 30 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
+    for i:=0 to 6 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
+    for i:=0 to 6 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
     if j=0 then begin mousetype:=3; goto p101; end;
 
-    for i:=0 to 30 do if mousereports[i,7]<>m[7] then mousetype:=m[0]; // 1 or 2
+    for i:=0 to 6 do if mousereports[i,7]<>m[7] then mousetype:=m[0]; // 1 or 2
 
 p101:
 
