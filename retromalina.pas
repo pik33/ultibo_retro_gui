@@ -525,7 +525,7 @@ mousetype:=0;
   repeat
     p102:
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
-    if (mousetype=1) and (m=mousereports[31]) and (m[0]=1) and (m[1]=0) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
+    if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[1]=0) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
  //   box(0,0,300,50,0); outtextxy(0,0,inttohex(m[0],2)+' '+inttohex(m[1],2)+' '+inttohex(m[2],2)+' '+inttohex(m[3],2)+' '+inttohex(m[4],2)+' '+inttohex(m[5],2)+' '+inttohex(m[6],2)+' '+inttohex(m[7],2)+' ',15);
 
     mousecount+=1;
@@ -533,8 +533,8 @@ mousetype:=0;
     if (j>1) or (mousecount<16) then
       begin
       for i:=0 to 7 do mouserecord[i]:=(m[i]);
-      for i:=0 to 30 do mousereports[i]:=mousereports[i+1];
-      mousereports[31]:=m;
+      for i:=0 to 6 do mousereports[i]:=mousereports[i+1];
+      mousereports[7]:=m;
       end;
 //    mousetype:=0;
     j:=0;
@@ -644,6 +644,9 @@ ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 repeat
   waitvbl;
+   sprite7xy:=mousexy+$00280040;           //sprite coordinates are fullscreen
+                                        //while mouse is on active screen only
+                                        //so I have to add $28 to y and $40 to x
   if textcursoron then
     begin
     i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var

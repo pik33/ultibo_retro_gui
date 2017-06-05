@@ -312,6 +312,7 @@ scr:=$30a00000;
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
 repeat
+
   windowsdone:=false;
   wh:=background;
   repeat

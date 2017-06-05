@@ -19,7 +19,7 @@ type bmppixel=array[0..2] of byte;
 
 var test:integer ;
     licznik:integer=0;
-    songname:string;
+
     q1,q2,q3:extended;
     thread:TRetro;
     c:int64=0;
@@ -28,11 +28,10 @@ var test:integer ;
     avspt:int64=0;
     avall:int64=0;
     avsid:int64=0;
-    av6502:int64=0;
+
     qq:integer;
     avsct1,avspt1,sidtime1,av65021:array[0..59] of integer;
-    song:word=0;
-    songs:word=0;
+
     tbb:array[0..15] of integer;
 
 
@@ -40,7 +39,7 @@ var test:integer ;
    bmpbuf:packed array[0..2007039] of bmppixel;
    bmpi:integer;
    bmpp:bmppixel absolute bmpi;
-   a1base:integer=440;
+
 
 
 
@@ -107,7 +106,7 @@ avall:=0;
 avsid:=0;
 
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
-//testbutton2:=Tbutton.create(10,260,150,32,21,28,'Resize canvas',status);
+
 end;
 
 
@@ -183,9 +182,7 @@ if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
 panel.box(1724,4,64,16,11);
 panel.outtextxy(1724,4,clock,0);
 
-sprite7xy:=mousexy+$00280040;           //sprite coordinates are fullscreen
-                                        //while mouse is on active screen only
-                                        //so I have to add $28 to y and $40 to x
+
 screentime:=gettime-screentime;
 background.redraw:=false;
 
