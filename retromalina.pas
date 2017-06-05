@@ -354,7 +354,7 @@ var fh,filetype:integer;                // this needs cleaning...
     sprite0zoom:     cardinal absolute base+_sprite0zoom;
     sprite0zoomx:    word     absolute base+_sprite0zoom;
     sprite0zoomy:    word     absolute base+_sprite0zoom+2;
-    sprite1xy:       cardinal absolute base+_sprite0xy;
+    sprite1xy:       cardinal absolute base+_sprite1xy;
     sprite1x:        word     absolute base+_sprite1xy;
     sprite1y:        word     absolute base+_sprite1xy+2;
     sprite1zoom:     cardinal absolute base+_sprite1zoom;
@@ -420,7 +420,7 @@ var fh,filetype:integer;                // this needs cleaning...
 
     desired, obtained:TAudioSpec;
     error:integer;
-    mousereports:array[0..7] of TMouseReport;
+    mousereports:array[0..31] of TMouseReport;
 
    mp3bufidx:integer=0;
    outbufidx:integer=0;
@@ -490,6 +490,14 @@ procedure sprite(screen:pointer); forward;
 
 // ---- TMouse thread methods --------------------------------------------------
 
+operator =(a,b:tmousereport):boolean;
+
+var i:integer;
+
+begin
+result:=true;
+for i:=0 to 7 do if a[i]<>b[i] then result:=false;
+end;
 constructor TMouse.Create(CreateSuspended : boolean);
 
 begin
@@ -499,7 +507,7 @@ end;
 
 procedure TMouse.Execute;
 
-label p101;
+label p101,p102;
 
 var mb:tmousedata;
     i,j:integer;
@@ -513,30 +521,35 @@ begin
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
 ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
+mousetype:=0;
   repeat
+    p102:
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
+    if (mousetype=1) and (m=mousereports[31]) and (m[0]=1) and (m[1]=0) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
+ //   box(0,0,300,50,0); outtextxy(0,0,inttohex(m[0],2)+' '+inttohex(m[1],2)+' '+inttohex(m[2],2)+' '+inttohex(m[3],2)+' '+inttohex(m[4],2)+' '+inttohex(m[5],2)+' '+inttohex(m[6],2)+' '+inttohex(m[7],2)+' ',15);
+
     mousecount+=1;
     j:=0; for i:=0 to 7 do if m[i]<>0 then j+=1;
     if (j>1) or (mousecount<16) then
       begin
       for i:=0 to 7 do mouserecord[i]:=(m[i]);
-      for i:=0 to 6 do mousereports[i]:=mousereports[i+1];
-      mousereports[7]:=m;
+      for i:=0 to 30 do mousereports[i]:=mousereports[i+1];
+      mousereports[31]:=m;
       end;
-    mousetype:=0;
+//    mousetype:=0;
     j:=0;
-    for i:=0 to 6 do if mousereports[i,7]<>m[7]  then j+=1;
-    for i:=0 to 6 do if mousereports[i,6]<>m[6]  then j+=1;
-    for i:=0 to 6 do if mousereports[i,5]<>m[5]  then j+=1;
-    for i:=0 to 6 do if mousereports[i,4]<>m[4]  then j+=1;
+    for i:=0 to 30 do if mousereports[i,7]<>m[7]  then j+=1;
+    for i:=0 to 30 do if mousereports[i,6]<>m[6]  then j+=1;
+    for i:=0 to 30 do if mousereports[i,5]<>m[5]  then j+=1;
+    for i:=0 to 30 do if mousereports[i,4]<>m[4]  then j+=1;
     if j=0 then begin mousetype:=0; goto p101; end;
 
     j:=0;
-    for i:=0 to 7 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
-    for i:=0 to 7 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
+    for i:=0 to 30 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
+    for i:=0 to 30 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
     if j=0 then begin mousetype:=3; goto p101; end;
 
-    for i:=0 to 6 do if mousereports[i,7]<>m[7] then mousetype:=m[0]; // 1 or 2
+    for i:=0 to 30 do if mousereports[i,7]<>m[7] then mousetype:=m[0]; // 1 or 2
 
 p101:
 

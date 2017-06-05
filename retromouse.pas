@@ -336,6 +336,7 @@ function USBMouseDeviceSetProtocol(Mouse:PUSBMouseDevice;Protocol:Byte):LongWord
 {==============================================================================}
 
 // ---------------------------------patch added by pik33 @ 20170103 ------------
+function USBmouseDeviceSetIdle(mouse:PUSBmouseDevice;Duration,ReportId:Byte):LongWord;
 
 type TMousereport=array[0..7] of byte;
 
@@ -1301,7 +1302,8 @@ begin
  
  {Set State to Attached}
  if MouseDeviceSetState(@Mouse.Mouse,MOUSE_STATE_ATTACHED) <> ERROR_SUCCESS then Exit;
- 
+// USBMouseDeviceSetIdle(Mouse,0,USB_HID_REPORTID_NONE);
+
  {Return Result}
  Result:=USB_STATUS_SUCCESS;
 end;
@@ -1639,6 +1641,34 @@ begin
  {Set Protocol}
  Result:=USBControlRequest(Device,nil,USB_HID_REQUEST_SET_PROTOCOL,USB_BMREQUESTTYPE_TYPE_CLASS or USB_BMREQUESTTYPE_DIR_OUT or USB_BMREQUESTTYPE_RECIPIENT_INTERFACE,Protocol,Mouse.HIDInterface.Descriptor.bInterfaceNumber,nil,0);
 end;
+
+function USBmouseDeviceSetIdle(mouse:PUSBmouseDevice;Duration,ReportId:Byte):LongWord;
+{Set the idle duration (Time between reports when no changes) for a USB keyboard device}
+{Keyboard: The USB keyboard device to set the idle duration for}
+{Duration: The idle duration to set (Milliseconds divided by 4)}
+{ReportId: The report Id to set the idle duration for (eg USB_HID_REPORTID_NONE)}
+{Return: USB_STATUS_SUCCESS if completed or another USB error code on failure}
+var
+ Device:PUSBDevice;
+begin
+ {}
+ //duration:=255;
+ Result:=USB_STATUS_INVALID_PARAMETER;
+
+ {Check Keyboard}
+ if mouse = nil then Exit;
+
+ {Check Interface}
+ if mouse.HIDInterface = nil then Exit;
+
+ {Get Device}
+ Device:=PUSBDevice(mouse.mouse.Device.DeviceData);
+ if Device = nil then Exit;
+
+ {Set Idle}
+ Result:=USBControlRequest(Device,nil,USB_HID_REQUEST_SET_IDLE,USB_BMREQUESTTYPE_TYPE_CLASS or USB_BMREQUESTTYPE_DIR_OUT or USB_BMREQUESTTYPE_RECIPIENT_INTERFACE,(Duration shl 8) or ReportId,mouse.HIDInterface.Descriptor.bInterfaceNumber,nil,0);
+end;
+
 
 {==============================================================================}
 {==============================================================================}

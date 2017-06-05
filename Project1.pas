@@ -72,7 +72,7 @@ var s,currentdir,currentdir2,ext:string;
     testicon, trash, calculator, console,player,status:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
-    playerthread:TPlayerthread=nil;
+
 
 // ---- procedures
 
@@ -294,7 +294,7 @@ calculator.x:=128; calculator.y:=0; calculator.size:=48; calculator.l:=128; calc
 console:=Testicon.append('Console');
 console.icon48:=i48_terminal;
 console.x:=256; console.y:=0; console.size:=48; console.l:=128; console.h:=96; console.draw;
-player:=Testicon.append('Player');
+player:=Testicon.append('RetAMP Player');
 player.icon48:=i48_player;
 player.x:=384; player.y:=0; player.size:=48; player.l:=128; player.h:=96; player.draw;
 status:=Testicon.append('System status');
@@ -680,7 +680,7 @@ pauseaudio(1);
        //   if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
        //                                          else error:=SA_changeparams(96000,32,2,192);
 
-          if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
+ //         if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
  //                   box(18,132,800,600,178);
   //        outtextxyz(18,132,'type: MP3',188,2,2);
           pauseaudio(0);
@@ -707,7 +707,7 @@ pauseaudio(1);
        //   if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
        //                                          else error:=SA_changeparams(96000,32,2,192);
 
-          if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
+   //       if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
     //      fi.box(0,0,600,600,15);
    //       fi.outtextxy(10,10,'type: MP2',178);
           pauseaudio(0);
@@ -761,7 +761,7 @@ pauseaudio(1);
             end;
           sleep(50);
           for i:=0 to 15 do times6502[i]:=0;
-          if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
+   //       if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
 //          fi.box(0,0,600,600,15);
 //          fi.outtextxy(10,10,'type: MOD',178);
           pauseaudio(0);
@@ -788,7 +788,7 @@ pauseaudio(1);
         //   if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
         //                                          else error:=SA_changeparams(96000,32,2,192);
 
-           if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
+   //        if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
  //          fi.box(0,0,600,600,15);
  //          fi.outtextxy(10,10,'type: MP2',178);
            pauseaudio(0);
@@ -827,7 +827,7 @@ pauseaudio(1);
           if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
                                                  else error:=SA_changeparams(96000,32,2,192);
 
-          if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
+   //       if sprite6x>2047 then begin sprite0x:=100; sprite1x:=200; sprite2x:=300;sprite3x:=400; sprite4x:=500; sprite5x:=600; sprite6x:=700; end;
 
           pauseaudio(0);
 

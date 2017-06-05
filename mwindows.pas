@@ -66,6 +66,7 @@ type TWindow=class(TObject)
      dclick:boolean;
      needclose:boolean;
      activey:integer;
+     selected:boolean;
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
 
@@ -427,6 +428,7 @@ else                    // no background, create one
   decoration:=nil;
   title:='';
   end;
+selected:=true;
 semaphore:=false;
 end;
 
@@ -502,12 +504,14 @@ else
   dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,1792); // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
+    selected:=false;
     c:=inactivecolor;
     ct:=inactivetextcolor;
     a:=0;
     end
   else
     begin
+    selected:=true;
     c:=activecolor;
     ct:=activetextcolor;
     a:=32
@@ -824,6 +828,8 @@ procedure Twindow.select;
 var who,whh:TWindow;
 
 begin
+who:=background;
+while who.next<>nil do begin who.selected:=false; who:=who.next; end;
 who:=self;
 if (who.next<>nil) and (who<>background) then
   begin
@@ -835,6 +841,7 @@ if (who.next<>nil) and (who<>background) then
   who.prev:=whh;
   whh.next:=who;
   end;
+selected:=true;
 end;
 
 //------------------------------------------------------------------------------
@@ -1083,7 +1090,7 @@ l:=0;
 h:=0;
 bg:=0;
 wl:=480;
-wh:=1000;
+wh:=500;
 canvas:=getmem(wl*wh);
 dirlist;
 makeicon;
@@ -1092,7 +1099,7 @@ next:=nil;
 visible:=false;
 resizable:=true;
 prev:=who;
-title:=adir;
+title:=copy (adir,1,48);
 decoration:=TDecoration.create;
 decoration.title:=getmem(wl*titleheight);
 decoration.hscroll:=true;
@@ -1243,7 +1250,7 @@ if dblclick then
     begin
     if copy(filenames[sel,0],2,1)<>':' then begin dir:=(currentdir2+filenames[sel,0]+'\'); dirlist; end
     else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
-    title:=currentdir2;
+    title:=copy(currentdir2,1,48);
     end
   else filename:=lowercase(currentdir2+filenames[sel,0]);
   end;
@@ -1576,13 +1583,13 @@ if visible and selectable and not selected then begin
   while temp.prev<>nil do
     begin
     temp:=tbutton(temp.prev);
-    temp.unselect;
+    if temp.radiogroup=self.radiogroup then temp.unselect;
     end;
   temp:=self;
   while temp.next<>nil do
     begin
     temp:=tbutton(temp.next);
-    temp.unselect;
+    if temp.radiogroup=self.radiogroup then temp.unselect;
     end;
    end;
 end;
