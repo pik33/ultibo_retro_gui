@@ -497,12 +497,12 @@ else
   end;
 // If the window is the background, move it as fast as it is possible to the canvas
 // Todo: check if DMA can be better here; fastmove function uses CPU
-if self=background then begin wt:=gettime; fastmove($30000000,dest,1792*1120);   wt:=gettime-wt; end
+if self=background then begin wt:=gettime; fastmove($30000000,dest,xres*yres);   wt:=gettime-wt; end
 else
   begin
   wt:=gettime;
   if buttons<>nil then buttons.draw;                      // update the wigdets
-  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,1792); // then blit the window to the canvas
+  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
     selected:=false;
@@ -525,20 +525,20 @@ else
     if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) and (mousek=1) then needclose:=true;
 
 
-    fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,1792,c+borderdelta);         //upper borded
-    fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,1792,c);                        //title bar
-    fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,1792,c+borderdelta);   //left border
-    fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,1792,c+borderdelta);      //lower border
-    fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,1792,c+borderdelta);//right border
+    fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper borded
+    fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,xres,c);                        //title bar
+    fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,xres,c+borderdelta);   //left border
+    fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,xres,c+borderdelta);      //lower border
+    fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,xres,c+borderdelta);//right border
 
-    fill2d(dest,x,y+h,l,dsh,1792,scrollcolor);                        //horizontal scroll bar
-    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,1792,activescrollcolor);    //horizontal scroll bar active part
+    fill2d(dest,x,y+h,l,dsh,xres,scrollcolor);                        //horizontal scroll bar
+    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,xres,activescrollcolor);    //horizontal scroll bar active part
 
-    fill2d(dest,x+l,y,dsv,h,1792,scrollcolor);                        //vertical scroll bar
-    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,1792,activescrollcolor);    //vertical scroll bar active part
+    fill2d(dest,x+l,y,dsv,h,xres,scrollcolor);                        //vertical scroll bar
+    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,xres,activescrollcolor);    //vertical scroll bar active part
 
 
-    fill2d(dest,x+l,y+h,dsv,dsh,1792,c);                  //down right corner
+    fill2d(dest,x+l,y+h,dsv,dsh,xres,c);                  //down right corner
     gouttextxy(pointer(dest),x+32,y-20,title,ct);
     for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
     if q1<>0 then
@@ -1981,8 +1981,8 @@ label p999;
 var adr:integer;
 
 begin
-if (x<0) or (x>=1792) or (y<0) or (y>1120) then goto p999;
-adr:=cardinal(g)+x+1792*y;
+if (x<0) or (x>=xres) or (y<0) or (y>yres) then goto p999;
+adr:=cardinal(g)+x+xres*y;
 poke(adr,color);
 p999:
 end;

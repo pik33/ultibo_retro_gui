@@ -64,12 +64,17 @@
 //    2F06_0100 - 2F06_01?? - blitter
 //    2F06_0100 - 2F06_01FF - blitter DMA ctrl blocks
 //    2F06_0200 - 2F06_0207 - blitter fill color area
-//    2F06_0210 - 2F06_FFFF - reserved
+//    2F06_0210 - 2F06_02FF - reserved
 
 //    2F06_0300 - system data area
 //    2F06_0300 - CPU clock
 //    2F06_0304 - CPU temperature
 
+//    2F06_0400 - double buffer screen #1 address
+//    2F06_0404 - double buffer screen #2 address
+//    2F06_0408 - native x resolution
+//    2F06_040C - native y resolution
+//    2F06_0410 - initial DL area
 
 //    2F07_0000 - 2F08_FFFF - 2x64k long audio buffer for noise shaper
 //    2F0D_0000  -  2FFF_FFFF - retromachine system area
@@ -80,16 +85,27 @@
 
 
 // TODO planned retromachine graphic modes:
-// 00..15 Propeller retromachine compatible
+// 00..15 Propeller retromachine compatible - TODO
 // 16 - 1792x1120 @ 8bpp
-// 17 - 896x560 @ 8 bpp
-// 18 - 448x280 @ 8 bpp
-// 19 - 224x140 @ 8 bpp
+// 17 - 896x560 @ 16 bpp
+// 18 - 448x280 @ 32 bpp
+// 19 - native borderless @ 8 bpp /xres, yres defined @ 60020,60024
 // 20..23 - 16 bpp modes
 // 24..27 - 32 bpp modes
 // 28 ..31 text modes - ?
+// bit 7 set = double buffered
+
+
+// DL modes
+
+//xxxxDDMM
+// xxxx = 0001 for RPi Retromachine
+// MM: 00: hi, 01 med 10 low 11 native borderless
+// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
+
 
 // ----------------------------   This is still alpha quality code
+
 
 unit retromalina;
 
@@ -160,9 +176,11 @@ const _pallette=        $10000;
       _bkcolor=         $600A8;
       _textsize=        $600AC;
       _audiodma=        $600C0;
-
-
-
+      _dblbufscn1=      $60400;
+      _dblbufscn2=      $60404;
+      _nativex=         $60408;
+      _nativey=         $6040C;
+      _initialdl=       $60410;
 
 
 type
@@ -417,6 +435,11 @@ var fh,filetype:integer;                // this needs cleaning...
     textpitch:       byte     absolute _textsize+2;
     audiodma1:       array[0..7] of cardinal absolute _audiodma;
     audiodma2:       array[0..7] of cardinal absolute _audiodma+32;
+    dblbufscn1:      cardinal absolute base+_dblbufscn1;
+    dblbufscn2:      cardinal absolute base+_dblbufscn2;
+    nativex:         cardinal absolute base+_nativex;
+    nativey:         cardinal absolute base+_nativey;
+
 
     desired, obtained:TAudioSpec;
     error:integer;
@@ -433,9 +456,10 @@ var fh,filetype:integer;                // this needs cleaning...
 
 // prototypes
 
-procedure initmachine;
+procedure initmachine(mode:integer);
 procedure stopmachine;
 
+procedure graphics(mode:integer);
 procedure setpallette(pallette:TPallette;bank:integer);
 procedure cls(c:integer);
 procedure putpixel(x,y,color:integer);
@@ -478,13 +502,13 @@ function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 //procedure dma_box(x,y,l,h,c:cardinal);
 //procedure box3(x,y,l,h,c:integer);
-
+procedure scrconvertnative(src,screen:pointer);
 
 implementation
 
 uses blitter;
 procedure scrconvert(src,screen:pointer); forward;
-procedure scrconvert32(screen:pointer); forward;
+//procedure scrconvert32(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
 
 
@@ -525,7 +549,7 @@ mousetype:=0;
   repeat
     p102:
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
-    if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[1]=0) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
+    if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
  //   box(0,0,300,50,0); outtextxy(0,0,inttohex(m[0],2)+' '+inttohex(m[1],2)+' '+inttohex(m[2],2)+' '+inttohex(m[3],2)+' '+inttohex(m[4],2)+' '+inttohex(m[5],2)+' '+inttohex(m[6],2)+' '+inttohex(m[7],2)+' ',15);
 
     mousecount+=1;
@@ -591,11 +615,11 @@ p101:
        end;
     x:=mousex+offsetx;
     if x<0 then x:=0;
-    if x>1791 then x:=1791;
+    if x>(xres-1) then x:=xres-1;
     mousex:=x;
     y:=mousey+offsety;
     if y<0 then y:=0;
-    if y>1119 then y:=1119;
+    if y>(yres-1) then y:=yres-1;
     mousey:=y;
     mousek:=Buttons and 255;
     if wheel<-1 then wheel:=-1;
@@ -929,7 +953,8 @@ repeat
   t:=gettime;
 
 
-  scrconvert(pointer($30800000),p2);   //8
+ scrconvert(pointer($30800000),p2);   //8
+//  scrconvertnative(pointer($30800000),p2);   //8
   screenaddr:=$30800000;
 
 
@@ -947,8 +972,9 @@ repeat
   vblank1:=0;
   t:=gettime;
 
-  scrconvert(pointer($30a00000),p2+2304000);   //a
-  screenaddr:=$30a00000;
+  scrconvert(pointer($30b00000),p2+2304000);   //a
+//  scrconvertnative(pointer($30a00000),p2+2304000);   //a
+  screenaddr:=$30b00000;
 
   tim:=gettime-t;
   t:=gettime;
@@ -974,35 +1000,37 @@ end;
 // initmachine: start the machine
 // ----------------------------------------------------------------------
 
-procedure initmachine;
+procedure initmachine(mode:integer);
 
-// -- rev 20170111
+// -- rev 20170606
 
-var a,i,j,k:integer;
-    l,bb:byte;
-    fh2:integer;
-    Entry:TPageTableEntry ;
-    f: textfile;
+var i:integer;
+
 
 begin
 
 //init the framebuffer
-//TODO: if the screen is 1920x1080 init it to this resolution
 
+// wait until default framebuffer is initialized
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
+// get native resolution
+FramebufferDeviceGetProperties(fb,@FramebufferProperties);
+nativex:=FramebufferProperties.PhysicalWidth;
+nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
-sleep(100);
+
+
+
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=1920;
 FramebufferProperties.PhysicalHeight:=1200;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(100);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
-for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-sleep(100);
+//for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
+//sleep(100);
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
@@ -1012,13 +1040,13 @@ framecnt:=0;                             // frame counter
 systemfont:=st4font;
 sprite7def:=mysz;
 setpallette(ataripallette,0);
-cls(146);
+//cls(146);
 
 // init sprite data pointers
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
 // start frame refreshing thread
-
+sleep(100);
 thread:=tretro.create(true);
 thread.start;
 
@@ -1059,7 +1087,10 @@ amouse.start;
 
 akeyboard:=tkeyboard.create(true);
 akeyboard.start;
-background:=TWindow.create(1792,1120,'');
+xres:=1792;                // TODO: start @ native xres, yres
+yres:=1120;
+background:=TWindow.create(xres,yres,'');
+//background:=TWindow.create(1792,1120,'');
 panel:=TPanel.create;
 windows:=twindows.create(true);
 windows.start;
@@ -1085,183 +1116,6 @@ end;
 
 // -----  Screen convert procedures
 
-procedure scrconvert32 (screen:pointer);
-
-// --- rev 21070111
-
-var a,b,c:integer;
-    e:integer;
-
-label p1,p0,p002,p10,p11,p12,p999;
-
-begin
-a:=displaystart;
-c:=$30800000;  // map start
-e:=bordercolor;
-b:=base+_pallette;
-
-                asm
-      //          vldr d0,[r0]
-      //          vmov d1,d0
-      //          vadd.i64 d1,d0
-      //          vstr d1,[r0]
-                stmfd r13!,{r0-r12,r14}   //Push registers
-                ldr r1,c //a
-                mov r6,r1
-                add r6,#4     // now r1, r6 points to map
-                ldr r2,screen
-                mov r12,r2
-                add r12,#4
-                ldr r3,b
-                mov r5,r2
-                                    //upper border
-                add r5,#307200
-                ldr r9,e
-                mov r10,r9
-p10:            str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p10
-                mov r0,#1120
-                                    //left border
-p11:            add r5,#256
-                ldr r9,e
-                mov r10,r9
-p0:             str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p0
-
-                push {r0,r11}
-                                    //active screen
-                add r5,#7168
-
-p1:
-                ldr r7,[r1],#8
-                ldr r8,[r6],#8
-                ldr r9,[r1],#8
-                ldr r10,[r6],#8
-                ldr r0,[r1],#8
-                ldr r4,[r6],#8
-                ldr r14,[r1],#8
-                ldr r11,[r6],#8
-
-                ldr r7,[r7]
-                ldr r8,[r8]
-                ldr r9,[r9]
-                ldr r10,[r10]
-                ldr r0,[r0]
-                ldr r4,[r4]
-                ldr r14,[r14]
-                ldr r11,[r11]
-
-   //             ldr r7,[r3,r7,lsl #2]
-   //             ldr r8,[r3,r8,lsl #2]
-   //             ldr r9,[r3,r9,lsl #2]
-   //             ldr r10,[r3,r10,lsl #2]
-    //            ldr r0,[r3,r0,lsl #2]
-    //            ldr r4,[r3,r4,lsl #2]
-   //             ldr r14,[r3,r14,lsl #2]
-   //             ldr r11,[r3,r11,lsl #2]
-
-                str r7,[r2],#8
-                str r8,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r0,[r2],#8
-                str r4,[r12],#8
-                str r14,[r2],#8
-                str r11,[r12],#8
-
-                ldr r7,[r1],#8
-                ldr r8,[r6],#8
-                ldr r9,[r1],#8
-                ldr r10,[r6],#8
-                ldr r0,[r1],#8
-                ldr r4,[r6],#8
-                ldr r14,[r1],#8
-                ldr r11,[r6],#8
-
-                ldr r7,[r7]
-                ldr r8,[r8]
-                ldr r9,[r9]
-                ldr r10,[r10]
-                ldr r0,[r0]
-                ldr r4,[r4]
-                ldr r14,[r14]
-                ldr r11,[r11]
-
-   //             ldr r7,[r3,r7,lsl #2]
-   //             ldr r8,[r3,r8,lsl #2]
-    //            ldr r9,[r3,r9,lsl #2]
-   //             ldr r10,[r3,r10,lsl #2]
-   //             ldr r0,[r3,r0,lsl #2]
-    //            ldr r4,[r3,r4,lsl #2]
-    //            ldr r14,[r3,r14,lsl #2]
-     //           ldr r11,[r3,r11,lsl #2]
-
-                str r7,[r2],#8
-                str r8,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r0,[r2],#8
-                str r4,[r12],#8
-                str r14,[r2],#8
-                str r11,[r12],#8
-
-
-
-                cmp r2,r5
-                blt p1
-                pop {r0,r11}
-                                  //right border
-                add r5,#256
-                ldr r9,e
-                mov r10,r9
-p002:           str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p002
-
-                subs r0,#1
-                bne p11
-                                  //lower border
-                add r5,#307200
-                ldr r9,e
-                mov r10,r9
-p12:            str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p12
-p999:           ldmfd r13!,{r0-r12,r14}
-                end;
-
-
-end;
 
 
 procedure scrconvert(src,screen:pointer);
@@ -1431,106 +1285,360 @@ p999:           ldmfd r13!,{r0-r12,r14}
 
 end;
 
-procedure scrconvert_old(screen:pointer);
 
-// --- rev 21070111
+procedure scrconvertnative(src,screen:pointer);
 
-var a,b:integer;
+// --- rev 21070608
+
+var a,b,c:integer;
     e:integer;
+    nx,ny:cardinal;
+
 label p1,p0,p002,p10,p11,p12,p999;
 
 begin
 a:=displaystart;
+c:=integer(src);//$30800000;  // map start
 e:=bordercolor;
 b:=base+_pallette;
+ny:=nativey;
+nx:=nativex*4;
 
                 asm
-                stmfd r13!,{r0-r12}   //Push registers
-                ldr r1,a
-                mov r6,r1
-                add r6,#1
+
+                stmfd r13!,{r0-r12,r14}   //Push registers
+                ldr r1,c
                 ldr r2,screen
-                mov r12,r2
-                add r12,#4
                 ldr r3,b
                 mov r5,r2
-                                    //upper border
-                add r5,#307200
-                ldr r9,e
-                mov r10,r9
-p10:            str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p10
-                mov r0,#1120
-                                    //left border
-p11:            add r5,#256
-                ldr r9,e
-                mov r10,r9
-p0:             str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p0
-                                    //active screen
+
+                //upper border
+
+
+                mov r0,#1120  //ny
+
+p11:            //ldr r4,nx                                   //active screen
                 add r5,#7168
-p1:             ldrb r7,[r1],#2
-                ldrb r8,[r6],#2
-                ldr r9,[r3,r7,lsl #2]
-                ldr r10,[r3,r8,lsl #2]
-                str r9,[r2],#8
-                str r10,[r12],#8
-                ldrb r7,[r1],#2
-                ldrb r8,[r6],#2
-                ldr r9,[r3,r7,lsl #2]
-                ldr r10,[r3,r8,lsl #2]
-                str r9,[r2],#8
-                str r10,[r12],#8
-                ldrb r7,[r1],#2
-                ldrb r8,[r6],#2
-                ldr r9,[r3,r7,lsl #2]
-                ldr r10,[r3,r8,lsl #2]
-                str r9,[r2],#8
-                str r10,[r12],#8
-                ldrb r7,[r1],#2
-                ldrb r8,[r6],#2
-                ldr r9,[r3,r7,lsl #2]
-                ldr r10,[r3,r8,lsl #2]
-                str r9,[r2],#8
-                str r10,[r12],#8
+
+p1:
+                ldm r1!,{r4,r9}
+
+                mov r6,r4,lsr #8
+                mov r7,r4,lsr #16
+                mov r8,r4,lsr #24
+                mov r10,r9,lsr #8
+                mov r12,r9,lsr #16
+                mov r14,r9,lsr #24
+
+                and r4,#0xFF
+                and r6,#0xFF
+                and r7,#0xFF
+                and r9,#0xFF
+                and r10,#0xFF
+                and r12,#0xFF
+
+                ldr r4,[r3,r4,lsl #2]
+                ldr r6,[r3,r6,lsl #2]
+                ldr r7,[r3,r7,lsl #2]
+                ldr r8,[r3,r8,lsl #2]
+                ldr r9,[r3,r9,lsl #2]
+                ldr r10,[r3,r10,lsl #2]
+                ldr r12,[r3,r12,lsl #2]
+                ldr r14,[r3,r14,lsl #2]
+
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+                ldm r1!,{r4,r9}
+
+                mov r6,r4,lsr #8
+                mov r7,r4,lsr #16
+                mov r8,r4,lsr #24
+                mov r10,r9,lsr #8
+                mov r12,r9,lsr #16
+                mov r14,r9,lsr #24
+
+                and r4,#0xFF
+                and r6,#0xFF
+                and r7,#0xFF
+                and r9,#0xFF
+                and r10,#0xFF
+                and r12,#0xFF
+
+                ldr r4,[r3,r4,lsl #2]
+                ldr r6,[r3,r6,lsl #2]
+                ldr r7,[r3,r7,lsl #2]
+                ldr r8,[r3,r8,lsl #2]
+                ldr r9,[r3,r9,lsl #2]
+                ldr r10,[r3,r10,lsl #2]
+                ldr r12,[r3,r12,lsl #2]
+                ldr r14,[r3,r14,lsl #2]
+
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
                 cmp r2,r5
                 blt p1
-                                  //right border
-                add r5,#256
-                ldr r9,e
-                mov r10,r9
-p002:           str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p002
+
                 subs r0,#1
                 bne p11
-                                  //lower border
-                add r5,#307200
-                ldr r9,e
-                mov r10,r9
-p12:            str r9,[r2],#8
-                str r10,[r12],#8
-                str r9,[r2],#8
-                str r10,[r12],#8
-                cmp r2,r5
-                blt p12
-p999:           ldmfd r13!,{r0-r12}
+
+
+p999:           ldmfd r13!,{r0-r12,r14}
                 end;
 
 
 end;
 
+
+procedure scrconvertdl(screen:pointer);
+
+// --- rev 21070111
+
+var a,b:integer;
+    e:integer;
+    c,command, pixels, lines, dl:cardinal;
+
+const scr:cardinal=$30000000;
+
+label p001;
+
+begin
+a:=displaystart;
+e:=bordercolor;
+c:=scr;
+b:=base+_pallette;
+dl:=lpeek(base+$60034);
+
+ // rev 20170607
+
+// DL graphic mode
+
+//xxxxDDMM
+// xxxx = 0001 for RPi Retromachine
+// MM: 00: hi, 01 med 10 low 11 native borderless
+// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
+
+//    2F06_0018 - display list start addr  ----TODO
+//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
+//                            xx: 00 - do nothing
+//                                01 - raster interrupt
+//                                10 - set pallette bank YY
+//                                11 - set horizontal scroll at YY
+//                          01xx_AAAAAAA - wait for vsync, then start DL @xxAAAAAA
+//                          10xx_AAAAAAA - set display address to xxAAAAAAA
+//                          11xx_AAAAAAA - goto address xxAAAAAAA
+
+//    2F06_0034 - current dl position ----TODO
+
+//    2F06_0008 - current graphics mode   ----TODO
+//      2F06_0009 - bytes per pixel
+//    2F06_000C - border color
+//    2F06_0010 - pallette bank           ----TODO
+//    2F06_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
+//    2F06_0018 - display list start addr  ----TODO
+//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
+//                            xx: 00 - do nothing
+//                                01 - raster interrupt
+//                                10 - set pallette bank YY
+//                                11 - set horizontal scroll at YY
+//                          10xx_AAAAAAA - set display address to xxAAAAAAA
+//                          11xx_AAAAAAA - goto address xxAAAAAAA
+//    2F06_001C - horizontal scroll right register ----TODO
+//    2F06_0020 - x res
+//    2F06_0024 - y res
+
+
+command:=lpeek(dl);
+if (command and $C0000000) = 0 then // display
+  begin
+  if command and $FF=$1C then       // border
+    begin
+    lines:=(command and $000FFF00) shr 8;
+    pixels:=lines*1920*4;    // border modes are always signalling 1920x1200
+                asm
+                push {r0-r9}
+                ldr r1,e
+                ldr r0,c
+                mov r2,r1
+                mov r3,r1
+                mov r4,r1
+                mov r5,r1
+                mov r6,r1
+                mov r7,r1
+                mov r8,r1
+                mov r8,r1
+                ldr r9,pixels
+                add r9,r0
+p001:           stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
+                cmp r0,r9
+                blt p001
+                pop {r0-r9}
+                end;
+    end
+  else if command and $FF=$10 then       // hi res bordered 8bpp
+    begin
+    end
+  else if command and $FF=$13 then       // native bordreless 8bpp
+    begin
+    end
+  end;
+{
+                asm
+
+                stmfd r13!,{r0-r12,r14}   //Push registers
+                ldr r1,c
+                ldr r2,screen
+                ldr r3,b
+                mov r5,r2
+
+                //upper border
+
+                add r5,#307200
+                ldr r4,e
+                mov r6,r4
+                mov r7,r4
+                mov r8,r4
+                mov r9,r4
+                mov r10,r4
+                mov r12,r4
+                mov r14,r4
+
+
+p10:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                cmp r2,r5
+                blt p10
+
+                mov r0,#1120
+
+p11:            add r5,#256
+
+                //left border
+
+p0:             stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+
+                                    //active screen
+                add r5,#7168
+
+p1:
+                ldm r1!,{r4,r9}
+
+                mov r6,r4,lsr #8
+                mov r7,r4,lsr #16
+                mov r8,r4,lsr #24
+                mov r10,r9,lsr #8
+                mov r12,r9,lsr #16
+                mov r14,r9,lsr #24
+
+                and r4,#0xFF
+                and r6,#0xFF
+                and r7,#0xFF
+                and r9,#0xFF
+                and r10,#0xFF
+                and r12,#0xFF
+
+                ldr r4,[r3,r4,lsl #2]
+                ldr r6,[r3,r6,lsl #2]
+                ldr r7,[r3,r7,lsl #2]
+                ldr r8,[r3,r8,lsl #2]
+                ldr r9,[r3,r9,lsl #2]
+                ldr r10,[r3,r10,lsl #2]
+                ldr r12,[r3,r12,lsl #2]
+                ldr r14,[r3,r14,lsl #2]
+
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+                ldm r1!,{r4,r9}
+
+                mov r6,r4,lsr #8
+                mov r7,r4,lsr #16
+                mov r8,r4,lsr #24
+                mov r10,r9,lsr #8
+                mov r12,r9,lsr #16
+                mov r14,r9,lsr #24
+
+                and r4,#0xFF
+                and r6,#0xFF
+                and r7,#0xFF
+                and r9,#0xFF
+                and r10,#0xFF
+                and r12,#0xFF
+
+                ldr r4,[r3,r4,lsl #2]
+                ldr r6,[r3,r6,lsl #2]
+                ldr r7,[r3,r7,lsl #2]
+                ldr r8,[r3,r8,lsl #2]
+                ldr r9,[r3,r9,lsl #2]
+                ldr r10,[r3,r10,lsl #2]
+                ldr r12,[r3,r12,lsl #2]
+                ldr r14,[r3,r14,lsl #2]
+
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+                cmp r2,r5
+                blt p1
+
+                                  //right border
+                add r5,#256
+                ldr r4,e
+                mov r6,r4
+                mov r7,r4
+                mov r8,r4
+                mov r9,r4
+                mov r10,r4
+                mov r12,r4
+                mov r14,r4
+
+
+p002:           stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+                subs r0,#1
+                bne p11
+                                  //lower border
+                add r5,#307200
+
+p12:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+
+                cmp r2,r5
+                blt p12
+p999:           ldmfd r13!,{r0-r12,r14}
+                end;
+}
+end;
 
 procedure sprite(screen:pointer);
 
@@ -1760,8 +1868,132 @@ result:=mousewheel-128;
 mousewheel:=128
 end;
 
+//------------------------------------------------------------------------------
+// ----- Graphics mode setting ------------
+//------------------------------------------------------------------------------
 
-// ----- Graphics ------------
+procedure graphics(mode:integer);
+
+// rev 20170607
+
+// Graphics mode set:
+// 16 - HiRes 8bpp
+// 17 - MedRes 16 bpp
+// 18 - LoRes 32 bpp
+// 19 - native, borderless, 8 bpp
+
+// DL graphic mode
+
+//xxxxDDMM
+// xxxx = 0001 for RPi Retromachine
+// MM: 00: hi, 01 med 10 low 11 native borderless
+// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
+
+//    2F06_0018 - display list start addr  ----TODO
+//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
+//                            xx: 00 - do nothing
+//                                01 - raster interrupt
+//                                10 - set pallette bank YY
+//                                11 - set horizontal scroll at YY
+//                          01xx_AAAAAAA - wait for vsync, then start DL @xxAAAAAA
+//                          10xx_AAAAAAA - set display address to xxAAAAAAA
+//                          11xx_AAAAAAA - goto address xxAAAAAAA
+
+//    2F06_0034 - current dl position ----TODO
+
+//    2F06_0008 - current graphics mode   ----TODO
+//      2F06_0009 - bytes per pixel
+//    2F06_000C - border color
+//    2F06_0010 - pallette bank           ----TODO
+//    2F06_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
+//    2F06_0018 - display list start addr  ----TODO
+//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
+//                            xx: 00 - do nothing
+//                                01 - raster interrupt
+//                                10 - set pallette bank YY
+//                                11 - set horizontal scroll at YY
+//                          10xx_AAAAAAA - set display address to xxAAAAAAA
+//                          11xx_AAAAAAA - goto address xxAAAAAAA
+//    2F06_001C - horizontal scroll right register ----TODO
+//    2F06_0020 - x res
+//    2F06_0024 - y res
+begin
+if mode=16 then
+  begin
+  poke(base+$60008,16);
+  poke(base+$60009,8);
+  lpoke(base+$60010,0);
+  lpoke(base+$60014,0);
+  lpoke(base+$60020,1792);
+  lpoke(base+$60024,1120);
+  lpoke (base+$60018,base+$60410);
+  lpoke (base+$60034,base+$60410);
+  lpoke (base+$60410,$0000281C);  // upper border 40 lines
+  lpoke (base+$60414,$00046000);  // main display 1120 lines @ hi/8bpp
+  lpoke (base+$60418,$0000281C);  // lower border 40 lines
+  lpoke (base+$6041C,base+$60410+$40000000);  // wait vsync and restart DL
+  end
+else if mode=17 then
+  begin
+  end
+else if mode=18 then
+  begin
+  end
+else if mode=19 then
+  begin
+  poke(base+$60008,16);
+  poke(base+$60009,8);
+  lpoke(base+$60010,0);
+  lpoke(base+$60014,0);
+  lpoke(base+$60020,nativex);
+  lpoke(base+$60024,nativey);
+  lpoke (base+$60018,base+$60410);
+  lpoke (base+$60034,base+$60410);
+  lpoke (base+$60414,(nativey shl 8)+3);      // main display nativey lines @ hi/8bpp
+  lpoke (base+$6041C,base+$60410+$40000000);  // wait vsync and restart DL
+  end
+else if mode=144 then        // double buffered high 8 bit
+  begin
+  poke(base+$60008,144);
+  poke(base+$60009,8);
+  lpoke(base+$60010,0);
+  lpoke(base+$60014,0);
+  lpoke(base+$60020,1792);
+  lpoke(base+$60024,1120);
+
+  lpoke (base+$60018,base+$60410);
+  lpoke (base+$60034,base+$60410);
+  lpoke (base+$60410,$B0800000);  // display start @ 30800000
+  lpoke (base+$60414,$0000281C);  // upper border 40 lines
+  lpoke (base+$60418,$00046000);  // main display 1120 lines @ hi/8bpp
+  lpoke (base+$6041c,$0000281C);  // lower border 40 lines
+  lpoke (base+$60420,$B0b00000);  // display start @ 30b00000
+  lpoke (base+$60424,base+$60428+$40000000);  // wait vsync and restart DL @ 60428
+  lpoke (base+$60428,$0000281C);  // upper border
+  lpoke (base+$6042c,$00046000);  // main display 1120 lines @ hi/8bpp
+  lpoke (base+$60430,$0000281C);  // lower border 40 lines
+  lpoke (base+$60434,$B0800000);  // display start @ 30800000
+  lpoke (base+$60438,base+$60414+$40000000);  // wait vsync and restart DL @ 60414
+  end
+else if mode=147 then          // double buffered native 8bit
+  begin
+  poke(base+$60008,147);
+  poke(base+$60009,8);
+  lpoke(base+$60010,0);
+  lpoke(base+$60014,0);
+  lpoke(base+$60020,nativex);
+  lpoke(base+$60024,nativey);
+  lpoke (base+$60018,base+$60410);
+  lpoke (base+$60034,base+$60410);
+  lpoke (base+$60410,$B0800000);  // display start @ 30800000
+  lpoke (base+$60414,(nativey shl 8)+3);  // display the screen
+  lpoke (base+$60418,$B0b00000);  // display start @ 30a00000
+  lpoke (base+$6041c,base+$60420+$40000000);  // wait vsync and restart DL @ 60420
+  lpoke (base+$60420,(nativey shl 8)+3);
+  lpoke (base+$60424,$B0800000);  // display start @ 30b00000
+  lpoke (base+$60428,base+$60414+$40000000);  // wait vsync and restart DL @ 60414
+  end
+end;
 
 procedure blit(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 

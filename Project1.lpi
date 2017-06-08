@@ -31,7 +31,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="14">
+    <Units Count="15">
       <Unit0>
         <Filename Value="Project1.pas"/>
         <IsPartOfProject Value="True"/>
@@ -89,6 +89,11 @@
         <Filename Value="mandelbrot.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit13>
+      <Unit14>
+        <Filename Value="programinit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="ProgramInit"/>
+      </Unit14>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

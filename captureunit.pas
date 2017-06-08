@@ -37,10 +37,10 @@ for i:=1 to length(s) do if s[i]=':' then s[i]:='_';
 bmp_fh:=filecreate(dir+'Colors/Capture/dump'+s+'.bmp');
 filewrite(bmp_fh,bmphead[0],54);
 k:=0;
-for i:=1119 downto 0 do
-  for j:=0 to 1791 do
+for i:=yres-1 downto 0 do
+  for j:=0 to xres-1 do
    begin
-   idx:=peek(displaystart+(1792*i+j)); // get a color index
+   idx:=peek(displaystart+(xres*i+j)); // get a color index
    bmpi:=systempallette[0,idx];        // get a color from the pallette
    bmpbuf[k]:=bmpp;                    // bmp is 24 bit while pallette is integer
    k+=1;

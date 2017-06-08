@@ -1286,49 +1286,49 @@ else  // animate the bouncing balls
 
   sprite0x+=spr0dx;   // now we have to use intermediate variables to avoid wild moving of the sprites :)
   sprite0y+=spr0dy;
-  if sprite0x>=1792 then spr0dx:=-abs(spr0dx);
+  if sprite0x>=xres then spr0dx:=-abs(spr0dx);
   if sprite0y>=1096 then spr0dy:=-abs(spr0dy);
   if sprite0x<=64 then spr0dx:=abs(spr0dx);
   if sprite0y<=40 then spr0dy:=abs(spr0dy);
 
   sprite1x+=spr1dx;
   sprite1y+=spr1dy;
-  if sprite1x>=1792 then spr1dx:=-abs(spr1dx);
+  if sprite1x>=xres then spr1dx:=-abs(spr1dx);
   if sprite1y>=1096 then spr1dy:=-abs(spr1dy);
   if sprite1x<=64 then spr1dx:=abs(spr1dx);
   if sprite1y<=40 then spr1dy:=abs(spr1dy);
 
   sprite2x+=spr2dx;
   sprite2y+=spr2dy;
-  if sprite2x>=1792 then spr2dx:=-abs(spr2dx);
+  if sprite2x>=xres then spr2dx:=-abs(spr2dx);
   if sprite2y>=1096 then spr2dy:=-abs(spr2dy);
   if sprite2x<=64 then spr2dx:=abs(spr2dx);
   if sprite2y<=40 then spr2dy:=abs(spr2dy);
 
   sprite3x+=spr3dx;
   sprite3y+=spr3dy;
-  if sprite3x>=1792 then spr3dx:=-abs(spr3dx);
+  if sprite3x>=xres then spr3dx:=-abs(spr3dx);
   if sprite3y>=1096 then spr3dy:=-abs(spr3dy);
   if sprite3x<=64 then spr3dx:=abs(spr3dx);
   if sprite3y<=40 then spr3dy:=abs(spr3dy);
 
   sprite4x+=spr4dx;
   sprite4y+=spr4dy;
-  if sprite4x>=1792 then spr4dx:=-abs(spr4dx);
+  if sprite4x>=xres then spr4dx:=-abs(spr4dx);
   if sprite4y>=1096 then spr4dy:=-abs(spr4dy);
   if sprite4x<=64 then spr4dx:=abs(spr4dx);
   if sprite4y<=40 then spr4dy:=abs(spr4dy);
 
   sprite5x+=spr5dx;
   sprite5y+=spr5dy;
-  if sprite5x>=1792 then spr5dx:=-abs(spr5dx);
+  if sprite5x>=xres then spr5dx:=-abs(spr5dx);
   if sprite5y>=1096 then spr5dy:=-abs(spr5dy);
   if sprite5x<=64 then spr5dx:=abs(spr5dx);
   if sprite5y<=40 then spr5dy:=abs(spr5dy);
 
   sprite6x+=spr6dx;
   sprite6y+=spr6dy;
-  if sprite6x>=1792 then spr6dx:=-abs(spr6dx);
+  if sprite6x>=xres then spr6dx:=-abs(spr6dx);
   if sprite6y>=1096 then spr6dy:=-abs(spr6dy);
   if sprite6x<=64 then spr6dx:=abs(spr6dx);
   if sprite6y<=40 then spr6dy:=abs(spr6dy);

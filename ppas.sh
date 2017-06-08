@@ -27,9 +27,6 @@ if [ $? != 0 ]; then DoExitAsm unit6502; fi
 echo Assembling screen
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.s
 if [ $? != 0 ]; then DoExitAsm screen; fi
-echo Assembling calculatorunit
-/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/calculatorunit.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/calculatorunit.s
-if [ $? != 0 ]; then DoExitAsm calculatorunit; fi
 echo Assembling project1
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.s
 if [ $? != 0 ]; then DoExitAsm project1; fi
