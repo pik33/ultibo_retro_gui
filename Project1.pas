@@ -57,6 +57,7 @@ var
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
     oneicon:TIcon ;
+    fh,i,j:integer;
 
 // ---- procedures
 
@@ -101,8 +102,11 @@ if fileexists(drive+'kernel7_l.img') then
   RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
   end;
 
-fh:=fileopen(drive+'wallpaper.rbm',$40);
-fileread(fh,pointer($30000000)^,1792*1120);
+fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
+fileread(fh,pointer($30300000)^,235*300);
+for i:=0 to 299 do
+  for j:=0 to 234 do
+    if (peek($30300000+j+i*235)>15) or (peek($30300000+j+i*235)<5) then poke ($30000000+nativex*(i+(nativey div 2)-150)+j+(nativex div 2) - 117,peek($30300000+j+i*235));
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 songtime:=0;

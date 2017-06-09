@@ -1198,7 +1198,7 @@ end;
 
 procedure vis_sprites;
 
-var frame:integer;
+var frame,s0y,s1y,s2y:integer;
 
 begin
 
@@ -1219,13 +1219,22 @@ sprite6ptr:=cardinal(@spr6[0])+4096*frame;
 if filetype<3 then
   begin
   if channel1on=1 then sprite0x:=(dpeek(base+$d400) div 40)+74 else sprite0x:=2048;
-  sprite0y:=920-3*(peek(base+$d406) and $F0);
+  s0y:=920-3*(peek(base+$d406) and $F0);
+  if s0y<0 then s0y:=0;
+  if s0y>yres-64 then s0y:=yres-64;
+  sprite0y:=s0y;
 
   if channel2on=1 then sprite1x:=((peek(base+$d407)+256*peek(base+$d408)) div 40)+74 else sprite1x:=2048;
-  sprite1y:=920-3*(peek(base+$d40d) and $F0);
+  s1y:=920-3*(peek(base+$d40d) and $F0);
+  if s1y<0 then s1y:=0;
+  if s1y>yres-64 then s1y:=yres-64;
+  sprite1y:=s1y;
 
   if channel3on=1 then sprite2x:=(dpeek(base+$d40e) div 40) +74 else sprite2x:=2048; ;
-  sprite2y:=920-3*(peek(base+$d414) and $F0);
+  s2y:=920-3*(peek(base+$d414) and $F0);
+  if s2y<0 then s2y:=0;
+  if s2y>yres-64 then s2y:=yres-64;
+  sprite2y:=s2y;
 
   sprite3x:=2048;
   sprite4x:=2148;
@@ -1286,52 +1295,52 @@ else  // animate the bouncing balls
 
   sprite0x+=spr0dx;   // now we have to use intermediate variables to avoid wild moving of the sprites :)
   sprite0y+=spr0dy;
-  if sprite0x>=xres then spr0dx:=-abs(spr0dx);
-  if sprite0y>=1096 then spr0dy:=-abs(spr0dy);
-  if sprite0x<=64 then spr0dx:=abs(spr0dx);
-  if sprite0y<=40 then spr0dy:=abs(spr0dy);
+  if sprite0x>=xres-64 then spr0dx:=-abs(spr0dx);
+  if sprite0y>=yres-64 then spr0dy:=-abs(spr0dy);
+  if sprite0x<=0 then spr0dx:=abs(spr0dx);
+  if sprite0y<=0 then spr0dy:=abs(spr0dy);
 
   sprite1x+=spr1dx;
   sprite1y+=spr1dy;
-  if sprite1x>=xres then spr1dx:=-abs(spr1dx);
-  if sprite1y>=1096 then spr1dy:=-abs(spr1dy);
-  if sprite1x<=64 then spr1dx:=abs(spr1dx);
-  if sprite1y<=40 then spr1dy:=abs(spr1dy);
+  if sprite1x>=xres-64 then spr1dx:=-abs(spr1dx);
+  if sprite1y>=yres-64 then spr1dy:=-abs(spr1dy);
+  if sprite1x<=0 then spr1dx:=abs(spr1dx);
+  if sprite1y<=0 then spr1dy:=abs(spr1dy);
 
   sprite2x+=spr2dx;
   sprite2y+=spr2dy;
-  if sprite2x>=xres then spr2dx:=-abs(spr2dx);
-  if sprite2y>=1096 then spr2dy:=-abs(spr2dy);
-  if sprite2x<=64 then spr2dx:=abs(spr2dx);
-  if sprite2y<=40 then spr2dy:=abs(spr2dy);
+  if sprite2x>=xres-64 then spr2dx:=-abs(spr2dx);
+  if sprite2y>=yres-64 then spr2dy:=-abs(spr2dy);
+  if sprite2x<=0 then spr2dx:=abs(spr2dx);
+  if sprite2y<=0 then spr2dy:=abs(spr2dy);
 
   sprite3x+=spr3dx;
   sprite3y+=spr3dy;
-  if sprite3x>=xres then spr3dx:=-abs(spr3dx);
-  if sprite3y>=1096 then spr3dy:=-abs(spr3dy);
-  if sprite3x<=64 then spr3dx:=abs(spr3dx);
-  if sprite3y<=40 then spr3dy:=abs(spr3dy);
+  if sprite3x>=xres-64 then spr3dx:=-abs(spr3dx);
+  if sprite3y>=yres-64 then spr3dy:=-abs(spr3dy);
+  if sprite3x<=0 then spr3dx:=abs(spr3dx);
+  if sprite3y<=0 then spr3dy:=abs(spr3dy);
 
   sprite4x+=spr4dx;
   sprite4y+=spr4dy;
-  if sprite4x>=xres then spr4dx:=-abs(spr4dx);
-  if sprite4y>=1096 then spr4dy:=-abs(spr4dy);
-  if sprite4x<=64 then spr4dx:=abs(spr4dx);
-  if sprite4y<=40 then spr4dy:=abs(spr4dy);
+  if sprite4x>=xres-64 then spr4dx:=-abs(spr4dx);
+  if sprite4y>=yres-64 then spr4dy:=-abs(spr4dy);
+  if sprite4x<=0 then spr4dx:=abs(spr4dx);
+  if sprite4y<=0 then spr4dy:=abs(spr4dy);
 
   sprite5x+=spr5dx;
   sprite5y+=spr5dy;
-  if sprite5x>=xres then spr5dx:=-abs(spr5dx);
-  if sprite5y>=1096 then spr5dy:=-abs(spr5dy);
-  if sprite5x<=64 then spr5dx:=abs(spr5dx);
-  if sprite5y<=40 then spr5dy:=abs(spr5dy);
+  if sprite5x>=xres-64 then spr5dx:=-abs(spr5dx);
+  if sprite5y>=yres-64 then spr5dy:=-abs(spr5dy);
+  if sprite5x<=0 then spr5dx:=abs(spr5dx);
+  if sprite5y<=0 then spr5dy:=abs(spr5dy);
 
   sprite6x+=spr6dx;
   sprite6y+=spr6dy;
-  if sprite6x>=xres then spr6dx:=-abs(spr6dx);
-  if sprite6y>=1096 then spr6dy:=-abs(spr6dy);
-  if sprite6x<=64 then spr6dx:=abs(spr6dx);
-  if sprite6y<=40 then spr6dy:=abs(spr6dy);
+  if sprite6x>=xres-64 then spr6dx:=-abs(spr6dx);
+  if sprite6y>=yres-64 then spr6dy:=-abs(spr6dy);
+  if sprite6x<=0 then spr6dx:=abs(spr6dx);
+  if sprite6y<=0 then spr6dy:=abs(spr6dy);
   end;
 end;
 

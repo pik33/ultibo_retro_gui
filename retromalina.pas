@@ -353,8 +353,8 @@ var fh,filetype:integer;                // this needs cleaning...
     palletteselector:cardinal absolute base+_palletteselector;
     dlstart:         cardinal absolute base+_dlstart;
     hscroll:         cardinal absolute base+_hscroll;
-    xres:            cardinal absolute base+_xres;
-    yres:            cardinal absolute base+_yres;
+    xres:            integer  absolute base+_xres;
+    yres:            integer  absolute base+_yres;
     key_charcode:    byte     absolute base+_keybd;
     key_modifiers:   byte     absolute base+_keybd+1;
     key_scancode:    byte     absolute base+_keybd+2;
@@ -367,50 +367,50 @@ var fh,filetype:integer;                // this needs cleaning...
     mousedblclick:   byte     absolute base+_mousekey+3;
     dlpos:           cardinal absolute base+_dlpos;
     sprite0xy:       cardinal absolute base+_sprite0xy;
-    sprite0x:        word     absolute base+_sprite0xy;
-    sprite0y:        word     absolute base+_sprite0xy+2;
+    sprite0x:        smallint absolute base+_sprite0xy;
+    sprite0y:        smallint absolute base+_sprite0xy+2;
     sprite0zoom:     cardinal absolute base+_sprite0zoom;
     sprite0zoomx:    word     absolute base+_sprite0zoom;
     sprite0zoomy:    word     absolute base+_sprite0zoom+2;
     sprite1xy:       cardinal absolute base+_sprite1xy;
-    sprite1x:        word     absolute base+_sprite1xy;
-    sprite1y:        word     absolute base+_sprite1xy+2;
+    sprite1x:        smallint absolute base+_sprite1xy;
+    sprite1y:        smallint absolute base+_sprite1xy+2;
     sprite1zoom:     cardinal absolute base+_sprite1zoom;
     sprite1zoomx:    word     absolute base+_sprite1zoom;
     sprite1zoomy:    word     absolute base+_sprite1zoom+2;
     sprite2xy:       cardinal absolute base+_sprite2xy;
-    sprite2x:        word     absolute base+_sprite2xy;
-    sprite2y:        word     absolute base+_sprite2xy+2;
+    sprite2x:        smallint absolute base+_sprite2xy;
+    sprite2y:        smallint absolute base+_sprite2xy+2;
     sprite2zoom:     cardinal absolute base+_sprite2zoom;
     sprite2zoomx:    word     absolute base+_sprite2zoom;
     sprite2zoomy:    word     absolute base+_sprite2zoom+2;
     sprite3xy:       cardinal absolute base+_sprite3xy;
-    sprite3x:        word     absolute base+_sprite3xy;
-    sprite3y:        word     absolute base+_sprite3xy+2;
+    sprite3x:        smallint absolute base+_sprite3xy;
+    sprite3y:        smallint absolute base+_sprite3xy+2;
     sprite3zoom:     cardinal absolute base+_sprite3zoom;
     sprite3zoomx:    word     absolute base+_sprite3zoom;
     sprite3zoomy:    word     absolute base+_sprite3zoom+2;
     sprite4xy:       cardinal absolute base+_sprite4xy;
-    sprite4x:        word     absolute base+_sprite4xy;
-    sprite4y:        word     absolute base+_sprite4xy+2;
+    sprite4x:        smallint absolute base+_sprite4xy;
+    sprite4y:        smallint absolute base+_sprite4xy+2;
     sprite4zoom:     cardinal absolute base+_sprite4zoom;
     sprite4zoomx:    word     absolute base+_sprite4zoom;
     sprite4zoomy:    word     absolute base+_sprite4zoom+2;
     sprite5xy:       cardinal absolute base+_sprite5xy;
-    sprite5x:        word     absolute base+_sprite5xy;
-    sprite5y:        word     absolute base+_sprite5xy+2;
+    sprite5x:        smallint absolute base+_sprite5xy;
+    sprite5y:        smallint absolute base+_sprite5xy+2;
     sprite5zoom:     cardinal absolute base+_sprite5zoom;
     sprite5zoomx:    word     absolute base+_sprite5zoom;
     sprite5zoomy:    word     absolute base+_sprite5zoom+2;
     sprite6xy:       cardinal absolute base+_sprite6xy;
-    sprite6x:        word     absolute base+_sprite6xy;
-    sprite6y:        word     absolute base+_sprite6xy+2;
+    sprite6x:        smallint absolute base+_sprite6xy;
+    sprite6y:        smallint absolute base+_sprite6xy+2;
     sprite6zoom:     cardinal absolute base+_sprite6zoom;
     sprite6zoomx:    word     absolute base+_sprite6zoom;
     sprite6zoomy:    word     absolute base+_sprite6zoom+2;
     sprite7xy:       cardinal absolute base+_sprite7xy;
-    sprite7x:        word     absolute base+_sprite7xy;
-    sprite7y:        word     absolute base+_sprite7xy+2;
+    sprite7x:        smallint  absolute base+_sprite7xy;
+    sprite7y:        smallint absolute base+_sprite7xy+2;
     sprite7zoom:     cardinal absolute base+_sprite7zoom;
     sprite7zoomx:    word     absolute base+_sprite7zoom;
     sprite7zoomy:    word     absolute base+_sprite7zoom+2;
@@ -668,7 +668,7 @@ ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 repeat
   waitvbl;
-   sprite7xy:=mousexy+$00280040;           //sprite coordinates are fullscreen
+   sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
                                         //while mouse is on active screen only
                                         //so I have to add $28 to y and $40 to x
   if textcursoron then
@@ -953,8 +953,8 @@ repeat
   t:=gettime;
 
 
- scrconvert(pointer($30800000),p2);   //8
-//  scrconvertnative(pointer($30800000),p2);   //8
+// scrconvert(pointer($30800000),p2);   //8
+ scrconvertnative(pointer($30800000),p2);   //8
   screenaddr:=$30800000;
 
 
@@ -963,7 +963,7 @@ repeat
   sprite(p2);
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2),9216000);
+  CleanDataCacheRange(integer(p2),xres*yres*4);
   framecnt+=1;
 
   FramebufferDeviceSetOffset(fb,0,0,True);
@@ -972,19 +972,19 @@ repeat
   vblank1:=0;
   t:=gettime;
 
-  scrconvert(pointer($30b00000),p2+2304000);   //a
-//  scrconvertnative(pointer($30a00000),p2+2304000);   //a
+//  scrconvert(pointer($30b00000),p2+2304000);   //a
+  scrconvertnative(pointer($30b00000),p2+xres*yres);   //a
   screenaddr:=$30b00000;
 
   tim:=gettime-t;
   t:=gettime;
-  sprite(p2+2304000);
+  sprite(p2+xres*yres);
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2)+9216000,9216000);
+  CleanDataCacheRange(integer(p2)+xres*yres*4,xres*yres*4);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,1200,True);
+  FramebufferDeviceSetOffset(fb,0,yres,True);
   FramebufferDeviceWaitSync(fb);
 
 
@@ -1012,18 +1012,20 @@ begin
 //init the framebuffer
 
 // wait until default framebuffer is initialized
+
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
+for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 // get native resolution
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
-
+removeramlimits(integer(@sprite));
 
 
 FramebufferProperties.Depth:=32;
-FramebufferProperties.PhysicalWidth:=1920;
-FramebufferProperties.PhysicalHeight:=1200;
+FramebufferProperties.PhysicalWidth:=nativex;
+FramebufferProperties.PhysicalHeight:=nativey;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
@@ -1031,7 +1033,7 @@ FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
 //for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 //sleep(100);
-for i:=base to base+$FFFFF do poke(i,0); // clean all system area
+
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
 //for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
@@ -1040,7 +1042,7 @@ framecnt:=0;                             // frame counter
 systemfont:=st4font;
 sprite7def:=mysz;
 setpallette(ataripallette,0);
-//cls(146);
+//cls(84);
 
 // init sprite data pointers
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
@@ -1087,8 +1089,8 @@ amouse.start;
 
 akeyboard:=tkeyboard.create(true);
 akeyboard.start;
-xres:=1792;                // TODO: start @ native xres, yres
-yres:=1120;
+xres:=nativex;                // TODO: start @ native xres, yres
+yres:=nativey;
 background:=TWindow.create(xres,yres,'');
 //background:=TWindow.create(1792,1120,'');
 panel:=TPanel.create;
@@ -1315,10 +1317,10 @@ nx:=nativex*4;
                 //upper border
 
 
-                mov r0,#1120  //ny
+                ldr r0,ny
 
-p11:            //ldr r4,nx                                   //active screen
-                add r5,#7168
+p11:            ldr r4,nx                                   //active screen
+                add r5,r4 //#7168
 
 p1:
                 ldm r1!,{r4,r9}
@@ -1645,24 +1647,33 @@ procedure sprite(screen:pointer);
 // A sprite procedure
 // --- rev 21070111
 
-label p101,p102,p103,p104,p105,p106,p999,a7680,affff,affff0000,spritedata;
+label p101,p102,p103,p104,p105,p106,p107,p999,a7680,affff,affff0000,spritedata;
 var spritebase:integer;
+    nx:cardinal;
 
 begin
 spritebase:=base+_spritebase;
-
+nx:=xres*4;
                asm
                stmfd r13!,{r0-r12}     //Push registers
+               ldr r12,nx
+               str r12,a7680
                mov r12,#0
                                        //sprite
                ldr r0,spritebase
  p103:         ldr r1,[r0],#4
                mov r2,r1, lsl #16      // sprite 0 position
-               mov r3,r1, lsr #16
-               lsr r2,#14              // x pos*4
-               cmp r2,#8192            // switch off the sprite if y>8192
+               mov r3,r1, asr #16
+               asr r2,#14              // x pos*4
+//              cmp r2,#-2048
+ //              blt p107
+                cmp r3,#0
+                blt p107
+ //              cmp r3,#2048
+ //              bge p107
+               cmp r2,#8192            // switch off the sprite if x>2048
                blt p104
-               add r12,#1
+p107:          add r12,#1
                add r0,#4
                cmp r12,#8
                bge p999
@@ -1671,6 +1682,8 @@ spritebase:=base+_spritebase;
 p104:          ldr r4,a7680
                mul r3,r3,r4
                add r3,r2              // sprite pos
+
+
                ldr r4,screen
                add r3,r4              // pointer to upper left sprite pixel in r3
                ldr r4,spritedata
@@ -1717,7 +1730,8 @@ p105:          mov r7,r2
                subs r6,#1
                bne p101
 
-p106:          add r3,#7680
+p106:          ldr r0,a7680
+               add r3,r0
                sub r3,r8
                subs r10,#1
                subne r4,#128

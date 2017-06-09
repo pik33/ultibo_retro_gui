@@ -574,7 +574,7 @@ procedure TWindow.move(ax,ay,al,ah,avx,avy:integer);
 var q:integer;
 
 begin
-if ay>1090 then ay:=1090;
+if ay>yres-25 then ay:=yres-25;
 if al>0 then l:=al;        // now set new window parameters
 if ah>0 then h:=ah;
 
@@ -1033,13 +1033,13 @@ var i,j:integer;
 begin
   handle:=self;
   x:=0;
-  y:=1095;
+  y:=nativey-25;
   mx:=-1;
   my:=-1;
   mk:=0;
   vx:=0;
   vy:=0;
-  l:=1792;
+  l:=nativex;
   h:=25;
   bg:=11;
   wl:=l;

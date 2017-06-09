@@ -120,8 +120,8 @@ if y2<0 then
   if lines<1 then goto p999;
   y2:=0;
   end;
-if x2+len>xres-1 then len:=xres-x2;
-if y2+lines>yres-1 then lines:=yres-y2;
+if (x2+len)>(xres-1) then len:=xres-x2;
+if (y2+lines)>(yres-1) then lines:=yres-y2;
 if len<1 then goto p999;
 if lines<1 then goto p999;
 
@@ -206,8 +206,8 @@ if y<0 then
   if lines<1 then goto p999;
   y:=0;
   end;
-if x+length>xres-1 then length:=xres-x;
-if y+lines>yres-1 then lines:=yres-y;
+if (x+length)>(xres-1) then length:=xres-x;
+if (y+lines)>(yres-1) then lines:=yres-y;
 if length<1 then goto p999;
 if lines<1 then goto p999;
 
