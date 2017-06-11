@@ -307,7 +307,7 @@ const
      {54}  (',', '<', #0, #0),     {Keyboard , or <}
      {55}  ('.', '>', #0, #0),     {Keyboard . or >}
      {56}  ('/', '?', #0, #0),     {Keyboard / or ?}
-     {57}  (#0, #0, #0, #0),       {Keyboard Caps Lock}
+     {57}  (#185, #185, #0, #0),       {Keyboard Caps Lock}
      {58}  (#186, #0, #0, #0),       {Keyboard F1}
      {59}  (#187, #0, #0, #0),       {Keyboard F2}
      {60}  (#188, #0, #0, #0),       {Keyboard F3}

@@ -33,7 +33,7 @@ uses  //Ultibo units
   blitter,
 //  timezone;
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot;
+  playerunit, captureunit, mandelbrot, notepad;
 
 
 label p101, p102 ,p999, p998, p997;
@@ -52,14 +52,32 @@ var
 
     wheel:integer;
     t:int64;
-    testicon, trash, calculator, console,player,status,mandel:TIcon;
+    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
+    notepadthread:Tnotepadthread=nil;
     oneicon:TIcon ;
     fh,i,j:integer;
+    message:TWindow;
 
 // ---- procedures
+
+procedure copyfile2(src,dest:string);
+
+var fh1,fh2,il:integer;
+    buf:pbyte;
+
+begin
+
+buf:=Pbyte($28000000);
+fh1:=fileopen(src,$40);
+fh2:=filecreate(dest);
+il:=fileread(fh1,buf^,16000000);
+filewrite(fh2,buf^,il);
+fileclose(fh1);
+fileclose(fh2);
+end;
 
 //------------------- The main program
 
@@ -96,11 +114,11 @@ if t=0 then
     settime(hh,mm,ss,0);
     end;
 
-if fileexists(drive+'kernel7_l.img') then
-  begin
-  DeleteFile(pchar(drive+'kernel7.img'));
-  RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
-  end;
+//if fileexists(drive+'kernel7_l.img') then
+//  begin
+//  DeleteFile(pchar(drive+'kernel7.img'));
+//  RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
+//  end;
 
 fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
 fileread(fh,pointer($30300000)^,235*300);
@@ -137,6 +155,12 @@ status.x:=640; status.y:=0; status.size:=48; status.l:=128; status.h:=96; status
 mandel:=Testicon.append('Mandelbrot');
 mandel.icon48:=i48_mandelbrot;
 mandel.x:=768; mandel.y:=0; mandel.size:=48; mandel.l:=128; mandel.h:=96; mandel.draw;
+textedit:=Testicon.append('Text editor');
+textedit.icon48:=i48_textedit;
+textedit.x:=896; textedit.y:=0; textedit.size:=48; textedit.l:=128; textedit.h:=96; textedit.draw;
+raspbian:=Testicon.append('Raspbian');
+raspbian.icon48:=i48_raspi;
+raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:=96; raspbian.draw;
 
 //------------------- The main loop
 
@@ -186,16 +210,47 @@ repeat
       end;
     end;
 
+  if textedit.dblclicked then
+    begin
+    textedit.dblclicked:=false;
+    if note=nil then
+      begin
+      notepadthread:=Tnotepadthread.create(true);
+      notepadthread.start;
+      end;
+    end;
+
+  if raspbian.dblclicked then
+    begin
+    raspbian.dblclicked:=false;
+    if fileexists(drive+'\ultibo\Raspbian.u') then
+      begin
+      pauseaudio(1);
+      message:=twindow.create(500,112,'');
+      message.cls(0);
+      message.outtextxyz(16,16,'Preparing reboot to Raspbian',250,2,2);
+      message.outtextxyz(16,64,'Please wait...',250,2,2);
+      message.move(xres div 2 - 250, yres div 2 - 56, 600,200,0,0);
+      message.select;
+ //     DeleteFile(pchar(drive+'kernel7_l.img'));
+      if not fileexists(drive+'kernel7_c.img') then RenameFile(drive+'kernel7.img',drive+'kernel7_c.img') else deletefile(pchar(drive+'kernel7.img'));
+      RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
+//      CopyFile2(drive+'\ultibo\Raspbian.u',drive+'kernel7.img');
+//      stopmachine;
+      systemrestart(0);
+      end;
+    end;
+
   refreshscreen;
   key:=getkey and $FF;
   panel.checkmouse;
   background.checkmouse;
 
-  if key=ord('s') then   // script test
-    begin
-    script1;
-    readkey;
-    end
+//  if key=ord('s') then   // script test
+//    begin
+//    script1;
+//    readkey;
+//    end
 
 
   until {(mousek=3) or }(key=key_escape) ;

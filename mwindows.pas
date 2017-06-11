@@ -503,6 +503,7 @@ else
   wt:=gettime;
   if buttons<>nil then buttons.draw;                      // update the wigdets
   dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
+//  blit8(integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
     selected:=false;
@@ -522,7 +523,7 @@ else
     if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
     if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
     if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
-    if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) and (mousek=1) then needclose:=true;
+    if selected and (mx>(l+dsv-20)) and (my>(-20)) and (mx<(l+dsv-4)) and (my<(-4)) and (mousek=1) then needclose:=true;
 
 
     fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper borded

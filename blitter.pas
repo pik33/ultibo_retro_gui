@@ -131,13 +131,13 @@ conblk:=Pcardinal(_dma_conblk+$100*chn);
 ctrl1[chn,0]:=transfer_info2;                       // transfer info
 ctrl1[chn,1]:=from+x+bpl1*y+$80000000;                        // source address -> buffer #1
 ctrl1[chn,2]:=too+x2+bpl2*y2;                       // destination address
-ctrl1[chn,3]:=len+(lines shl 16);                   // transfer length
+ctrl1[chn,3]:=len+((lines-1) shl 16);                   // transfer length  - why lines-1 ??
 ctrl1[chn,4]:=((bpl2-len) shl 16)+((bpl1-len));     // 2D
 ctrl1[chn,5]:=$0;                                   // next ctrl block -> 0
 ctrl1[chn,6]:=$0;                                   // unused
 ctrl1[chn,7]:=$0;                                   // unused
 CleanDataCacheRange(_blitter_dmacb+$20*chn,32);     // now push this into RAM
-cleandatacacherange(from+x+y*bpl1,lines*bpl1);  // source range cache clean
+cleandatacacherange(from+x+y*bpl1,(lines+1)*bpl1);  // source range cache clean
 cleanDataCacheRange(too+x2+y2*bpl2,(lines+1)*bpl2); // destination range cache clean
 
 // Init the hardware

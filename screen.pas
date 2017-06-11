@@ -75,15 +75,15 @@ sprite7zoom:=$00010001;
 
 // --------- set the screen resolution and pallettes
 
-bordercolor:=$0;
-graphicmode:=0;
+//bordercolor:=$0;
+//graphicmode:=0;
 //xres:=1792;
 //yres:=1120;
 
-setpallette(ataripallette,0);
-setpallette(ataripallette,1);
-setpallette(ataripallette,2);
-setpallette(ataripallette,3);
+//setpallette(ataripallette,0);
+//setpallette(ataripallette,1);
+//setpallette(ataripallette,2);
+//setpallette(ataripallette,3);
 
 
 

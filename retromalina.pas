@@ -652,6 +652,9 @@ procedure TKeyboard.Execute;
 
 const rptcnt:integer=0;
       activekey:integer=0;
+      olactivekey:integer=0;
+      oldactivekey:integer=0;
+      lastactivekey:integer=0;
       m:integer=0;
       c:integer=0;
       dblclick:integer=0;
@@ -671,14 +674,14 @@ repeat
    sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
                                         //while mouse is on active screen only
                                         //so I have to add $28 to y and $40 to x
-  if textcursoron then
-    begin
-    i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var
-    sprite6y:=68+32*textcursory;
-    sprite6x:=64+16*textcursorx;
-    // cursor blink
-    if i=0 then sprite6x+=$1000 else sprite6x:=sprite6x and $0FFF;
-    end;
+//  if textcursoron then
+//    begin
+//    i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var
+//    sprite6y:=68+32*textcursory;
+//    sprite6x:=64+16*textcursorx;
+//    // cursor blink
+//    if i=0 then sprite6x+=$1000 else sprite6x:=sprite6x and $0FFF;
+//    end;
 
   if mousedblclick=2 then begin dblclick:=0; dblcnt:=0; mousedblclick:=0; end;
   if (dblclick=0) and (mousek=1) then begin dblclick:=1; dblcnt:=0; end;
@@ -694,6 +697,8 @@ repeat
   inc(clickcnt); if clickcnt>10 then  begin clickcnt:=10; click:=2; end;
   if (mousek=0) then click:=0;
   if click=1 then mouseclick:=1 else mouseclick:=0; //poke (base+$60031,1) else poke (base+$60031,0);
+
+{
 
   ch:=getkeyboardreport;
   if ch[0]<>255 then m:=ch[0];
@@ -713,6 +718,46 @@ repeat
     key_modifiers:=m;
     key_scancode:=activekey mod 256;
     end;
+ }
+
+ ch:=getkeyboardreport;
+ if ch[7]<>255 then
+   begin
+//   box(0,100,200,32,0); for i:=0 to 7 do outtextxy(i*24,100,inttohex(ch[i],2),15);
+   olactivekey:=lastactivekey;
+   oldactivekey:=activekey;
+   lastactivekey:=0;
+   activekey:=0;
+   if ch[0]>0 then begin m:=ch[0]; key_modifiers:=m; end;
+   for i:=2 to 7 do if (ch[i]>3) and (ch[i]<255) then lastactivekey:=i;
+   if (lastactivekey>olactivekey) and (lastactivekey>0) then begin rptcnt:=0; activekey:=ch[lastactivekey];  end
+   else if (lastactivekey<olactivekey) then begin rptcnt:=0; activekey:=0; end
+   else if (lastactivekey=olactivekey) and (lastactivekey>0) and (oldactivekey<>ch[lastactivekey]) then begin rptcnt:=0; activekey:=ch[lastactivekey]; end;
+   if lastactivekey<2 then begin rptcnt:=0; activekey:=0; m:=0; end;
+   c:=byte(translatescantochar(activekey,0));
+   if (m and $22)<>0 then c:=byte(translatescantochar(activekey,1));
+   if (m and $42)=$40 then c:=byte(translatescantochar(activekey,2));
+   if (m and $42)=$42 then c:=byte(translatescantochar(activekey,3));
+   end;
+
+ if (c>2) then inc(rptcnt);
+
+ if rptcnt>26 then rptcnt:=24 ;
+
+ if (rptcnt=1) or (rptcnt=24) then
+   begin
+
+   key_charcode:=byte(c);
+//   key_modifiers:=m;
+   key_scancode:=activekey mod 256;
+
+   end;
+
+
+
+
+
+
   until terminated;
 end;
 
@@ -1010,30 +1055,31 @@ var i:integer;
 begin
 
 //init the framebuffer
-
+//framebufferinit;
 // wait until default framebuffer is initialized
-
-repeat fb:=FramebufferDevicegetdefault until fb<>nil;
+removeramlimits(integer(@sprite));
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
+repeat fb:=FramebufferDevicegetdefault until fb<>nil;
+
 // get native resolution
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
-removeramlimits(integer(@sprite));
-
-
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=nativex;
 FramebufferProperties.PhysicalHeight:=nativey;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
+sleep(150);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
-//for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-//sleep(100);
 
+//for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
+xres:=nativex;
+yres:=nativey;
+bordercolor:=0;
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
 //for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
@@ -1042,6 +1088,7 @@ framecnt:=0;                             // frame counter
 systemfont:=st4font;
 sprite7def:=mysz;
 setpallette(ataripallette,0);
+//textcursorx:=$FFFF;
 //cls(84);
 
 // init sprite data pointers
@@ -1049,8 +1096,6 @@ for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
 // start frame refreshing thread
 sleep(100);
-thread:=tretro.create(true);
-thread.start;
 
 // init sid variables
 
@@ -1069,6 +1114,28 @@ mad_stream_init(@test_mad_stream);
 mad_synth_init(@test_mad_synth);
 mad_frame_init(@test_mad_frame);
 
+
+
+filebuffer:=Tfilebuffer.create(true);
+filebuffer.start;
+
+mousex:=xres div 2;
+mousey:=yres div 2;
+mousewheel:=128;
+amouse:=tmouse.create(true);
+amouse.start;
+
+akeyboard:=tkeyboard.create(true);
+akeyboard.start;
+
+background:=TWindow.create(xres,yres,'');
+//background:=TWindow.create(1792,1120,'');
+panel:=TPanel.create;
+sleep(100);
+thread:=tretro.create(true);
+thread.start;
+windows:=twindows.create(true);
+windows.start;
 // start audio, mouse, kbd and file buffer threads
 
 desired.callback:=@AudioCallback;
@@ -1077,25 +1144,6 @@ desired.format:=AUDIO_S16;
 desired.freq:=44100;
 desired.samples:=384;
 error:=openaudio(@desired,@obtained);
-
-filebuffer:=Tfilebuffer.create(true);
-filebuffer.start;
-
-mousex:=960;
-mousey:=600;
-mousewheel:=128;
-amouse:=tmouse.create(true);
-amouse.start;
-
-akeyboard:=tkeyboard.create(true);
-akeyboard.start;
-xres:=nativex;                // TODO: start @ native xres, yres
-yres:=nativey;
-background:=TWindow.create(xres,yres,'');
-//background:=TWindow.create(1792,1120,'');
-panel:=TPanel.create;
-windows:=twindows.create(true);
-windows.start;
 end;
 
 
@@ -2176,10 +2224,12 @@ procedure box(x,y,l,h,c:integer);
 label p101,p102,p999;
 
 var screenptr:cardinal;
+    xr:integer;
 
 begin
 
 screenptr:=displaystart;
+xr:=xres;
 if x<0 then begin l:=l+x; x:=0; if l<1 then goto p999; end;
 if x>=xres then goto p999;
 if y<0 then begin h:=h+y; y:=0; if h<1 then goto p999; end;
@@ -2189,9 +2239,10 @@ if y+h>=yres then h:=yres-y;
 
 
              asm
-             push {r0-r6}
+             push {r0-r7}
              ldr r2,y
-             mov r3,#1792
+             ldr r7,xr
+             mov r3,r7
              ldr r1,x
              mul r3,r3,r2
              ldr r4,l
@@ -2205,12 +2256,12 @@ p102:        mov r5,r4
 p101:        strb r3,[r0],#1  // inner loop
              subs r5,#1
              bne p101
-             add r0,#1792
+             add r0,r7
              sub r0,r4
              subs r6,#1
              bne p102
 
-             pop {r0-r6}
+             pop {r0-r7}
              end;
 
 p999:
