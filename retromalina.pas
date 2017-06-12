@@ -172,6 +172,8 @@ const _pallette=        $10000;
       _sprite6ptr=      $60098;
       _sprite7ptr=      $6009C;
       _textcursor=      $600A0;
+      _tcx=             $600A0;
+      _tcy=             $600A2;
       _textcolor=       $600A4;
       _bkcolor=         $600A8;
       _textsize=        $600AC;
@@ -426,15 +428,16 @@ var fh,filetype:integer;                // this needs cleaning...
 
     spritepointers:  array[0..7] of cardinal absolute base+_sprite0ptr;
 
-    textcursorx:     word     absolute _textcursor;
-    textcursory:     word     absolute _textcursor+2;
-    textcolor:       cardinal absolute _textcolor;
-    bkcolor:         cardinal absolute _bkcolor;
-    textsizex:       byte     absolute _textsize;
-    textsizey:       byte     absolute _textsize+1;
-    textpitch:       byte     absolute _textsize+2;
-    audiodma1:       array[0..7] of cardinal absolute _audiodma;
-    audiodma2:       array[0..7] of cardinal absolute _audiodma+32;
+    textcursor:      cardinal absolute base+_textcursor;
+    tcx:             word     absolute base+_textcursor;
+    tcy:             word     absolute base+_textcursor+2;
+    textcolor:       cardinal absolute base+_textcolor;
+    bkcolor:         cardinal absolute base+_bkcolor;
+    textsizex:       byte     absolute base+_textsize;
+    textsizey:       byte     absolute base+_textsize+1;
+    textpitch:       byte     absolute base+_textsize+2;
+    audiodma1:       array[0..7] of cardinal absolute base+_audiodma;
+    audiodma2:       array[0..7] of cardinal absolute base+_audiodma+32;
     dblbufscn1:      cardinal absolute base+_dblbufscn1;
     dblbufscn2:      cardinal absolute base+_dblbufscn2;
     nativex:         cardinal absolute base+_nativex;
@@ -743,7 +746,7 @@ repeat
  if (c>2) then inc(rptcnt);
 
  if rptcnt>26 then rptcnt:=24 ;
-
+// box(0,0,100,32,0); outtextxy(0,0,inttostr(rptcnt),15);
  if (rptcnt=1) or (rptcnt=24) then
    begin
 
@@ -796,7 +799,7 @@ var i,il2,k:integer;
 
 begin
 outbuf2:=@outbuf;
-ThreadSetCPU(ThreadGetCurrent,CPU_ID_2);
+ThreadSetaffinity(ThreadGetCurrent,2);
 sleep(1);
 repeat
   if needclear or (seekamount<>0) or (newfh>0) then
@@ -1053,7 +1056,7 @@ var i:integer;
 
 
 begin
-
+sleep(3000);
 //init the framebuffer
 //framebufferinit;
 // wait until default framebuffer is initialized
@@ -1072,7 +1075,7 @@ FramebufferProperties.PhysicalHeight:=nativey;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(150);
+sleep(100);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
 
@@ -1138,12 +1141,12 @@ windows:=twindows.create(true);
 windows.start;
 // start audio, mouse, kbd and file buffer threads
 
-desired.callback:=@AudioCallback;
-desired.channels:=2;
-desired.format:=AUDIO_S16;
-desired.freq:=44100;
-desired.samples:=384;
-error:=openaudio(@desired,@obtained);
+//desired.callback:=@AudioCallback;
+//desired.channels:=2;
+//desired.format:=AUDIO_S16;
+//desired.freq:=44100;
+//desired.samples:=384;
+//error:=openaudio(@desired,@obtained);
 end;
 
 

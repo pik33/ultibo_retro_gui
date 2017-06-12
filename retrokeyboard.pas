@@ -148,8 +148,8 @@ const
  KEYBOARD_BUFFER_SIZE = 512; 
 
  {Keyboard Sampling Rate}
- KEYBOARD_REPEAT_RATE   = (200 div 4); {40msec -> 25cps}
- KEYBOARD_REPEAT_DELAY  = 10;         {10 x KEYBOARD_REPEAT_RATE = 400msec initial delay before repeat}
+ KEYBOARD_REPEAT_RATE   = 0;//(200 div 4); {40msec -> 25cps}
+ KEYBOARD_REPEAT_DELAY  = 0;// 10;         {10 x KEYBOARD_REPEAT_RATE = 400msec initial delay before repeat}
  
  {Keyboard Data Definitions (Values for TKeyboardData.Modifiers)}
  KEYBOARD_LEFT_CTRL    =  $00000001; {The Left Control key is pressed}

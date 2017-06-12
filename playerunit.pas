@@ -1145,7 +1145,7 @@ sprite2zoom:=$00020002;
 sprite3zoom:=$00020002;
 sprite4zoom:=$00020002;
 sprite5zoom:=$00020002;
-if textcursorx<>$FFFF then sprite6zoom:=$00020002;
+//if textcursorx<>$FFFF then sprite6zoom:=$00020002;
 
 // set sprite pointers to sprite definitions
 
@@ -1155,7 +1155,7 @@ sprite2ptr:=cardinal(@spr2[0]);
 sprite3ptr:=cardinal(@spr3[0]);
 sprite4ptr:=cardinal(@spr4[0]);
 sprite5ptr:=cardinal(@spr5[0]);
-if textcursorx<>$FFFF then sprite6ptr:=cardinal(@spr6[0]);
+//if textcursorx<>$FFFF then sprite6ptr:=cardinal(@spr6[0]);
 
 end;
 
@@ -1172,7 +1172,7 @@ sprite2xy:=$01001180;
 sprite3xy:=$01001200;
 sprite4xy:=$01001280;
 sprite5xy:=$01001300;
-if textcursorx<>$FFFF then sprite6xy:=$01001380;
+//if textcursorx<>$FFFF then sprite6xy:=$01001380;
 end;
 
 //------------------------------------------------------------------------------
@@ -1188,7 +1188,7 @@ sprite2xy:=$00800180;
 sprite3xy:=$00800200;
 sprite4xy:=$00800280;
 sprite5xy:=$00800300;
-if textcursorx<>$FFFF then sprite6xy:=$00800380;
+//if textcursorx<>$FFFF then sprite6xy:=$00800380;
 end;
 
 
@@ -1212,7 +1212,7 @@ sprite2ptr:=cardinal(@spr2[0])+4096*frame;
 sprite3ptr:=cardinal(@spr3[0])+4096*frame;
 sprite4ptr:=cardinal(@spr4[0])+4096*frame;
 sprite5ptr:=cardinal(@spr5[0])+4096*frame;
-if textcursorx<>$FFFF then sprite6ptr:=cardinal(@spr6[0])+4096*frame;
+//if textcursorx<>$FFFF then sprite6ptr:=cardinal(@spr6[0])+4096*frame;
 
 // if the file is SID then move the sprites 0,1,2 acccording to SID regs and hide the rest of them
 
@@ -1239,7 +1239,7 @@ if filetype<3 then
   sprite3x:=2048;
   sprite4x:=2148;
   sprite5x:=2248;
-  if textcursorx<>$FFFF then   sprite6x:=2348;
+//  if textcursorx<>$FFFF then   sprite6x:=2348;
   end
 else  // animate the bouncing balls
 
@@ -1253,7 +1253,7 @@ else  // animate the bouncing balls
     sprite3x:=400;
     sprite4x:=500;
     sprite5x:=600;
-    if textcursorx<>$FFFF then     sprite6x:=700;
+//    if textcursorx<>$FFFF then     sprite6x:=700;
     end;
 
   if (sqr(sprite0x-sprite1x)+sqr(sprite0y-sprite1y))<=4096 then begin i:=spr0dx; spr0dx:=spr1dx; spr1dx:=i; i:=spr0dy; spr0dy:=spr1dy; spr1dy:=i; end;
@@ -1261,31 +1261,31 @@ else  // animate the bouncing balls
   if (sqr(sprite0x-sprite3x)+sqr(sprite0y-sprite3y))<=4096 then begin i:=spr0dx; spr0dx:=spr3dx; spr3dx:=i; i:=spr0dy; spr0dy:=spr3dy; spr3dy:=i; end;
   if (sqr(sprite0x-sprite4x)+sqr(sprite0y-sprite4y))<=4096 then begin i:=spr0dx; spr0dx:=spr4dx; spr4dx:=i; i:=spr0dy; spr0dy:=spr4dy; spr4dy:=i; end;
   if (sqr(sprite0x-sprite5x)+sqr(sprite0y-sprite5y))<=4096 then begin i:=spr0dx; spr0dx:=spr5dx; spr5dx:=i; i:=spr0dy; spr0dy:=spr5dy; spr5dy:=i; end;
-  if textcursorx<>$FFFF then   if (sqr(sprite0x-sprite6x)+sqr(sprite0y-sprite6y))<=4096 then begin i:=spr0dx; spr0dx:=spr6dx; spr6dx:=i; i:=spr0dy; spr0dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite0x-sprite6x)+sqr(sprite0y-sprite6y))<=4096 then begin i:=spr0dx; spr0dx:=spr6dx; spr6dx:=i; i:=spr0dy; spr0dy:=spr6dy; spr6dy:=i; end;
 
   if (sqr(sprite1x-sprite2x)+sqr(sprite1y-sprite2y))<=4096 then begin i:=spr1dx; spr1dx:=spr2dx; spr2dx:=i; i:=spr1dy; spr1dy:=spr2dy; spr2dy:=i; end;
   if (sqr(sprite1x-sprite3x)+sqr(sprite1y-sprite3y))<=4096 then begin i:=spr1dx; spr1dx:=spr3dx; spr3dx:=i; i:=spr1dy; spr1dy:=spr3dy; spr3dy:=i; end;
   if (sqr(sprite1x-sprite4x)+sqr(sprite1y-sprite4y))<=4096 then begin i:=spr1dx; spr1dx:=spr4dx; spr4dx:=i; i:=spr1dy; spr1dy:=spr4dy; spr4dy:=i; end;
   if (sqr(sprite1x-sprite5x)+sqr(sprite1y-sprite5y))<=4096 then begin i:=spr1dx; spr1dx:=spr5dx; spr5dx:=i; i:=spr1dy; spr1dy:=spr5dy; spr5dy:=i; end;
-  if textcursorx<>$FFFF then   if (sqr(sprite1x-sprite6x)+sqr(sprite1y-sprite6y))<=4096 then begin i:=spr1dx; spr1dx:=spr6dx; spr6dx:=i; i:=spr1dy; spr1dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite1x-sprite6x)+sqr(sprite1y-sprite6y))<=4096 then begin i:=spr1dx; spr1dx:=spr6dx; spr6dx:=i; i:=spr1dy; spr1dy:=spr6dy; spr6dy:=i; end;
 
   if (sqr(sprite2x-sprite3x)+sqr(sprite2y-sprite3y))<=4096 then begin i:=spr2dx; spr2dx:=spr3dx; spr3dx:=i; i:=spr2dy; spr2dy:=spr3dy; spr3dy:=i; end;
   if (sqr(sprite2x-sprite4x)+sqr(sprite2y-sprite4y))<=4096 then begin i:=spr2dx; spr2dx:=spr4dx; spr4dx:=i; i:=spr2dy; spr2dy:=spr4dy; spr4dy:=i; end;
   if (sqr(sprite2x-sprite5x)+sqr(sprite2y-sprite5y))<=4096 then begin i:=spr2dx; spr2dx:=spr5dx; spr5dx:=i; i:=spr2dy; spr2dy:=spr5dy; spr5dy:=i; end;
-  if textcursorx<>$FFFF then   if (sqr(sprite2x-sprite6x)+sqr(sprite2y-sprite6y))<=4096 then begin i:=spr2dx; spr2dx:=spr6dx; spr6dx:=i; i:=spr2dy; spr2dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite2x-sprite6x)+sqr(sprite2y-sprite6y))<=4096 then begin i:=spr2dx; spr2dx:=spr6dx; spr6dx:=i; i:=spr2dy; spr2dy:=spr6dy; spr6dy:=i; end;
 
   if (sqr(sprite3x-sprite4x)+sqr(sprite3y-sprite4y))<=4096 then begin i:=spr3dx; spr3dx:=spr4dx; spr4dx:=i; i:=spr3dy; spr3dy:=spr4dy; spr4dy:=i; end;
   if (sqr(sprite3x-sprite5x)+sqr(sprite3y-sprite5y))<=4096 then begin i:=spr3dx; spr3dx:=spr5dx; spr5dx:=i; i:=spr3dy; spr3dy:=spr5dy; spr5dy:=i; end;
-  if textcursorx<>$FFFF then   if (sqr(sprite3x-sprite6x)+sqr(sprite3y-sprite6y))<=4096 then begin i:=spr3dx; spr3dx:=spr6dx; spr6dx:=i; i:=spr3dy; spr3dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite3x-sprite6x)+sqr(sprite3y-sprite6y))<=4096 then begin i:=spr3dx; spr3dx:=spr6dx; spr6dx:=i; i:=spr3dy; spr3dy:=spr6dy; spr6dy:=i; end;
 
   if (sqr(sprite4x-sprite5x)+sqr(sprite4y-sprite5y))<=4096 then begin i:=spr4dx; spr4dx:=spr5dx; spr5dx:=i; i:=spr4dy; spr4dy:=spr5dy; spr5dy:=i; end;
-  if textcursorx<>$FFFF then   if (sqr(sprite4x-sprite6x)+sqr(sprite4y-sprite6y))<=4096 then begin i:=spr4dx; spr4dx:=spr6dx; spr6dx:=i; i:=spr4dy; spr4dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite4x-sprite6x)+sqr(sprite4y-sprite6y))<=4096 then begin i:=spr4dx; spr4dx:=spr6dx; spr6dx:=i; i:=spr4dy; spr4dy:=spr6dy; spr6dy:=i; end;
 
-  if textcursorx<>$FFFF then   if (sqr(sprite5x-sprite6x)+sqr(sprite5y-sprite6y))<=4096 then begin i:=spr5dx; spr5dx:=spr6dx; spr6dx:=i; i:=spr5dy; spr5dy:=spr6dy; spr6dy:=i; end;
+//  if textcursorx<>$FFFF then   if (sqr(sprite5x-sprite6x)+sqr(sprite5y-sprite6y))<=4096 then begin i:=spr5dx; spr5dx:=spr6dx; spr6dx:=i; i:=spr5dy; spr5dy:=spr6dy; spr6dy:=i; end;
 
   // mouse is sprite 7; we want to react when tip of the arrow touches the ball, so adding 32
 
-  if textcursorx<>$FFFF then   if (sqr(32+sprite6x-sprite7x)+sqr(32+sprite6y-sprite7y)<=1024) and (mousek=1) then begin  spr6dx:=-spr6dx; spr6dy:=-spr6dy;  end;
+//  if textcursorx<>$FFFF then   if (sqr(32+sprite6x-sprite7x)+sqr(32+sprite6y-sprite7y)<=1024) and (mousek=1) then begin  spr6dx:=-spr6dx; spr6dy:=-spr6dy;  end;
   if (sqr(32+sprite5x-sprite7x)+sqr(32+sprite5y-sprite7y)<=1024) and (mousek=1) then begin  spr5dx:=-spr5dx; spr5dy:=-spr5dy;  end;
   if (sqr(32+sprite4x-sprite7x)+sqr(32+sprite4y-sprite7y)<=1024) and (mousek=1) then begin  spr4dx:=-spr4dx; spr4dy:=-spr4dy;  end;
   if (sqr(32+sprite3x-sprite7x)+sqr(32+sprite3y-sprite7y)<=1024) and (mousek=1) then begin  spr3dx:=-spr3dx; spr3dy:=-spr3dy;  end;
@@ -1335,15 +1335,15 @@ else  // animate the bouncing balls
   if sprite5x<=0 then spr5dx:=abs(spr5dx);
   if sprite5y<=0 then spr5dy:=abs(spr5dy);
 
-  if textcursorx<>$FFFF then
-    begin
-    sprite6x+=spr6dx;
-    sprite6y+=spr6dy;
-    if sprite6x>=xres-64 then spr6dx:=-abs(spr6dx);
-    if sprite6y>=yres-64 then spr6dy:=-abs(spr6dy);
-    if sprite6x<=0 then spr6dx:=abs(spr6dx);
-    if sprite6y<=0 then spr6dy:=abs(spr6dy);
-    end;
+//  if textcursorx<>$FFFF then
+//    begin
+//    sprite6x+=spr6dx;
+//    sprite6y+=spr6dy;
+//    if sprite6x>=xres-64 then spr6dx:=-abs(spr6dx);
+//    if sprite6y>=yres-64 then spr6dy:=-abs(spr6dy);
+//    if sprite6x<=0 then spr6dx:=abs(spr6dx);
+//    if sprite6y<=0 then spr6dy:=abs(spr6dy);
+//    end;
   end;
 end;
 

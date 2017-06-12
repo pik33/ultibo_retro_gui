@@ -47,10 +47,12 @@ type TWindow=class(TObject)
      x,y:integer;                           // position on screen
      l,h:integer;                           // dmensions on screen
      vx,vy:integer;                         // visible upper left
+     vcl,vch:integer;                       // virtual canvas dimensions
+     vcx,vcy:integer;                       // virtual canvas x,y
      mx,my,mk:integer;                      // mouse events
      wl,wh:integer;                         // windows l,h
      bg:integer;                            // background color
-     canvas:pointer;                         // graphic memory
+     canvas:pointer;                        // graphic memory
      decoration:TDecoration;                // the decoration or nil if none
      visible:boolean;                       // visible or hidden
      resizable:boolean;                     // if true windows not resizable
@@ -67,6 +69,7 @@ type TWindow=class(TObject)
      needclose:boolean;
      activey:integer;
      selected:boolean;
+     virtualcanvas:boolean;
      // The constructor. al, ah - graphic canvas dimensions
      // atitle - title to set, if '' then windows will have no decoration
 
@@ -141,7 +144,7 @@ type Tfileselector=class(Twindow)
 
 type TDecoration=class(TObject)
      title:pointer;
-     hscroll,vscroll,up,down,close:boolean;
+     hscroll,vscroll,menu,status,up,down,close:boolean;
      constructor create;
      destructor destroy;
      end;
@@ -266,6 +269,8 @@ var background:TWindow=nil;  // A mother of all windows except the panel
     scrollcolor:integer=12;
     activescrollcolor:integer=124;
     titleheight:integer=24;
+    menuheight:integer=24;
+    menucolor:integer=142;
 
 // A temporary icon. TODO: Icon class and methods
 
@@ -368,11 +373,16 @@ if background<>nil then   // there ia s background so create a normal window
   mk:=0;
   vx:=0;
   vy:=0;
+  vcx:=0;
+  vcy:=0;
   l:=0;
   h:=0;
   bg:=0;
   wl:=al;
   wh:=ah;
+  vcl:=0;
+  vch:=0;
+  virtualcanvas:=false;
   buttons:=nil;
   icons:=nil;
   next:=nil;
@@ -407,9 +417,14 @@ else                    // no background, create one
   h:=ah;                      // dimensions on screen
   vx:=0;
   vy:=0;                      // visible upper left
+  vcx:=0;
+  vcy:=0;
   wl:=al;
   wh:=ah;                     // windows l,h
-  bg:=202;                    // todo: get color from a theme
+  vcl:=0;
+  vch:=0;
+  virtualcanvas:=false;
+  bg:=132;                    // todo: get color from a theme
   buttons:=nil;
   icons:=nil;
   canvas:=pointer(backgroundaddr);  // graphic memory address
@@ -462,7 +477,7 @@ end;
 
 procedure TWindow.draw(dest:integer);
 
-var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a:integer;
+var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a,dm:integer;
    wt:int64;
    q1,q2,q3:integer;
    hsw,vsh,hsp,vsp:integer;
@@ -490,10 +505,21 @@ else
   dh:=borderwidth;
   if decoration.hscroll then dsh:=scrollwidth else dsh:=0;
   if decoration.vscroll then dsv:=scrollwidth else dsv:=0;
-  hsw:=round((l/wl)*l); if hsw<11 then hsw:=10;
-  vsh:=round((h/wh)*h); if vsh<11 then vsh:=10;
-  hsp:=round((vx/(wl-l))*(l-hsw));
-  vsp:=round((vy/(wh-h))*(h-vsh));
+  if decoration.menu then dm:=menuheight else dm:=0;
+  if not virtualcanvas then
+    begin
+    hsw:=round((l/wl)*l); if hsw<11 then hsw:=10;
+    vsh:=round((h/wh)*h); if vsh<11 then vsh:=10;
+    hsp:=round((vx/(wl-l))*(l-hsw));
+    vsp:=round((vy/(wh-h))*(h-vsh));
+    end
+  else
+    begin
+    hsw:=round((l/vcl)*l); if hsw<11 then hsw:=10;
+    vsh:=round((h/vch)*h); if vsh<11 then vsh:=10;
+    hsp:=round((vcx/(vcl-l))*(l-hsw));
+    vsp:=round((vcy/(vch-h))*(h-vsh));
+    end;
   end;
 // If the window is the background, move it as fast as it is possible to the canvas
 // Todo: check if DMA can be better here; fastmove function uses CPU
@@ -520,17 +546,23 @@ else
     end;
   if decoration<>nil then
     begin
-    if (mousex>(x+l+dsv-60)) and (mousey>(y-20)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)) then q1:=122 else q1:=0;
-    if (mousex>(x+l+dsv-40)) and (mousey>(y-20)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4)) then q2:=122 else q2:=0;
-    if (mousex>(x+l+dsv-20)) and (mousey>(y-20)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4)) then begin q3:=32; a:=32; end else q3:=0;
-    if selected and (mx>(l+dsv-20)) and (my>(-20)) and (mx<(l+dsv-4)) and (my<(-4)) and (mousek=1) then needclose:=true;
+    if (mousex>(x+l+dsv-60)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)-dm) then q1:=122 else q1:=0;
+    if (mousex>(x+l+dsv-40)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4-dm)) then q2:=122 else q2:=0;
+    if (mousex>(x+l+dsv-20)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4-dm)) then begin q3:=32; a:=32; end else q3:=0;
+    if selected and (mx>(l+dsv-20)) and (my>(-titleheight-dm+4)) and (mx<(l+dsv-4)) and (my<(-4-dm)) and (mousek=1) then needclose:=true;
 
 
-    fill2d(dest,x-dl,y-dt-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper borded
-    fill2d(dest,x-dl,y-dt,l+dl+dsv,dt,xres,c);                        //title bar
-    fill2d(dest,x-dl,y-dt-dl,dl,h+dt+dl+dsh+dh,xres,c+borderdelta);   //left border
+    fill2d(dest,x-dl,y-dt-dm-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper border
+
+    fill2d(dest,x-dl,y-dt-dm,l+dl+dsv,dt,xres,c);                        //title bar
+    fill2d(dest,x-dl,y-dm,l+dl+dsv,dm,xres,menucolor);                        //menu
+//    if decoration.menu then fill2d(dest,x-dl,y-2,l+dl+dsv,2,xres,0);     // menu underline. Todo: parametrize it!
+
+                                                                                       if decoration.menu then gouttextxy(pointer(dest),x+8,y-dm+4,'File  Edit  View  Options ',0); // look and feel test
+
+    fill2d(dest,x-dl,y-dt-dl-dm,dl,h+dt+dl+dsh+dh+dm,xres,c+borderdelta);   //left border
     fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,xres,c+borderdelta);      //lower border
-    fill2d(dest,x+l+dsv,y-dt-dl,dg,h+dt+dl+dsh+dl,xres,c+borderdelta);//right border
+    fill2d(dest,x+l+dsv,y-dt-dl-dm,dg,h+dt+dl+dsh+dl+dm,xres,c+borderdelta);//right border
 
     fill2d(dest,x,y+h,l,dsh,xres,scrollcolor);                        //horizontal scroll bar
     fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,xres,activescrollcolor);    //horizontal scroll bar active part
@@ -540,21 +572,21 @@ else
 
 
     fill2d(dest,x+l,y+h,dsv,dsh,xres,c);                  //down right corner
-    gouttextxy(pointer(dest),x+32,y-20,title,ct);
-    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j]);
+    gouttextxy(pointer(dest),x+32,y-titleheight-dm+4,title,ct);
+    for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,down_icon[i+16*j]);
     if q1<>0 then
        for i:=0 to 15 do
          for j:=0 to 15 do
-           if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,down_icon[i+16*j])
-                                  else gputpixel(pointer(dest),x+l+dsv-60+i,y-20+j,q1);
+           if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,down_icon[i+16*j])
+                                  else gputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,q1);
     if q2<>0 then
        for i:=0 to 15 do
          for j:=0 to 15 do
-           if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j])
-                                else gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,q2)
-    else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-20+j,up_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-20+j,a+q3+close_icon[i+16*j]);
-    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-20+j,icon[i,j]);
+           if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,up_icon[i+16*j])
+                                else gputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,q2)
+    else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,up_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-20+i,y-titleheight-dm+4+j,a+q3+close_icon[i+16*j]);
+    for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gputpixel(pointer(dest),x+4+i,y-titleheight-dm+4+j,icon[i,j]);
     end;
   end;
   redraw:=true;
@@ -606,7 +638,7 @@ function TWindow.checkmouse:TWindow;
 label p999;
 
 var window:TWindow;
-    mmx,mmy,mmk,mmw,dt,dg,dh,dl,dsh,dsv:integer;
+    mmx,mmy,mmk,mmw,dt,dg,dh,dl,dsh,dsv,dm:integer;
     q,q2,sy2:integer;
 
 const state:integer=0;
@@ -674,17 +706,39 @@ if mmk=1 then // find a window with mk=1
       end
     else if state=4 then
       begin
-      q:=round((mmy-window.y-sy)*(window.wh-window.h)/(window.h-vsh));
-      if q<0 then q:=0;
-      if q>window.wh-window.h then q:=window.wh-window.h;
-      window.move(window.x,window.y,0,0,-1,q);
+      if not window.virtualcanvas then
+        begin
+        q:=round((mmy-window.y-sy)*(window.wh-window.h)/(window.h-vsh));
+        if q<0 then q:=0;
+        if q>window.wh-window.h then q:=window.wh-window.h;
+        window.move(window.x,window.y,0,0,-1,q);
+        end
+      else
+        begin
+        q:=round((mmy-window.y-sy)*(window.vch-window.h)/(window.h-vsh));
+        if q<0 then q:=0;
+        if q>window.vch-window.h then q:=window.vch-window.h;
+        window.vcy:=q;
+        //window.virtualmove(window.x,window.y,0,0,-1,q);
+        end;
       end
     else if state=5 then
       begin
-      q:=round((mmx-window.x-sx)*(window.wl-window.l)/(window.l-hsw));
-      if q<0 then q:=0;
-      if q>window.wl-window.l then q:=window.wl-window.l;
-      window.move(window.x,window.y,0,0,q,-1);
+      if not window.virtualcanvas then
+        begin
+        q:=round((mmx-window.x-sx)*(window.wl-window.l)/(window.l-hsw));
+        if q<0 then q:=0;
+        if q>window.wl-window.l then q:=window.wl-window.l;
+        window.move(window.x,window.y,0,0,q,-1);
+        end
+      else
+        begin
+        q:=round((mmx-window.x-sx)*(window.vcl-window.l)/(window.l-hsw));
+        if q<0 then q:=0;
+        if q>window.vcl-window.l then q:=window.vcl-window.l;
+        window.vcx:=q;
+        //window.move(window.x,window.y,0,0,q,-1); todo: virtualmove
+        end;
       end;
     result:=window;
     goto p999;
@@ -706,6 +760,7 @@ if window.decoration=nil then
   dl:=0;
   dsh:=0;
   dsv:=0;
+  dm:=0;
   end
 else
   begin
@@ -713,13 +768,14 @@ else
   dl:=borderwidth;
   dg:=borderwidth;
   dh:=borderwidth;
+  if window.decoration.menu then dm:=menuheight else dm:=0;
   if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
   if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
   end ;
 
 // go back with windows chain until you found the window on which there is the mouse cursor
 
-while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-dg) or (mmy>window.y+window.h+dh+dsh)) and (window.prev<>nil) do
+while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-dg-dm) or (mmy>window.y+window.h+dh+dsh)) and (window.prev<>nil) do
   begin
   window.mx:=-1;
   window.my:=-1;
@@ -734,6 +790,7 @@ while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-d
     dl:=0;
     dsh:=0;
     dsv:=0;
+    dm:=0;
     end
   else
     begin
@@ -741,6 +798,7 @@ while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-d
     dl:=borderwidth;
     dg:=borderwidth;
     dh:=borderwidth;
+    if window.decoration.menu then dm:=menuheight else dm:=0;
     if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
     if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
     end
@@ -761,21 +819,47 @@ if (mmk=1) and (window.mk=0) then
 window.mx:=mmx-window.x;
 window.my:=mmy-window.y;
 window.mk:=mmk;
-
-hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
-vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
-hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
-vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
+if not window.virtualcanvas then
+  begin
+  hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
+  vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
+  hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
+  vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
+  end
+else
+  begin
+  hsw:=round((window.l/window.vcl)*window.l); if hsw<11 then hsw:=10;
+  vsh:=round((window.h/window.vch)*window.h); if vsh<11 then vsh:=10;
+  hsp:=round((window.vcx/(window.vcl-window.l))*(window.l-hsw));
+  vsp:=round((window.vcy/(window.vch-window.h))*(window.h-vsh));
+  end;
 
 // now set the state according to clicked area
 if (not(window.resizable)) and (mmy>window.y+window.activey) then begin state:=6; goto p999; end;
-if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y {window.h}))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+
+if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y-dm{window.h}))) then begin state:=0; deltax:=0; deltay:=0 end      // window
+
+else if (mmx<(window.x+window.l)) and (mmy<(window.y)) then begin state:=7; deltax:=0; deltay:=0 end      // window
+
 else if (mmx<(window.x+window.l)) and (mmy<(window.y + window.h )) then begin state:=6; deltax:=0; deltay:=0 end      // window
-else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then begin state:=4;
-             oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh)); sy:=mmy-window.y-vsp; end                                   // vertical scroll bar
+else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then
+  begin
+  state:=4;
+  if not window.virtualcanvas then oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh))
+  else oldvsp:=round((window.vcy/(window.vch-window.h))*(window.h-vsh));
+  sy:=mmy-window.y-vsp;
+  end                                   // vertical scroll bar
+
+
 else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
-else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.y+window.h)) and (mmy<(window.y+window.h+scrollwidth-1)) then begin state:=5;
-             oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));     sx:=mmx-window.x-hsp; end                               // horizontal scroll bar
+else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.y+window.h)) and (mmy<(window.y+window.h+scrollwidth-1)) then
+  begin
+  state:=5;
+  if not window.virtualcanvas then oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw))
+  else oldhsp:=round((window.vcx/(window.vcl-window.l))*(window.l-hsw));
+  sx:=mmx-window.x-hsp;
+  end                               // horizontal scroll bar
+
 else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
 else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
 window.mstate:=state;
