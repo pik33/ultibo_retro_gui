@@ -39,6 +39,7 @@ var note:TWindow=nil;
     cx,cy:word;
     textarray:PTextArray;
     lines:integer=0;
+    mfile,mabout,mload,msave:TMenuitem;
 
 implementation
 
@@ -81,6 +82,15 @@ if note=nil then
   note.vcl:=2064;
   note.vch:=16384;
   note.virtualcanvas:=true;
+  note.menu:=tmenu.create(note);
+  mfile:=note.menu.append('File');
+  mabout:=note.menu.item.append('About');
+  mload:=mfile.addsub('Load');
+  msave:=mload.append('Save');
+ // mload.visible:=true;
+ // msave.visible:=true;
+
+
   end;
 
 textarray:=new(PTextarray);
@@ -99,8 +109,9 @@ tcx:=0; tcy:=0; cx:=0; cy:=0;  lines:=0;
 //----------------------------------main loop start-----------------------------
 
 repeat
-repeat sleep(1) until note.redraw;
-note.redraw:=false;
+  repeat sleep(1) until note.redraw;
+  note.redraw:=false;
+  note.move(-2048,-2048,0,0,note.vcx,0);
   if note.selected then
     begin
     lostfocus:=0;
@@ -150,7 +161,11 @@ note.redraw:=false;
       end;
 
     tcx:=cx;
-    if (cx*8+24)>(note.l+note.vx) then note.move(-2048,-2048,0,0,note.vx+8,0);
+    if (cx*8+24)>(note.l+note.vx) then
+      begin
+      note.move(-2048,-2048,0,0,note.vx+8,0);
+      note.vcx:=note.vx;
+      end;
     goto p999;
 
 p136:  //backspace

@@ -1014,25 +1014,25 @@ repeat
   CleanDataCacheRange(integer(p2),xres*yres*4);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,0,True);
+  FramebufferDeviceSetOffset(fb,0,32,True);
   FramebufferDeviceWaitSync(fb);
 
   vblank1:=0;
   t:=gettime;
 
 //  scrconvert(pointer($30b00000),p2+2304000);   //a
-  scrconvertnative(pointer($30b00000),p2+xres*yres);   //a
+  scrconvertnative(pointer($30b00000),p2+xres*(yres+32));   //a
   screenaddr:=$30b00000;
 
   tim:=gettime-t;
   t:=gettime;
-  sprite(p2+xres*yres);
+  sprite(p2+xres*(yres+32));
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2)+xres*yres*4,xres*yres*4);
+  CleanDataCacheRange(integer(p2)+xres*(yres+32)*4,xres*yres*4);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,yres,True);
+  FramebufferDeviceSetOffset(fb,0,yres+64,True);
   FramebufferDeviceWaitSync(fb);
 
 
@@ -1056,28 +1056,28 @@ var i:integer;
 
 
 begin
-sleep(3000);
+sleep(300);
 //init the framebuffer
 //framebufferinit;
 // wait until default framebuffer is initialized
 removeramlimits(integer(@sprite));
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
-
 // get native resolution
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
+sleep(300);
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=nativex;
 FramebufferProperties.PhysicalHeight:=nativey;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
-FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
+FramebufferProperties.VirtualHeight:=96+FramebufferProperties.PhysicalHeight * 2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(100);
+sleep(300);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address);
+p2:=Pointer(FramebufferProperties.Address+128*nativex);
 
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 xres:=nativex;

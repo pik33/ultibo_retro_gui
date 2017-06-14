@@ -17,6 +17,8 @@ uses
 
 const mapbase=$30800000;
       framewidth=4;
+      moved:integer=-10;
+      wt:int64=0;
 
 type TWindow=class;
      TDecoration=class;
@@ -242,11 +244,28 @@ type TMenuItem=class(TObject)
      title:string;
      icon:TIcon;
      next,prev,sub:TMenuItem;
+     x,y,l:integer;
+     level:integer;
+     visible:boolean;
+     selected:boolean;
+     highlighted:boolean;
+     clicked:boolean;
+     horizontal:boolean;
+     granny:TWindow;
+     constructor create(atitle:string; w:twindow);
+     function append(atitle:string):TMenuItem;
+     function addsub(atitle:string):TMenuItem;
+     procedure draw(dest:integer);
+     function checkmouse:boolean;
      end;
 
      TMenu=class (TObject)
      item:TMenuItem;
      granny:TWindow;
+     horizontal:boolean;
+     constructor create(g:TWindow);
+     function append(atitle:string):TMenuItem;
+     procedure checkall(dest:integer);
      end;
 
      TStatusBar=class (TObject)
@@ -254,8 +273,20 @@ type TMenuItem=class(TObject)
      canvas:pointer;
      end;
 
+type PRectangle=^TRectangle;
+
+     trectangle=record
+     x1,y1,x2,y2,handle:integer;
+     next,prev:PRectangle
+     end;
+
 var background:TWindow=nil;  // A mother of all windows except the panel
     panel:TPanel=nil;        // The panel
+    vertex:array[0..1023,0..2] of integer;  // x, y, handle
+    rectangles:array[0..4096,0..4] of integer; //x, y, l, h, handle
+    xtable, ytable:array[0..63] of integer;
+    lastchecked:TWindow;
+    Arectangle:TRectangle;
 
 // Theme colors.
 
@@ -310,14 +341,21 @@ procedure TWindows.Execute;
 
 var scr:integer;
     wh:TWindow;
+    t:int64;
+    q:integer=0;
+
 const dblinvalid=0;
 
 begin
+q:=0;
 scr:=$30a00000;
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
 repeat
-
+  inc(q);
+//  box(100,0,40,20,0); outtextxy(100,0,inttostr(q),15);
+  t:=gettime;
+  lastchecked:=background.checkmouse;
   windowsdone:=false;
   wh:=background;
   repeat
@@ -326,6 +364,7 @@ repeat
   until wh=nil;
   panel.draw(scr);
   windowsdone:=true;
+  wt:=gettime-t;
   repeat sleep(1) until screenaddr<>scr;
   scr:=screenaddr;
 until terminated;
@@ -446,6 +485,7 @@ else                    // no background, create one
   end;
 selected:=true;
 semaphore:=false;
+//moved:=0;
 end;
 
 
@@ -467,6 +507,7 @@ if decoration<>nil then
   begin
   decoration.destroy
   end;
+//moved:=0;
 end;
 
 //------------------------------------------------------------------------------
@@ -478,7 +519,7 @@ end;
 procedure TWindow.draw(dest:integer);
 
 var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a,dm:integer;
-   wt:int64;
+   wt1:int64;
    q1,q2,q3:integer;
    hsw,vsh,hsp,vsp:integer;
 
@@ -523,10 +564,12 @@ else
   end;
 // If the window is the background, move it as fast as it is possible to the canvas
 // Todo: check if DMA can be better here; fastmove function uses CPU
-if self=background then begin wt:=gettime; fastmove($30000000,dest,xres*yres);   wt:=gettime-wt; end
+wt1:=gettime;
+//moved+=1;    if moved>10 then moved:=10;
+if self=background then begin fastmove($30000000,dest,xres*yres); end
 else
   begin
-  wt:=gettime;
+
   if buttons<>nil then buttons.draw;                      // update the wigdets
   dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
 //  blit8(integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
@@ -551,28 +594,32 @@ else
     if (mousex>(x+l+dsv-20)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4-dm)) then begin q3:=32; a:=32; end else q3:=0;
     if selected and (mx>(l+dsv-20)) and (my>(-titleheight-dm+4)) and (mx<(l+dsv-4)) and (my<(-4-dm)) and (mousek=1) then needclose:=true;
 
+ //   if moved<=7 then begin
+      fill2d(dest,x-dl,y-dt-dm-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper border
 
-    fill2d(dest,x-dl,y-dt-dm-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper border
+      fill2d(dest,x-dl,y-dt-dm,l+dl+dsv,dt,xres,c);                        //title bar
+      fill2d(dest,x-dl,y-dm,l+dl+dsv,dm,xres,menucolor);                        //menu
+  //    if decoration.menu then fill2d(dest,x-dl,y-2,l+dl+dsv,2,xres,0);     // menu underline. Todo: parametrize it!
 
-    fill2d(dest,x-dl,y-dt-dm,l+dl+dsv,dt,xres,c);                        //title bar
-    fill2d(dest,x-dl,y-dm,l+dl+dsv,dm,xres,menucolor);                        //menu
-//    if decoration.menu then fill2d(dest,x-dl,y-2,l+dl+dsv,2,xres,0);     // menu underline. Todo: parametrize it!
+                                                                                       //  if decoration.menu then gouttextxy(pointer(dest),x+8,y-dm+4,'File  Edit  View  Options ',0); // look and feel test
 
-                                                                                       if decoration.menu then gouttextxy(pointer(dest),x+8,y-dm+4,'File  Edit  View  Options ',0); // look and feel test
+      if (decoration.menu) and (menu<>nil) then menu.checkall(dest);
+      fill2d(dest,x-dl,y-dt-dl-dm,dl,h+dt+dl+dsh+dh+dm,xres,c+borderdelta);   //left border
+      fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,xres,c+borderdelta);      //lower border
+      fill2d(dest,x+l+dsv,y-dt-dl-dm,dg,h+dt+dl+dsh+dl+dm,xres,c+borderdelta);//right border
 
-    fill2d(dest,x-dl,y-dt-dl-dm,dl,h+dt+dl+dsh+dh+dm,xres,c+borderdelta);   //left border
-    fill2d(dest,x-dl,y+h+dsh,l+dl+dg+dsv,dh,xres,c+borderdelta);      //lower border
-    fill2d(dest,x+l+dsv,y-dt-dl-dm,dg,h+dt+dl+dsh+dl+dm,xres,c+borderdelta);//right border
+      fill2d(dest,x,y+h,l,dsh,xres,scrollcolor);                        //horizontal scroll bar
+      fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,xres,activescrollcolor);    //horizontal scroll bar active part
 
-    fill2d(dest,x,y+h,l,dsh,xres,scrollcolor);                        //horizontal scroll bar
-    fill2d(dest,x+3+hsp,y+h+3,hsw-6,dsh-6,xres,activescrollcolor);    //horizontal scroll bar active part
-
-    fill2d(dest,x+l,y,dsv,h,xres,scrollcolor);                        //vertical scroll bar
-    fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,xres,activescrollcolor);    //vertical scroll bar active part
+      fill2d(dest,x+l,y,dsv,h,xres,scrollcolor);                        //vertical scroll bar
+      fill2d(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,xres,activescrollcolor);    //vertical scroll bar active part
 
 
-    fill2d(dest,x+l,y+h,dsv,dsh,xres,c);                  //down right corner
-    gouttextxy(pointer(dest),x+32,y-titleheight-dm+4,title,ct);
+      fill2d(dest,x+l,y+h,dsv,dsh,xres,c);                  //down right corner
+      gouttextxy(pointer(dest),x+32,y-titleheight-dm+4,title,ct);
+
+//    end;
+
     for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,down_icon[i+16*j]);
     if q1<>0 then
        for i:=0 to 15 do
@@ -590,7 +637,7 @@ else
     end;
   end;
   redraw:=true;
-wt:=gettime-wt;
+wt1:=gettime-wt;
 end;
 
 
@@ -608,8 +655,8 @@ var q:integer;
 
 begin
 if ay>yres-25 then ay:=yres-25;
-if al>0 then l:=al;        // now set new window parameters
-if ah>0 then h:=ah;
+if al>0 then begin l:=al; {moved:=0;} end;        // now set new window parameters
+if ah>0 then begin h:=ah; {moved:=0;} end;
 
 q:=8*length(title)+96;
 if (decoration<>nil) and (al>0) and (al<q) then l:=q;
@@ -617,12 +664,13 @@ if (ah>0) and (ah<64) then h:=64;
 if al>wl then l:=wl;
 if ah>wh then h:=wh;
 
-if ax>-2048 then x:=ax;
-if ay>-2048 then y:=ay;
+if ax>-2048 then begin x:=ax;{ moved:=0; }end;
+if ay>-2048 then begin y:=ay;{ moved:=0;} end;
 if avx>-1 then vx:=avx;
 if avy>-1 then vy:=avy;
 
 end;
+
 
 
 //------------------------------------------------------------------------------
@@ -639,7 +687,10 @@ label p999;
 
 var window:TWindow;
     mmx,mmy,mmk,mmw,dt,dg,dh,dl,dsh,dsv,dm:integer;
-    q,q2,sy2:integer;
+    i,j,x1,y1,x2,y2,q,q2,sy2,vcount,rcount:integer;
+
+    ttttt:int64;
+      rect,r2:PRectangle;
 
 const state:integer=0;
       deltax:integer=0;
@@ -652,8 +703,17 @@ const state:integer=0;
       hsp:integer=0;
       oldhsp:integer=0;
       oldvsp:integer=0;
+
+      qqqqq:integer=0;
 begin
 
+Arectangle.next:=nil;
+Arectangle.prev:=nil;
+Arectangle.x1:=0;
+Arectangle.x2:=0;
+Arectangle.y1:=0;
+Arectangle.y2:=0;
+Arectangle.handle:=0;
 
 result:=background;
 
@@ -747,10 +807,11 @@ if mmk=1 then // find a window with mk=1
 
 // we are here if mousekey=0 or there is no windows to move
 
-window:=background;
-while window.next<>nil do window:=window.next;        // go to the top window
 
-// calculate decoration sizes to add to the window size
+
+window:=background;
+while window.next<>nil do  window:=window.next;
+
 
 if window.decoration=nil then
   begin
@@ -764,14 +825,14 @@ if window.decoration=nil then
   end
 else
   begin
-  dt:= titleheight;
+  dt:=titleheight;
   dl:=borderwidth;
   dg:=borderwidth;
   dh:=borderwidth;
   if window.decoration.menu then dm:=menuheight else dm:=0;
   if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
   if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
-  end ;
+  end;
 
 // go back with windows chain until you found the window on which there is the mouse cursor
 
@@ -928,6 +989,7 @@ if (who.next<>nil) and (who<>background) then
   whh.next:=who;
   end;
 selected:=true;
+//moved:=0;
 end;
 
 //------------------------------------------------------------------------------
@@ -1895,6 +1957,7 @@ var i,j:integer;
 
 begin
 if (ax=x) and (ay=y) then goto p999;
+//moved:=0;
 blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
 x:=ax; y:=ay; draw;
 p999:
@@ -1915,7 +1978,7 @@ else
   mmx:=mousex;
   mmy:=mousey;
   end;
-if ((background.checkmouse=granny) or (granny=panel)) and (granny.mstate=0) and (mmy>y) and (mmy<y+h) and (mmx>x) and (mmx<x+l) then checkmouse:=true else checkmouse:=false;
+if ((lastchecked=granny) or (granny=panel)) and (granny.mstate=0) and (mmy>y) and (mmy<y+h) and (mmx>x) and (mmx<x+l) then checkmouse:=true else checkmouse:=false;
 end;
 
 procedure TIcon.highlight;
@@ -1926,6 +1989,7 @@ begin
 if not highlighted then
   begin
   highlighted:=true;
+//  moved:=0;
   blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 95 do
     begin
@@ -1957,6 +2021,7 @@ begin
 if highlighted then
   begin
   highlighted:=false;
+//  moved:=0;
   blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 47 do
     for j:=0 to 47 do
@@ -2053,6 +2118,207 @@ end;
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+// TMenu class
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+//type TMenuItem=class(TObject)
+//     title:string;
+//     icon:TIcon;
+//     next,prev,sub:TMenuItem;
+//     x,y,l:integer;
+//     level:integer;
+//     visible:boolean;
+//     selected:boolean;
+//     highlighted:boolean;
+//     clicked:boolean;
+//////     constructor create(atitle:string);
+//////     procedure append(atitle:string);
+//////     procedure addsub(atitle:string);
+//     procedure draw;
+//     function checkmouse:boolean;
+//     end;
+
+//     TMenu=class (TObject)
+//     item:TMenuItem;
+//     granny:TWindow;
+//     horizontal:boolean;
+//     constructor create(g:TWindow);
+//     procedure append(atitle:string);
+//     procedure checkall;
+//     end;
+
+
+constructor TMenuItem.create(atitle:string; w:TWindow);
+
+begin
+title:=atitle;
+x:=0;
+y:=0;
+l:=length(atitle)*8+16;
+icon:=nil;
+next:=nil; prev:=nil; sub:=nil;
+level:=0;
+visible:=false;
+selected:=false;
+clicked:=false;
+highlighted:=false;
+horizontal:=false;
+granny:=w;
+end;
+
+function TMenuItem.append(atitle:string):TMenuItem;
+
+var temp,temp2:TMenuItem;
+    ll:integer;
+
+begin
+temp2:=self;
+while temp2.next<>nil do temp2:=temp2.next;
+temp:=TMenuItem.create(atitle,granny);
+result:=temp;
+if horizontal and (level=0) then temp.x:=temp2.x+l else temp.x:=temp2.x;
+if horizontal and (level=0) then temp.y:=temp2.y else temp.y:=temp2.y+menuheight;
+temp.prev:=temp2;
+temp.granny:=granny;
+temp2.next:=temp;
+if level>0 then  // vertical menu length equalize
+  begin
+  ll:=l;
+  temp2:=temp;
+  while temp2.prev<>nil do
+    begin
+    if temp2.l>ll then ll:=temp2.l;
+    temp2:=temp2.prev;
+    end;
+  while temp2.next<>nil do
+    begin
+    temp2.l:=ll;
+    temp2:=temp2.next;
+    end;
+  end;
+if horizontal and (level=0) then temp.visible:=true;
+end;
+
+function TMenuItem.addsub(atitle:string):TMenuItem;
+
+var temp,temp2:TMenuItem;
+
+begin
+temp:=TMenuItem.create(atitle,granny);
+temp.x:=x;
+temp.y:=y+menuheight;
+sub:=temp;
+result:=temp;
+end;
+
+procedure TMenuItem.draw(dest:integer);
+
+begin
+if visible then
+  begin
+  if not highlighted then
+    begin
+    fill2d(dest,  granny.x+borderwidth+x,  granny.y-menuheight+y, l,menuheight, xres, menucolor);                 //menu
+    gouttextxy(pointer(dest),granny.x+borderwidth+x+8,granny.y-menuheight+y+4,title,0);
+    end
+  else
+    begin
+    fill2d(dest,granny.x+borderwidth+x,granny.y-menuheight+y,l,menuheight,xres,0);                 //menu
+    gouttextxy(pointer(dest),granny.x+borderwidth+x+8,granny.y-menuheight+y+4,title, menucolor);
+    end;
+  end;
+end;
+
+function tmenuitem.checkmouse:boolean;
+
+begin
+if granny.selected then
+  begin
+  if (granny.mx>x) and (granny.mx<x+l) and (granny.my>y-menuheight) and (granny.my<y) and granny.selected and visible then result:=true else result:=false;
+  end;
+end;
+
+constructor TMenu.create(g:TWindow);
+
+begin
+horizontal:=true; //default
+granny:=g;
+item:=nil;
+g.menu:=self;
+end;
+
+
+function tmenu.append(atitle:string):TMenuItem;
+
+begin
+item:=tmenuitem.create(atitle,granny);
+item.granny:=granny;
+item.horizontal:=horizontal;
+if horizontal then item.visible:=true;
+result:=item;
+end;
+
+procedure tmenu.checkall(dest:integer);
+
+var temp,temp2:TMenuitem;
+
+begin
+//if granny.selected then begin
+
+temp:=item;
+while temp<>nil do
+  begin
+  if temp.visible then
+    begin
+    if granny.selected and temp.checkmouse then temp.highlighted:=true else temp.highlighted:=false;
+    if (temp.checkmouse) and (mousek=1) then temp.clicked:=true;
+    temp.draw(dest);
+    if temp.sub<>nil then
+      begin
+      temp2:=temp.sub;
+      if temp.checkmouse then
+        begin
+        while temp2.next<>nil do
+          begin
+          temp2.visible:=true;
+          temp2:=temp2.next;
+          end;
+        temp2.visible:=true;
+        temp2:=temp.sub
+        end
+      else
+        begin
+        while temp2.next<>nil do
+          begin
+          temp2.visible:=false;
+          temp2:=temp2.next;
+          end;
+        temp2.visible:=false;
+        temp2:=temp.sub
+        end ;
+
+      while temp2<>nil do
+        begin
+        if temp2.visible then
+          begin
+          if granny.selected and temp2.checkmouse then temp2.highlighted:=true else temp2.highlighted:=false;
+          if (temp2.checkmouse) and (mousek=1) then temp.clicked:=true;
+           temp2.draw(dest);
+          end;
+        temp2:=temp2.next;
+        end;
+      end;
+    temp:=temp.next;
+    end;
+  end;
+
+
+end;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Additional temporary helper procedures
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -2103,6 +2369,10 @@ var i:integer;
 begin
 for i:=1 to length(t) do gputchar(g,x+8*i-8,y,t[i],c);
 end;
+// Output a string on a non assigned canvas given by the pointer
+
+
+
 
 
 // Make a temporary icon for a window from the red ball sprite
@@ -2120,6 +2390,201 @@ for x:=0 to 15 do
     if q=0 then icon[x,y]:=0;
     end;
 end;
+
+//------------------------------------------------------------------------------
+// Get a rectangle list
+// Call this when windows moved, created or destroyed
+//------------------------------------------------------------------------------
+
+procedure getrectanglelist;
+
+var rect,r2:PRectangle ;
+    ARectangle:TRectangle;
+    window:TWindow;
+    dg,dh,dt,dl,dsh,dsv,dm:integer;
+    x1,x2,y1,y2:integer;
+    vcount,rcount:integer;
+
+    ttttt: int64;
+
+begin
+
+window:=background;
+vcount:=0;
+Arectangle.next:=nil;
+Arectangle.prev:=nil;
+Arectangle.x1:=0;
+Arectangle.x2:=0;
+Arectangle.y1:=0;
+Arectangle.y2:=0;
+Arectangle.handle:=0;
+ttttt:=gettime;
+while window<>nil do   // go to the top window and count vertices
+  begin
+
+  if window.decoration=nil then
+    begin
+    dg:=0;
+    dh:=0;
+    dt:=0;
+    dl:=0;
+    dsh:=0;
+    dsv:=0;
+    dm:=0;
+    end
+  else
+    begin
+    dt:=titleheight;
+    dl:=borderwidth;
+    dg:=borderwidth;
+    dh:=borderwidth;
+    if window.decoration.menu then dm:=menuheight else dm:=0;
+    if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
+    if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
+    end ;
+
+  x1:=window.x-dg; x2:=window.x+window.l+dg+dsv;
+  y1:=window.y-dg-dm-dt; y2:=window.y+window.h+dg+dsh;
+  if vcount=0 then begin xtable[vcount]:=x1; ytable[vcount]:=y1; inc(vcount); end
+  else
+    begin
+    i:=0;
+    while (x1>xtable[i]) and (i<vcount) do i:=i+1;
+    for j:=vcount downto i+1 do xtable[j]:=xtable[j-1];
+    xtable[i]:=x1;
+    i:=0;
+    while (y1>ytable[i]) and (i<vcount) do i:=i+1;
+    for j:=vcount downto i+1 do ytable[j]:=ytable[j-1];
+    ytable[i]:=y1;
+    inc(vcount);
+    end;
+
+
+  i:=0;
+  while (x2>xtable[i]) and (i<vcount) do i:=i+1;
+  for j:=vcount downto i+1 do xtable[j]:=xtable[j-1];
+  xtable[i]:=x2;
+  i:=0;
+  while (y2>ytable[i]) and (i<vcount) do i:=i+1;
+  for j:=vcount downto i+1 do ytable[j]:=ytable[j-1];
+  ytable[i]:=y2;
+  inc(vcount);
+
+  window:=window.next;        // go to the top window
+  end;
+
+
+rect:=@Arectangle;
+// now sort x and y coordinates
+for i:=0 to vcount-2 do
+  for j:=0 to vcount-2 do
+
+    begin
+     rect^.next:= new(PRectangle);
+     rect^.next^.prev:=rect;
+     rect^.next^.next:=nil;
+     rect:=rect^.next;
+     rect^.x1:=xtable[j];
+     rect^.y1:=ytable[i];
+     rect^.x2:=xtable[j+1];
+     rect^.y2:=ytable[i+1];
+     rect^.handle:=0;
+{    rectangles[i+(vcount-1)*j,0]:=xtable[i];
+    rectangles[i+(vcount-1)*j,1]:=ytable[j];
+    rectangles[i+(vcount-1)*j,2]:=xtable[i+1];
+    rectangles[i+(vcount-1)*j,3]:=ytable[j+1];
+    rectangles[i+(vcount-1)*j,4]:=0;
+}    end;
+
+window:=background;
+while window.next<>nil do  window:=window.next;
+
+while window<>nil do
+  begin
+    if window.decoration=nil then
+    begin
+    dg:=0;
+    dh:=0;
+    dt:=0;
+    dl:=0;
+    dsh:=0;
+    dsv:=0;
+    dm:=0;
+    end
+  else
+    begin
+    dt:=titleheight;
+    dl:=borderwidth;
+    dg:=borderwidth;
+    dh:=borderwidth;
+    if window.decoration.menu then dm:=menuheight else dm:=0;
+    if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
+    if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
+    end ;
+
+  rect:=Arectangle.next;
+  x1:=window.x-dg; x2:=window.x+window.l+dg+dsv;
+  y1:=window.y-dg-dm-dt; y2:=window.y+window.h+dg+dsh;
+  while rect<>nil do begin
+
+  //  for i:=0 to (vcount-1)*(vcount-1)-1 do
+    //    if (rectangles[i,0]>=x1) and (rectangles[i,1]>=y1)and (rectangles[i,2]<=x2) and (rectangles[i,3]<=y2) and (rectangles[i,4]=0) then rectangles[i,4]:=integer(window);
+    if (rect^.x1>=x1) and (rect^.y1>=y1)and (rect^.x2<=x2) and (rect^.y2<=y2) and (rect^.handle=0) then rect^.handle:=integer(window);
+    rect:=rect^.next;
+    end;
+  window:=window.prev;
+  end ;
+
+
+  rect:=Arectangle.next;
+  rcount:=(vcount-1)*(vcount-1);
+//  i:=0;
+//  while i<rcount-1 do
+  while rect^.next<>nil do
+    begin
+//     if (rectangles[i,2]=rectangles[i+1,0]) and (rectangles[i,4]=rectangles[i+1,4]) then
+    if (rect^.x2=rect^.next^.x1) and (rect^.handle=rect^.next^.handle) then
+      begin
+//      rectangles[i,2]:=rectangles[i+1,2];
+//      for j:=i+1 to rcount-2 do rectangles[j]:=rectangles[j+1];
+      r2:=rect^.next;
+      rect^.x2:=rect^.next^.x2;
+      rect^.next:=rect^.next^.next;
+      dispose(r2);
+      if rect^.next<>nil then rect^.next^.prev:=rect;
+      rcount-=1;
+      end
+    else
+      rect:=rect^.next;
+    end;
+
+// top window here
+ttttt:=gettime-ttttt;
+retromalina.box(500,0,100,50,0); retromalina.outtextxy(500,0,inttostr(ttttt),15);
+
+retromalina.box(0,0,280,1000,0);
+rect:=Arectangle.next;
+i:=0;
+while rect<>nil do begin
+                                              retromalina.outtextxy(0,i*16,inttostr(rect^.x1),15);
+                                              retromalina.outtextxy(50,i*16,inttostr(rect^.y1),15);
+                                              retromalina.outtextxy(100,i*16,inttostr(rect^.x2),15);
+                                              retromalina.outtextxy(150,i*16,inttostr(rect^.y2),15);
+                                              retromalina.outtextxy(200,i*16,inttostr(rect^.handle),15);
+  rect:=rect^.next;  i:=i+1;
+//for i:=0 to rcount-1 do begin  retromalina.outtextxy(0,i*16,inttostr(rectangles[i,0]),15);
+//                                              retromalina.outtextxy(50,i*16,inttostr(rectangles[i,1]),15);
+//                                              retromalina.outtextxy(100,i*16,inttostr(rectangles[i,2]),15);
+//                                              retromalina.outtextxy(150,i*16,inttostr(rectangles[i,3]),15);
+//                                              retromalina.outtextxy(200,i*16,inttostr(rectangles[i,4]),15);
+
+end;
+
+rect:=Arectangle.next;
+while rect^.next<>nil do rect:=rect^.next;
+while rect^.prev<>nil do begin rect:=rect^.prev; dispose(rect^.next); end;
+end;
+
 
 //------------------------------------------------------------------------------
 // The end of the unit

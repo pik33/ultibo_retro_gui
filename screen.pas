@@ -132,16 +132,6 @@ frame:=(framecnt mod 32) div 2;
 
 // Refresh the window with song name and time
 
-ss:=(songtime div 1000000) mod 60;
-mm:=(songtime div 60000000) mod 60;
-hh:=(songtime div 3600000000);
-sss:=inttostr(ss); if ss<10 then sss:='0'+sss;
-mms:=inttostr(mm); if mm<10 then mms:='0'+mms;
-hhs:=inttostr(hh); if hh<10 then hhs:='0'+hhs;
-
-songfreq:=1000000 div siddelay;
-if songs>1 then s1:=songname+', song '+inttostr(song+1)
-else s1:=songname;
  {
 if filetype=0 then s2:='SIDCog DMP file, '+inttostr(songfreq)+' Hz'
 else if filetype=1 then s2:='PSID file, '+inttostr(1000000 div siddelay)+' Hz'
@@ -151,27 +141,6 @@ else if filetype=5 then s2:='MP2 file'
 else if filetype=6 then s2:='Module file';
 if s1='' then begin s1:='No file playing'; s2:=''; end;
   }
-if filetype=0 then s2:=inttostr(songfreq)
-else if filetype=1 then s2:=inttostr(1000000 div siddelay)
-else if filetype=3 then s2:='??'   //'Wave file, '+inttostr(head.srate)+' Hz'
-else if filetype=4 then s2:=inttostr(head.brate)
-else if filetype=5 then s2:=inttostr(head.brate)
-else if filetype=6 then s2:='??'; //'Module file';
-if s1='' then begin s1:='No file playing'; s2:=''; end;
-
-sl1:=8*length(s1);
-sl2:=8*length(s2);
-if sl1>sl2 then i:=16+sl1 else i:=16+sl2;
-if i<192 then i:=192;
-//np.l:=i;
-//np.box(0,8,i,16,0);
-s1:=copy(s1,1,38);
-if pl<>nil then begin pl.box(222,52,304,16,0); pl.outtextxy(222,52,s1,200); end;
-if pl<>nil then pl.box(220,84,32,16,0);
-if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,200);
-s2:=inttostr((SA_getcurrentfreq) div 1000);
-if pl<>nil then pl.box(309,84,24,16,0);
-if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
 
 
 

@@ -250,8 +250,8 @@ repeat
 
   refreshscreen;
   key:=getkey and $FF;
-  panel.checkmouse;
-  background.checkmouse;
+//  panel.checkmouse;
+//  background.checkmouse;
 
 //  if key=ord('s') then   // script test
 //    begin

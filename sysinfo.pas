@@ -128,6 +128,12 @@ si.outtextxy(10,212,'Mouse type:',157);
 si.outtextxy(222,212,inttostr(mousetype),157);
 
 si.outtextxy(10,232,'SID waveforms:',157);
+si.outtextxy(10,252,'Windows time: ',157);
+
+s1:=inttostr(wt);
+l1:=8*length(s1);
+
+si.outtextxy(230-l1, 252, s1+' us',157);
 
 if channel1on=1 then si.outtextxyz(154,232,inttostr(peek(base+$d404)shr 4),122,2,1);  // SID waveform
 if channel2on=1 then si.outtextxyz(184,232,inttostr(peek(base+$d40b)shr 4),202,2,1);
