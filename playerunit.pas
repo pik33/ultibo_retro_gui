@@ -652,12 +652,22 @@ var fh,i,j,hh,mm,ss,q,sl1,sl2:integer;
     s1,s2:string;
     mms,hhs,sss:string;
     qq,qqq:integer;
+    eject_down: boolean=false;
+    pause_down: boolean=false;
+    start_down: boolean=false;
+    stop_down: boolean=false;
+    prev_down: boolean=false;
+    next_down: boolean=false;
+    repeat_down: boolean=false;
+    shuffle_down: boolean=false;
+    repeat_selected:boolean=false;
+    shuffle_selected:boolean=false;
 
-    const clickcount:integer=0;
-          vbutton_x:integer=0;
-          vbutton_dx:integer=0;
-          select:boolean=true;
-          cnt:integer=0;
+const clickcount:integer=0;
+      vbutton_x:integer=0;
+      vbutton_dx:integer=0;
+      select:boolean=true;
+      cnt:integer=0;
 
 begin
 prepare_sprites;
@@ -779,6 +789,7 @@ repeat
   repeat sleep(1) until pl.redraw;
   pl.redraw:=false;
   inc(cnt);
+
 // Change title bar if needed
 
   if pl.selected and (not select) then
@@ -809,6 +820,11 @@ repeat
 
   if mousek=0 then
   begin
+  if eject_down then begin blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); eject_down:=false; end; // eject button
+  if pause_down then begin blit8(integer(cbuttons),92,0,integer(pl.canvas),32+92,176,46,36,272,550); pause_down:=false; end;  // transport buttons
+
+
+
   if vbutton_dx<>0 then
     begin
     vbutton_x:=mousex-pl.x-vbutton_dx;
@@ -837,7 +853,7 @@ repeat
     if q<220 then setdbvolume(-73) else setdbvolume(-24+round(24*(q-214)/100));
     end;
 
-// if V leter clicked, open vizualization menu
+// if V leter clicked, open visualization menu
 
   if (pl.mx>22) and (pl.my>112) and (pl.mx<38) and (pl.my<128)  and (mousek=1) then
     begin
@@ -876,10 +892,34 @@ repeat
 
 if info<> nil then if info.needclose then begin info.destroy; info:=nil; end;
 
+// if pause button clicked, pause
+
+if (pl.mx>124) and (pl.mx<170) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not pause_down then
+  begin
+  blit8(integer(cbuttons),92,36,integer(pl.canvas),32+92,176,46,36,272,550);   // transport buttons
+  pause_down:=true;
+  pause1a:=not pause1a; if pause1a then pauseaudio(1) else pauseaudio(0);
+  if pause1a then
+    begin
+    blit8(integer(playpaus),66,0,integer(pl.canvas),48,56,6,18,84,550);      // clear transport status
+    blit8(integer(playpaus),18,0,integer(pl.canvas),52,56,18,18,84,550);     // pause sign
+    end
+  else
+    begin
+    blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
+    blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // transport status
+    end
+
+  end;
+
+
 // if eject button clicked, open the file selector
+
 
 if (pl.mx>272) and (pl.mx<314) and (pl.my>178) and (pl.my<210) and (mousek=1) and (clickcount>60) then
   begin
+  eject_down:=true;
+  blit8(integer(cbuttons),230,32,integer(pl.canvas),272,178,42,32,272,550); // eject button
   clickcount:=0; // avoid opening a second fileselector until the first is creating
    if sel1=nil then
     begin
