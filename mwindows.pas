@@ -92,7 +92,9 @@ type TWindow=class(TObject)
      procedure putpixel(ax,ay,color:integer); inline;                   // put a pixel to window
      function getpixel(ax,ay:integer):integer; inline;                  // get a pixel from window
      procedure putchar(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
+     procedure putchar8(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
      procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);       // put a zoomed char, xz,yz - zoom
+     procedure outtextxy8(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
      procedure outtextxy(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
      procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
      procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
@@ -147,6 +149,8 @@ type Tfileselector=class(Twindow)
 type TDecoration=class(TObject)
      title:pointer;
      hscroll,vscroll,menu,status,up,down,close:boolean;
+     leftc,rightc,upc,downc:pointer;
+     ll,lh,rl,rh,ul,uh,dl,dh:integer;
      constructor create;
      destructor destroy;
      end;
@@ -1062,6 +1066,23 @@ for i:=0 to 15 do
   end;
 end;
 
+procedure TWindow.putchar8(ax,ay:integer;ch:char;col:integer);
+
+
+var i,j,start:integer;
+  b:byte;
+
+begin
+for i:=0 to 7 do
+  begin
+  b:=atari8font[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (128 shr j))<>0 then
+      putpixel(ax+j,ay+i,col);
+    end;
+  end;
+end;
 
 // putcharz - put a zoomed char, xz,yz - zoom
 
@@ -1094,6 +1115,14 @@ var i:integer;
 
 begin
 for i:=1 to length(t) do putchar(ax+8*i-8,ay,t[i],c);
+end;
+
+procedure TWindow.outtextxy8(ax,ay:integer; t:string;c:integer);
+
+var i:integer;
+
+begin
+for i:=1 to length(t) do putchar8(ax+8*i-8,ay,t[i],c);
 end;
 
 

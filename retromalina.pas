@@ -1052,15 +1052,10 @@ procedure initmachine(mode:integer);
 
 // -- rev 20170606
 
-var i:integer;
+var i,q:integer;
 
 
 begin
-sleep(300);
-//init the framebuffer
-//framebufferinit;
-// wait until default framebuffer is initialized
-removeramlimits(integer(@sprite));
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
 // get native resolution
@@ -1068,14 +1063,17 @@ FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
-sleep(300);
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=nativex;
 FramebufferProperties.PhysicalHeight:=nativey;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=96+FramebufferProperties.PhysicalHeight * 2;
-FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(300);
+q:=FramebufferDeviceAllocate(fb,@FramebufferProperties);
+sleep(1700);
+//i:=0;
+//repeat inc(i); sleep(100); until (fb^.FramebufferState = FRAMEBUFFER_STATE_ENABLED) or (i>20);
+//if i>20 then systemrestart(0);
+
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address+128*nativex);
 
@@ -1117,6 +1115,7 @@ mad_stream_init(@test_mad_stream);
 mad_synth_init(@test_mad_synth);
 mad_frame_init(@test_mad_frame);
 
+removeramlimits(integer(@sprite));
 
 
 filebuffer:=Tfilebuffer.create(true);
@@ -3801,12 +3800,6 @@ inc(sidcount);
 p999:
 sidtime:=clockgettotal-ttt;
 end;
-
-
-
-
-
-
 
 
 

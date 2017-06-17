@@ -33,6 +33,26 @@ type TPlayerThread=class (TThread)
        Constructor Create;
      end;
 
+     TPlaylistThread= class(TThread)
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create;
+     end;
+
+     TPlaylistItem=class(TObject)
+     item:string;
+     name:string;
+     time:integer;
+     rep:integer;
+     next,prev:TPlaylistItem;
+     constructor create(aitem:string);
+     procedure append(aitem:string);
+     procedure remove;
+     end;
+
+
 const
 
 // CPU Affinity constants copied here
@@ -48,6 +68,7 @@ var pl:TWindow=nil;
     sc:TWindow=nil;
     vis:TWindow=nil;
     fi:TWindow=nil;
+    list:TWindow=nil;
     spritebutton:TButton;
     oscilloscopebutton:TButton;
 
@@ -62,13 +83,16 @@ var pl:TWindow=nil;
     shufrep:pointer=nil;
     monoster:pointer=nil;
     playpaus:pointer=nil;
+    eqmain:pointer=nil;
+    pledit:pointer=nil;
 
     playerthread:TPlayerthread=nil;
     oscilloscope:TOscilloscope=nil;
     visualization:TVisualization=nil;
+    playlistthread:Tplaylistthread=nil;
 
     sel1:TFileselector=nil;
-    playfilename:string;
+    playfilename,pf2:string;
     dir:string;
 
     fileinfo:array[0..31,0..1] of string;
@@ -96,10 +120,14 @@ var pl:TWindow=nil;
                   songname:string;
                   key:integer;
 
+   playlistitem:TPlaylistitem=nil;
+
 procedure hide_sprites;
 procedure start_sprites;
 procedure vis_sprites;
 procedure prepare_sprites;
+//procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
+
 
 implementation
 
@@ -660,8 +688,12 @@ var fh,i,j,hh,mm,ss,q,sl1,sl2:integer;
     next_down: boolean=false;
     repeat_down: boolean=false;
     shuffle_down: boolean=false;
+    playlist_down: boolean=false;
     repeat_selected:boolean=false;
     shuffle_selected:boolean=false;
+    playlist_selected:boolean=false;
+    item:TPlaylistitem;
+
 
 const clickcount:integer=0;
       vbutton_x:integer=0;
@@ -670,6 +702,8 @@ const clickcount:integer=0;
       cnt:integer=0;
 
 begin
+if playlistitem=nil then playlistitem:=Tplaylistitem.create('');
+//box(0,0,100,40,0); outtextxy(0,0,inttostr(integer(playlistitem))+' '+playlistitem.item,15);
 prepare_sprites;
 hide_sprites;
 dir:=drive;
@@ -679,9 +713,10 @@ ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_2);
 
 pl:=Twindow.create(550,232,'');   // no decoration, we will use the skin
 pl.resizable:=false;
-pl.move(400,500,550,231,0,0);
+pl.move(400,500,550,232,0,0);
 
 // If the skin is not loaded, load it
+
 
 if cbuttons=nil then
   begin
@@ -739,6 +774,20 @@ if playpaus=nil then
   fileread(fh,playpaus^,84*18);
   fileclose(fh);
   end;
+if eqmain=nil then
+  begin
+  eqmain:=getmem(550*630);
+  fh:=fileopen(drive+'Colors\Bitmaps\Player\eqmain.rbm',$40);
+  fileread(fh,eqmain^,550*630);
+  fileclose(fh);
+  end;
+if pledit=nil then
+  begin
+  pledit:=getmem(560*372);
+  fh:=fileopen(drive+'Colors\Bitmaps\Player\pledit.rbm',$40);
+  fileread(fh,pledit^,560*372);
+  fileclose(fh);
+  end;
 
 // Draw the skin
 
@@ -754,16 +803,16 @@ blit8(integer(volume),0,0,integer(pl.canvas),354,112,38,28,136,550);     // bala
 blit8(integer(volume),98,0,integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
 blit8(integer(volume),30,844,integer(pl.canvas),318,116,28,22,136,550);  // volume slider
 blit8(integer(volume),30,844,integer(pl.canvas),376,116,28,22,136,550);  // balance slider
-blit8(integer(shufrep),56,2,integer(pl.canvas),330,180,90,26,184,550);   // shuffle button
-blit8(integer(shufrep),2,2,integer(pl.canvas),422,180,54,26,184,550);    // rep button
-blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,44,22,184,550);  // eq button
-blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,44,22,184,550); // pl button
+blit8(integer(shufrep),56,0,integer(pl.canvas),330,178,90,30,184,550);   // shuffle button
+blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);    // rep button
+blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,46,24,184,550);  // eq button
+blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550); // pl button
 blit8(integer(monoster),58,24,integer(pl.canvas),428,82,58,24,116,550);  // green stereo
 blit8(integer(monoster),0,0,integer(pl.canvas),476,82,58,24,116,550);    // gray mono
 
 for i:=0 to 47 do                                      // retamp icon instead of winamp
   for j:=0 to 47 do
-    if i48_player[j+48*i]<>0 then pl.putpixel(486+j,172+i,i48_player[j+48*i]);
+    if i48_player[j+48*i]<>0 then pl.putpixel(488+j,172+i,i48_player[j+48*i]);
 
 pl.needclose:=false;
 
@@ -789,6 +838,12 @@ repeat
   repeat sleep(1) until pl.redraw;
   pl.redraw:=false;
   inc(cnt);
+
+// unlit playlist buton when window closed
+
+  if (list=nil) and not playlist_down and (clickcount>60) then begin
+  blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550);
+  end;
 
 // Change title bar if needed
 
@@ -816,12 +871,36 @@ repeat
   blit8(integer(visarea),0,0,integer(pl.canvas),44,84,158,34,158,550);
   for j:=46 to 200 do if abs(scope[j])<47000 then pl.box(j,101-scope[j] div (3000),2,2,15);
 
+  if (mousek=1) and pl.selected then dblclick;
+
 // volume button/slider release
 
   if mousek=0 then
   begin
   if eject_down then begin blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); eject_down:=false; end; // eject button
   if pause_down then begin blit8(integer(cbuttons),92,0,integer(pl.canvas),32+92,176,46,36,272,550); pause_down:=false; end;  // transport buttons
+  if stop_down then begin blit8(integer(cbuttons),46,0,integer(pl.canvas),32+46,176,46,36,272,550); stop_down:=false; end;  // transport buttons
+  if start_down then begin blit8(integer(cbuttons),138,0,integer(pl.canvas),32+138,176,46,36,272,550);  start_down:=false; end;  // transport buttons
+  if repeat_down then begin
+    if repeat_selected then blit8(integer(shufrep),0,60,integer(pl.canvas),420,178,54,30,184,550)
+    else blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);
+    repeat_down:=false; end;
+
+  if playlist_down then begin
+    if (list=nil) then
+      begin
+      playlistthread:=TPlaylistthread.create;
+      playlistthread.start;
+      sleep(100);
+      blit8(integer(shufrep),46,146,integer(pl.canvas),484,116,46,24,184,550)
+      end
+    else
+      begin
+      playlistthread.terminate;
+      blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550);;
+      end;
+    playlist_down:=false;
+    end;
 
 
 
@@ -838,7 +917,7 @@ repeat
 
 // volume button/slider change if mouse drag
 
-  if (pl.mx>vbutton_x) and (pl.mx<vbutton_x+28) and (pl.my>116) and (pl.my<138) and (mousek=1) and (vbutton_dx=0) then
+  if (pl.mx>vbutton_x) and (pl.mx<vbutton_x+28) and (pl.my>116) and (pl.my<138) and (mousek=1) and (vbutton_dx=0) and (pl.selected) then
     begin
     vbutton_dx:=pl.mx-vbutton_x;
     end;
@@ -846,7 +925,7 @@ repeat
   q:=mousex-pl.x-vbutton_dx;
   if q<214 then q:=214;
   if q>318 then q:=318;
-  if ((mousex-pl.x-vbutton_dx)>0) and ((mousex-pl.x-vbutton_dx)<550) and (mousek=1) and (vbutton_dx<>0) then
+  if ((mousex-pl.x-vbutton_dx)>0) and ((mousex-pl.x-vbutton_dx)<550) and (mousek=1) and (vbutton_dx<>0) and (pl.selected) then
     begin
     blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,112,136,28,136,550);
     blit8(integer(volume),00,844,integer(pl.canvas),q,116,28,22,136,550);
@@ -855,7 +934,7 @@ repeat
 
 // if V leter clicked, open visualization menu
 
-  if (pl.mx>22) and (pl.my>112) and (pl.mx<38) and (pl.my<128)  and (mousek=1) then
+  if (pl.mx>22) and (pl.my>112) and (pl.mx<38) and (pl.my<128)  and (mousek=1) and (pl.selected) then
     begin
     if vis=nil then
       begin
@@ -866,7 +945,7 @@ repeat
 
 // if retamp icon clicked, display the info
 
-  if (pl.mx>495) and (pl.my>175) and (mousek=1) and  (clickcount>60) then
+  if (pl.mx>495) and (pl.my>175) and (mousek=1) and  (clickcount>60) and (pl.selected) then
   begin
   clickcount:=0;
   if info=nil then
@@ -892,9 +971,50 @@ repeat
 
 if info<> nil then if info.needclose then begin info.destroy; info:=nil; end;
 
+// start button
+
+if (pl.mx>170) and (pl.mx<216) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not start_down and (pl.selected) then
+  begin
+  blit8(integer(cbuttons),138,36,integer(pl.canvas),32+138,176,46,36,272,550);   // transport buttons
+  clickcount:=0;
+  start_down:=true;
+  if (item<>nil) and (item<>playlistitem) then playfilename:=item.item;
+  end;
+
+// stop button
+
+if (pl.mx>78) and (pl.mx<124) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not stop_down and (pl.selected) then
+  begin
+  blit8(integer(cbuttons),46,36,integer(pl.canvas),32+46,176,46,36,272,550);   // transport buttons
+  clickcount:=0;
+  stop_down:=true;
+  //todo: make it work
+  end;
+
+// repeat button
+
+if (pl.mx>422) and (pl.mx<476) and (pl.my>180) and (pl.my<206) and (mousek=1) and (clickcount>60) and not repeat_down and (pl.selected) then
+  begin
+  if repeat_selected then blit8(integer(shufrep),0,90,integer(pl.canvas),420,178,54,30,184,550)
+  else blit8(integer(shufrep),0,30,integer(pl.canvas),420,178,54,30,184,550);
+  repeat_selected:=not repeat_selected;
+  repeat_down:=true;
+  clickcount:=0;
+  end;
+
+// playlist button
+
+if (pl.mx>484) and (pl.mx<528) and (pl.my>116) and (pl.my<138) and (mousek=1) and (clickcount>60) and not playlist_down and (pl.selected) then
+  begin
+  if list<>nil then blit8(integer(shufrep),138,146,integer(pl.canvas),484,116,46,24,184,550)
+  else blit8(integer(shufrep),138,122,integer(pl.canvas),484,116,46,24,184,550);
+  playlist_down:=true;
+  clickcount:=0;
+  end;
+
 // if pause button clicked, pause
 
-if (pl.mx>124) and (pl.mx<170) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not pause_down then
+if (pl.mx>124) and (pl.mx<170) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not pause_down and (pl.selected) then
   begin
   blit8(integer(cbuttons),92,36,integer(pl.canvas),32+92,176,46,36,272,550);   // transport buttons
   pause_down:=true;
@@ -908,15 +1028,15 @@ if (pl.mx>124) and (pl.mx<170) and (pl.my>176) and (pl.my<212) and (mousek=1) an
     begin
     blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
     blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // transport status
-    end
-
+    end;
+  clickcount:=0;
   end;
 
 
 // if eject button clicked, open the file selector
 
 
-if (pl.mx>272) and (pl.mx<314) and (pl.my>178) and (pl.my<210) and (mousek=1) and (clickcount>60) then
+if (pl.mx>272) and (pl.mx<314) and (pl.my>178) and (pl.my<210) and (mousek=1) and (clickcount>60) and (pl.selected) then
   begin
   eject_down:=true;
   blit8(integer(cbuttons),230,32,integer(pl.canvas),272,178,42,32,272,550); // eject button
@@ -932,13 +1052,25 @@ if sel1<>nil then
   begin
   if sel1.filename<>'' then  // if a file selected, set a playfilename which will start play the file
     begin
-    playfilename:=sel1.filename;
-    cnt:=0;
-    sleep(50);
-    if spritebutton<>nil then if spritebutton.selected then start_sprites;  // if dancing sprites visuzlization active, start the sprites
-    dir:=sel1.currentdir2;   // remember a file selector direcory
-    sel1.destroy;            // and close the file selector window
-    sel1:=nil;
+    if list<>nil then
+      begin
+      playlistitem.append(sel1.filename);
+      dir:=sel1.currentdir2;
+      sel1.filename:='';
+      sel1.destroy;
+      sel1:=nil;
+      end
+    else
+      begin
+      playfilename:=sel1.filename;
+      pf2:=playfilename;
+      cnt:=0;
+      sleep(50);
+      if spritebutton<>nil then if spritebutton.selected then start_sprites;  // if dancing sprites visuzlization active, start the sprites
+      dir:=sel1.currentdir2;   // remember a file selector direcory
+      sel1.destroy;            // and close the file selector window
+      sel1:=nil;
+      end;
     end;
   end;
 
@@ -966,7 +1098,7 @@ if sel1<>nil then
     end;
 
 
-  if pl.selected then old_player;
+  if pl.selected or (playfilename<>'') then old_player;
 
 
   ss:=(songtime div 1000000) mod 60;
@@ -1008,6 +1140,8 @@ if sel1<>nil then
   if pl<>nil then pl.box(309,84,24,16,0);
   if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
 
+  if (nextsong=1) then begin nextsong:=0; if (item<>nil) and (item<>playlistitem) then begin playfilename:=item.item; item:=item.next; end;  end;
+  if repeat_selected and (item=nil) then begin item:=playlistitem.next; end;
 
 until pl.needclose;
 if info<>nil then begin info.destroy; info:=nil; end;
@@ -1433,5 +1567,268 @@ else  // animate the bouncing balls
   end;
 end;
 
+
+//------------------------------------------------------------------------------
+// Visualization menu thread
+//------------------------------------------------------------------------------
+
+constructor TPlaylistThread.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+
+procedure TPlaylistThread.execute;
+
+var xx,yy,i:integer;
+    item:TPlaylistItem;
+
+
+begin
+if list=nil then
+  begin
+  list:=TWindow.create(550,464,'');
+ // list.decoration.hscroll:=false;
+ // list.decoration.vscroll:=true;
+  list.resizable:=false;
+  list.cls(0);
+  list.activey:=24;
+  end;
+
+
+blit8(integer(pledit),0,0,integer(list.canvas),0,0,50,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),50,0,50,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),100,0,50,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),150,0,25,40,560,550);
+blit8(integer(pledit),52,0,integer(list.canvas),175,0,200,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),375,0,50,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),425,0,50,40,560,550);
+blit8(integer(pledit),254,0,integer(list.canvas),475,0,25,40,560,550);
+blit8(integer(pledit),306,0,integer(list.canvas),500,0,50,40,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,40,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,40,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,98,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,98,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,156,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,156,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,214,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,214,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,272,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,272,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,330,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,330,50,58,560,550);
+blit8(integer(pledit),0,84,integer(list.canvas),0,378,50,58,560,550);
+blit8(integer(pledit),52,84,integer(list.canvas),500,378,50,58,560,550);
+blit8(integer(pledit),0,144,integer(list.canvas),0,388,250,76,560,550);
+blit8(integer(pledit),252,144,integer(list.canvas),250,388,300,76,560,550);
+// test
+xx:=pl.x; yy:=pl.y;
+list.move(pl.x+550,pl.y,550,464,0,0);
+//for xx:=0 to 31 do list.putchar8(30+8*xx, 50, chr(xx),200);
+//for xx:=32 to 63 do list.putchar8(30+8*(xx-32), 60, chr(xx),200);
+//for xx:=64 to 95 do list.putchar8(30+8*(xx-64), 70, chr(xx),200);
+//for xx:=96 to 127 do list.putchar8(30+8*(xx-96), 80, chr(xx),200);
+
+//list.outtextxy8(30,90,'ABCDEFG abcdefg 123456 !@#$%^',200);
+item:=playlistitem;
+i:=0;
+if item=nil then list.outtextxy(30,50,'nil',200);
+while item<>nil do
+  begin
+  list.outtextxy8(28,40+i*10,copy(item.name,1,60),200);
+  i+=1;
+  item:=item.next;
+  end;
+item:=playlistitem;
+while item.next<>nil do item:=item.next; // now the item points to the last one
+repeat
+  repeat sleep(2) until list.redraw;
+  list.redraw:=false;
+  if item.next<>nil then // someone added something
+    begin
+    list.box(28,40,473,338,0);
+    item:=playlistitem;
+    i:=0;
+    while item<>nil do
+      begin
+      list.outtextxy8(28,40+i*10,copy(item.name,1,60),200);
+      i+=1;
+      item:=item.next;
+      end;
+    item:=playlistitem;
+    while item.next<>nil do item:=item.next
+    end;
+until terminated or list.needclose;
+sleep(100);
+list.destroy; list:=nil;
+end;
+
+
+constructor TPlaylistItem.create(Aitem:string);
+
+var i:integer;
+
+begin
+inherited create;
+item:=Aitem;
+i:=length(item);
+while (copy(item,i,1)<>'\') and (i>1) do i:=i-1;
+if i>1 then name:=copy(item,i+1,length(item)-2) else name:=item;
+time:=0;
+rep:=1;
+next:=nil;
+prev:=nil;
+end;
+
+procedure TPlaylistItem.append(Aitem:string);
+
+var temp:TPlaylistItem;
+
+begin
+temp:=self;
+while temp.next<>nil do temp:=temp.next;
+temp.next:=TPlaylistitem.create(AItem);
+temp.next.prev:=temp;
+end;
+
+procedure TPlaylistItem.remove;
+
+begin
+if next<>nil then next.prev:=prev;
+if prev<>nil then prev.next:=next;
+self.destroy;
+end;
+
+        {
+procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
+
+label p999;
+
+var audio2:psmallint;
+    audio3:psingle;
+    s:tsample;
+    ttt:int64;
+    i,il:integer;
+    buf:array[0..25] of byte;
+
+const aa:integer=0;
+
+
+begin
+
+audio2:=psmallint(stream);
+audio3:=psingle(stream);
+
+ttt:=clockgettotal;
+
+
+
+if (filetype=3) or (filetype=4) or (filetype=5) then
+  begin
+  time6502:=0;
+  if sfh>0 then
+    begin
+    if filebuffer.eof then // il<>1536 then
+      begin
+      fileclose(sfh);
+      sfh:=-1;
+      songtime:=0;
+      pauseaudio(1);
+      nextsong:=1;
+      timer1:=-1;
+      end
+    else
+      begin
+      il:=filebuffer.getdata(integer(stream),len);
+      timer1+=siddelay;
+      songtime+=siddelay;
+      if ((head.pcm=1) or (filetype>=4)) and (len=1536) then for i:=0 to 383 do oscilloscope(audio2[2*i]+audio2[2*i+1])
+                         else if ((head.pcm=1) or (filetype>=4)) and (len=768) then for i:=0 to 383 do oscilloscope(audio2[i])
+                         else for i:=0 to 95 do oscilloscope(round(16384*(audio3[4*i]+audio3[4*i+1]+audio3[4*i+2]+audio3[4*i+3])));
+      end;
+    end;
+  end
+else if filetype=6 then
+  begin
+  time6502:=0;
+  timer1+=siddelay;
+  songtime+=siddelay;
+  for i:=0 to 383 do oscilloscope(audio2[2*i]+audio2[2*i+1]);
+  if xmp_play_buffer(xmp_context,stream,len,2)<>0 then
+    begin
+     pauseaudio(1);
+     nextsong:=1;
+    end
+   else
+   begin
+     for i:=0 to 767 do audio2[i]:=word(audio2[i])-32768;
+   end;
+  end
+else
+  begin
+  aa+=2500;
+  if (aa>=siddelay) then
+    begin
+    aa-=siddelay;
+    if sfh>-1 then
+      begin
+      if filetype=0 then
+
+        begin
+        time6502:=0;
+        il:=fileread(sfh,buf,25);
+        if il=25 then
+          begin
+          for i:=0 to 24 do poke(base+$d400+i,buf[i]);
+          timer1+=siddelay;
+          songtime+=siddelay;
+          end
+        else
+          begin
+          fileclose(sfh);
+          sfh:=-1;
+          pause1:=true;
+          songtime:=0;
+          timer1:=-1;
+          for i:=0 to 6 do lpoke(base+$d400+4*i,0);
+          end;
+        end
+      else if filetype=1 then
+        begin
+        for i:=0 to 15 do times6502[i]:=times6502[i+1];
+        t6:=clockgettotal;
+        jsr6502(256,play);
+        times6502[15]:=clockgettotal-t6;
+        t6:=0; for i:=0 to 15 do t6+=times6502[i];
+        time6502:=t6-15;
+        //CleanDataCacheRange($d400,32);
+        timer1+=siddelay;
+        songtime+=siddelay;
+        end;
+
+
+      end;
+    end;
+    s:=sid(1);
+    audio2[0]:=(s[0]);
+    audio2[1]:=(s[1]);
+    oscilloscope(s[0]+s[1]);
+    for i:=1 to 1199 do
+      begin
+      s:=sid(0);
+      audio2[2*i]:=(s[0]);
+      audio2[2*i+1]:=(s[1]);
+      if (i mod 10) = 0 then oscilloscope(s[0]+s[1]);
+      end;
+  end;
+inc(sidcount);
+//sidtime+=gettime-t;
+p999:
+sidtime:=clockgettotal-ttt;
+end;
+
+}
 end.
 
