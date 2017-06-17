@@ -703,6 +703,7 @@ const clickcount:integer=0;
 
 begin
 if playlistitem=nil then playlistitem:=Tplaylistitem.create('');
+item:=playlistitem;
 //box(0,0,100,40,0); outtextxy(0,0,inttostr(integer(playlistitem))+' '+playlistitem.item,15);
 prepare_sprites;
 hide_sprites;
