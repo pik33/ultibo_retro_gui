@@ -979,6 +979,8 @@ if (pl.mx>170) and (pl.mx<216) and (pl.my>176) and (pl.my<212) and (mousek=1) an
   clickcount:=0;
   start_down:=true;
   if (item<>nil) and (item<>playlistitem) then playfilename:=item.item;
+  if (item.next<>nil) and (item=playlistitem) then playfilename:=item.next.item;
+  if (item=nil) and (playlistitem.next<>nil) then begin item:=playlistitem.next; playfilename:=item.next.item; end;
   end;
 
 // stop button
