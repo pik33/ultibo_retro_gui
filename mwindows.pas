@@ -1209,13 +1209,13 @@ var i,j:integer;
 begin
   handle:=self;
   x:=0;
-  y:=nativey-25;
+  y:=yres-25;
   mx:=-1;
   my:=-1;
   mk:=0;
   vx:=0;
   vy:=0;
-  l:=nativex;
+  l:=xres;
   h:=25;
   bg:=11;
   wl:=l;

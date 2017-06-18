@@ -1063,9 +1063,21 @@ FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
 FramebufferDeviceRelease(fb);
+
+if (nativex>=1024) and (nativey>=768) then
+  begin
+  xres:=nativex;
+  yres:=nativey;
+  end
+else
+  begin
+  xres:=2*nativex;
+  yres:=2*nativey;
+  end;
+
 FramebufferProperties.Depth:=32;
-FramebufferProperties.PhysicalWidth:=nativex;
-FramebufferProperties.PhysicalHeight:=nativey;
+FramebufferProperties.PhysicalWidth:=xres;
+FramebufferProperties.PhysicalHeight:=yres;
 FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
 FramebufferProperties.VirtualHeight:=96+FramebufferProperties.PhysicalHeight * 2;
 q:=FramebufferDeviceAllocate(fb,@FramebufferProperties);
@@ -1075,11 +1087,10 @@ sleep(1700);
 //if i>20 then systemrestart(0);
 
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address+128*nativex);
+p2:=Pointer(FramebufferProperties.Address+128*xres);
 
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-xres:=nativex;
-yres:=nativey;
+
 bordercolor:=0;
 displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
@@ -1353,8 +1364,8 @@ a:=displaystart;
 c:=integer(src);//$30800000;  // map start
 e:=bordercolor;
 b:=base+_pallette;
-ny:=nativey;
-nx:=nativex*4;
+ny:=yres;//nativey;
+nx:=xres*4;//nativex*4;
 
                 asm
 

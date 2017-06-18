@@ -124,7 +124,7 @@ fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
 fileread(fh,pointer($30300000)^,235*300);
 for i:=0 to 299 do
   for j:=0 to 234 do
-    if (peek($30300000+j+i*235)>15) or (peek($30300000+j+i*235)<5) then poke ($30000000+nativex*(i+(nativey div 2)-150)+j+(nativex div 2) - 117,peek($30300000+j+i*235));
+    if (peek($30300000+j+i*235)>15) or (peek($30300000+j+i*235)<5) then poke ($30000000+xres*(i+(yres div 2)-150)+j+(xres div 2) - 117,peek($30300000+j+i*235));
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 songtime:=0;
@@ -161,7 +161,7 @@ textedit.x:=896; textedit.y:=0; textedit.size:=48; textedit.l:=128; textedit.h:=
 raspbian:=Testicon.append('Raspbian');
 raspbian.icon48:=i48_raspi;
 raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:=96; raspbian.draw;
-sleep(1000);
+//sleep(1000);
 desired.callback:=@AudioCallback;
 desired.channels:=2;
 desired.format:=AUDIO_S16;

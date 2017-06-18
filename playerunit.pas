@@ -832,7 +832,8 @@ vbutton_x:=318;
 // The player main loop
 
 repeat
-
+//   retromalina.box(0,0,500,100,0);
+//   retromalina.outtextxy(0,0,inttostr(integer(item))+' '+item.name,15) ;
 // Wait until redraw done
 
 
@@ -880,8 +881,10 @@ repeat
   begin
   if eject_down then begin blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); eject_down:=false; end; // eject button
   if pause_down then begin blit8(integer(cbuttons),92,0,integer(pl.canvas),32+92,176,46,36,272,550); pause_down:=false; end;  // transport buttons
-  if stop_down then begin blit8(integer(cbuttons),46,0,integer(pl.canvas),32+46,176,46,36,272,550); stop_down:=false; end;  // transport buttons
-  if start_down then begin blit8(integer(cbuttons),138,0,integer(pl.canvas),32+138,176,46,36,272,550);  start_down:=false; end;  // transport buttons
+  if start_down then begin blit8(integer(cbuttons),46,0,integer(pl.canvas),32+46,176,46,36,272,550); start_down:=false; end;  // transport buttons
+  if stop_down then begin blit8(integer(cbuttons),138,0,integer(pl.canvas),32+138,176,46,36,272,550);  stop_down:=false; end;  // transport buttons
+  if prev_down then begin blit8(integer(cbuttons),0,0,integer(pl.canvas),32,176,46,36,272,550);  prev_down:=false; end;  // transport buttons
+  if next_down then begin blit8(integer(cbuttons),184,0,integer(pl.canvas),32+184,176,44,36,272,550);  next_down:=false; end;  // transport buttons
   if repeat_down then begin
     if repeat_selected then blit8(integer(shufrep),0,60,integer(pl.canvas),420,178,54,30,184,550)
     else blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);
@@ -972,26 +975,78 @@ repeat
 
 if info<> nil then if info.needclose then begin info.destroy; info:=nil; end;
 
+
+// next button
+
+if (pl.mx>32+184) and (pl.mx<78+184) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not next_down and (pl.selected) then
+  begin
+  blit8(integer(cbuttons),184,36,integer(pl.canvas),32+184,176,44,36,272,550);   // next button is 2 px shorter
+  clickcount:=0;
+  next_down:=true;
+  if (item.next<>nil) then
+    begin
+    item:=item.next;
+    playfilename:=item.item
+    end
+  else if (item.next=nil) and repeat_selected then
+    begin
+    item:=playlistitem.next;
+    playfilename:=item.item;
+    end;
+  end;       // todo: dont play if not started
+
+// prev button
+
+if (pl.mx>32) and (pl.mx<78) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not prev_down and (pl.selected) then
+  begin
+  blit8(integer(cbuttons),0,36,integer(pl.canvas),32,176,46,36,272,550);   // transport buttons
+  clickcount:=0;
+  prev_down:=true;
+  if (item.prev<>nil) and (item.prev<>playlistitem) then
+    begin
+    item:=item.prev;
+    playfilename:=item.item
+    end
+  else if (item.prev=playlistitem) and repeat_selected then
+    begin
+    while item.next<>nil do item:=item.next;
+    playfilename:=item.item;
+    end;
+  end;       // todo: dont play if not started
+
+
 // start button
 
-if (pl.mx>170) and (pl.mx<216) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not start_down and (pl.selected) then
+if (pl.mx>78) and (pl.mx<124) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not start_down and (pl.selected) then
   begin
-  blit8(integer(cbuttons),138,36,integer(pl.canvas),32+138,176,46,36,272,550);   // transport buttons
-  clickcount:=0;
+  blit8(integer(cbuttons),46,36,integer(pl.canvas),32+46,176,46,36,272,550);    // transport buttons
+  blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
+  blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // transport status     clickcount:=0;
   start_down:=true;
-  if (item<>nil) and (item<>playlistitem) then playfilename:=item.item;
-  if (item.next<>nil) and (item=playlistitem) then playfilename:=item.next.item;
-  if (item=nil) and (playlistitem.next<>nil) then begin item:=playlistitem.next; playfilename:=item.next.item; end;
+  if item=playlistitem then
+    begin
+    if item.next<>nil then
+      begin
+      item:=item.next;
+      playfilename:=item.item;
+      end;
+    end
+  else if item<>nil then playfilename:=item.item;
   end;
 
 // stop button
 
-if (pl.mx>78) and (pl.mx<124) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not stop_down and (pl.selected) then
+if (pl.mx>170) and (pl.mx<216) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not stop_down and (pl.selected) then
   begin
-  blit8(integer(cbuttons),46,36,integer(pl.canvas),32+46,176,46,36,272,550);   // transport buttons
+  blit8(integer(cbuttons),138,36,integer(pl.canvas),32+138,176,46,36,272,550);
+    // transport buttons
   clickcount:=0;
+  pauseaudio(1);
   stop_down:=true;
-  //todo: make it work
+  blit8(integer(playpaus),66,0,integer(pl.canvas),48,56,6,18,84,550);      // clear transport status
+  blit8(integer(playpaus),36,0,integer(pl.canvas),52,56,18,18,84,550);     // stop sign
+  if sfh>=0 then fileclose(sfh);
+  sfh:=-1;
   end;
 
 // repeat button
@@ -1143,8 +1198,20 @@ if sel1<>nil then
   if pl<>nil then pl.box(309,84,24,16,0);
   if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
 
-  if (nextsong=1) then begin nextsong:=0; if (item<>nil) and (item<>playlistitem) then begin playfilename:=item.item; item:=item.next; end;  end;
-  if repeat_selected and (item=nil) then begin item:=playlistitem.next; end;
+  if (nextsong=1) then
+    begin
+    nextsong:=0;
+    if (item.next<>nil) and (item<>playlistitem) then
+      begin
+      item:=item.next;
+      playfilename:=item.item;
+      end;
+    if repeat_selected and (item.next=nil) then
+      begin
+      item:=playlistitem.next;
+      playfilename:=item.item;
+      end;
+    end;
 
 until pl.needclose;
 if info<>nil then begin info.destroy; info:=nil; end;
@@ -1645,9 +1712,27 @@ while item<>nil do
   item:=item.next;
   end;
 item:=playlistitem;
-while item.next<>nil do item:=item.next; // now the item points to the last one
+
+// retromalina.box(0,0,200,200,0);
+ //    i:=0;
+while item.next<>nil do
+
+  begin
+  item:=item.next; // now the item points to the last one
+//  retromalina.outtextxy(0,16*i,inttostr(integer(item))+' '+inttostr(integer(item.prev))+' '+inttostr(integer(item.next)),15);
+//  i:=i+1;
+  end;
+
+
+
 repeat
+
+
   repeat sleep(2) until list.redraw;
+
+
+
+
   list.redraw:=false;
   if item.next<>nil then // someone added something
     begin

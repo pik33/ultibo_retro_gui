@@ -24,6 +24,9 @@ if [ $? != 0 ]; then DoExitAsm simpleaudio; fi
 echo Assembling unit6502
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/unit6502.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/unit6502.s
 if [ $? != 0 ]; then DoExitAsm unit6502; fi
+echo Assembling playerunit
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/playerunit.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/playerunit.s
+if [ $? != 0 ]; then DoExitAsm playerunit; fi
 echo Assembling screen
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=neon -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/screen.s
 if [ $? != 0 ]; then DoExitAsm screen; fi
