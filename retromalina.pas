@@ -457,6 +457,9 @@ var fh,filetype:integer;                // this needs cleaning...
    windowsdone:boolean=false;
     drive:string;
 
+    mp3frames:integer=0;
+
+
 // prototypes
 
 procedure initmachine(mode:integer);
@@ -863,10 +866,11 @@ repeat
            mad_stream_buffer(@test_mad_stream,@tempbuf, 32768);
            mad_frame_decode(@test_mad_frame, @test_mad_stream);
            mad_synth_frame(@test_mad_synth,@test_mad_frame);
+           mp3frames+=1;
 
           if test_mad_synth.pcm.channels=2 then for i:=0 to 1151 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[1,i] div 8704;  end;
           if test_mad_synth.pcm.channels=1 then for i:=0 to 1151 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[0,i] div 8704;  end;
-           il2:= (PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf));
+          il2:= (PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf));
 
       // box(100,100,100,100,0); outtextxyz(100,100,inttostr(PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf)),15,2,2);     outtextxyz(100,132,inttostr(tempbuf[il2]),15,2,2);
 

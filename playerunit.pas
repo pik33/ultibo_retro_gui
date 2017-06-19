@@ -4,6 +4,14 @@ unit playerunit;
 
 interface
 
+//------------------------------------------------------------------------------
+// A Winamp skinnable player for the Colors GUI/RPi
+// v. 0.26 alpha - 20170619
+// work in progress
+// GPL 2.0
+// pik33@o2.pl
+//------------------------------------------------------------------------------
+
 uses
   Classes, SysUtils, platform, retromalina, mwindows, blitter, threads, simpleaudio, retro, icons, retrokeyboard, unit6502,xmp;
 
@@ -121,6 +129,9 @@ var pl:TWindow=nil;
                   key:integer;
 
    playlistitem:TPlaylistitem=nil;
+   infofh:integer;
+
+
 
 procedure hide_sprites;
 procedure start_sprites;
@@ -130,6 +141,55 @@ procedure prepare_sprites;
 
 
 implementation
+
+
+function mp3check(name:string):integer;
+
+label p999;
+
+var i,il,j,infofh,bitrate, freq, skip, samplerate, padding,len,channels,fs,err:integer;
+    mp3buf:array[0..32767] of byte;
+    bitrates:array[0..15] of integer=(0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0);
+    freqs:array[0..3] of integer=(44100,48000,32000,0);
+
+begin
+infofh:=fileopen(name,$40);
+fileread(infofh,mp3buf,10);
+if (mp3buf[0]=ord('I')) and (mp3buf[1]=ord('D')) and (mp3buf[2]=ord('3')) then // Skip ID3
+  begin
+  skip:=(mp3buf[6] shl 21) + (mp3buf[7] shl 14) + (mp3buf[8] shl 7) + mp3buf[9]+10;
+  end
+else skip:=0;
+fileseek(infofh,skip,fsfrombeginning);
+
+if skip>0 then begin
+  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(infofh,mp3buf,1) until (mp3buf[0]=$FB) and (mp3buf[1]=$FF);
+  fileseek(infofh,skip-2,fsfrombeginning);
+  end;
+err:=0;
+i:=0;
+repeat
+  i:=i+1;
+  il:= fileread(infofh,mp3buf,2);
+  if (mp3buf[0]<>$FF) or (mp3buf[1]<>$FB) then     begin err+=1;
+    repeat mp3buf[1]:=mp3buf[0]; il:=fileread(infofh,mp3buf,1) until (il=0) or ((mp3buf[0]=$FB) and (mp3buf[1]=$FF));  end;
+  if il=0 then goto p999;
+  il:=fileread(infofh,mp3buf,2);
+  bitrate:=bitrates[mp3buf[0] shr 4];
+  samplerate:=freqs[(mp3buf[0] and $0C) shr 2];
+  if (mp3buf[1] shr 6)=3 then channels:=1 else channels:=2;
+  if (mp3buf[0] and 2)=2 then padding:=1 else padding:=0;
+  len:=padding+trunc((144*bitrate*1000)/samplerate);
+  fs:=fileseek(infofh,len-4,fsfromcurrent);
+  box(0,200,100,100,0); outtextxy(0,200,inttostr(i),15); outtextxy(0,216,inttostr(bitrate),15);outtextxy(0,232,inttostr(samplerate),15); outtextxy(0,248,inttostr(err),15);
+until (il<>2) or (fs<0);
+p999:
+result:=i;
+fileclose(infofh);
+end;
+
+
+
 
 
 procedure waveopen (var fh:integer);
@@ -211,6 +271,7 @@ if skip>0 then begin
   fileseek(fh,skip-2,fsfrombeginning);
   end;
 
+
 // visualize wave data
 
 //fi.box(0,0,600,600,15);
@@ -288,7 +349,7 @@ end;
 
 
 //------------------------------------------------------------------------------
-// A helper procedurt for displaying time with Winamp skin digits
+// A helper procedure for displaying time with Winamp skin digits
 //------------------------------------------------------------------------------
 
 procedure displaytime(mm,ss:integer);
@@ -726,6 +787,13 @@ if cbuttons=nil then
   fileread(fh,cbuttons^,72*272);
   fileclose(fh);
   end;
+if posbar=nil then
+  begin
+  posbar:=getmem(614*20);
+  fh:=fileopen(drive+'Colors\Bitmaps\Player\posbar.rbm',$40);
+  fileread(fh,posbar^,614*20);
+  fileclose(fh);
+  end;
 if titlebar=nil then
   begin
   titlebar:=getmem(174*688);
@@ -836,7 +904,7 @@ repeat
 //   retromalina.outtextxy(0,0,inttostr(integer(item))+' '+item.name,15) ;
 // Wait until redraw done
 
-
+  box(0,100,100,40,0); outtextxy(0,100,inttostr(mp3frames),15);
   repeat sleep(1) until pl.redraw;
   pl.redraw:=false;
   inc(cnt);
@@ -959,13 +1027,13 @@ repeat
     info.decoration.vscroll:=false;
     info.resizable:=false;
     info.move(650,400,500,160,0,0);
-    info.cls(2);
-    info.outtextxy(8,8,'RetAMP - the Retromachine Advanced Music Player',248);
-    info.outtextxy(8,28,'Version: 0.25u - 20170602',248);
-    info.outtextxy(8,48,'Alpha code',248);
-    info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',248);
-    info.outtextxy(8,88,'GPL 2.0 or higher',248);
-    info.outtextxy(8,108,'more information: pik33@o2.pl',248);
+    info.cls(0);
+    info.outtextxy(8,8,'RetAMP - the Retromachine Advanced Music Player',200);
+    info.outtextxy(8,28,'Version: 0.26 - 20170619',200);
+    info.outtextxy(8,48,'Alpha code',200);
+    info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',200);
+    info.outtextxy(8,88,'GPL 2.0 or higher',200);
+    info.outtextxy(8,108,'more information: pik33@o2.pl',200);
     sleep(100);
     info.select;
     end;
@@ -1019,6 +1087,7 @@ if (pl.mx>32) and (pl.mx<78) and (pl.my>176) and (pl.my<212) and (mousek=1) and 
 
 if (pl.mx>78) and (pl.mx<124) and (pl.my>176) and (pl.my<212) and (mousek=1) and (clickcount>60) and not start_down and (pl.selected) then
   begin
+  mp3frames:=0;
   blit8(integer(cbuttons),46,36,integer(pl.canvas),32+46,176,46,36,272,550);    // transport buttons
   blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
   blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // transport status     clickcount:=0;
@@ -1113,10 +1182,10 @@ if sel1<>nil then
     if list<>nil then
       begin
       playlistitem.append(sel1.filename);
+//      retromalina.box(0,0,100,100,0); retromalina.outtextxy(0,0,inttostr(mp3check(sel1.filename)),15);
+
       dir:=sel1.currentdir2;
       sel1.filename:='';
-      sel1.destroy;
-      sel1:=nil;
       end
     else
       begin
