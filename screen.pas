@@ -95,9 +95,10 @@ sprite7zoom:=$00010001;
 // -------------- Now prepare the screen
 
 
+//c:=16*round(16*random)+3;
+//cls(c);
 
-cls(132);
-
+cls(100);
 
 c:=0;
 avsct:=0;

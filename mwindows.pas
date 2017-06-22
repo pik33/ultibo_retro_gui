@@ -1429,7 +1429,7 @@ if dblclick then
     else begin currentdir2:=filenames[sel,0] ; dir:=currentdir2; dirlist; end;
     title:=copy(currentdir2,1,48);
     end
-  else filename:=lowercase(currentdir2+filenames[sel,0]);
+  else filename:={lowercase}(currentdir2+filenames[sel,0]);
   end;
 
 if mk=0 then goto p999;

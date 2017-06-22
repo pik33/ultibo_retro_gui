@@ -2,12 +2,17 @@ unit simpleaudio;
 
 //------------------------------------------------------------------------------
 // A simple audio unit for Ultibo modelled after SDL audio API
-// v.0.91 beta - 20170218
+// v.0.92 beta - 20170621
 // pik33@o2.pl
 // gpl 2.0 or higher
 //------------------------------------------------------------------------------
 //
 // beta changelog
+//
+// 0.92 - balance control added
+//      - DMA buffers are now cleaned before use
+//      - 9-bit noiseshaper function started, not used yet
+//      - bugfix: close audio now check if it is opened.
 //
 // 0.91 - fixed the bug which caused 1-channel sound play badly distorted
 //
@@ -84,6 +89,7 @@ function  ChangeAudioParams(desired, obtained: PAudioSpec): Integer;
 procedure SetVolume(vol:single);
 procedure SetVolume(vol:integer);
 procedure setDBVolume(vol:single);
+procedure SetBalance(amount:integer);
 
 // Simplified functions
 function  SA_OpenAudio(freq,bits,channels,samples:integer; callback: TAudioSpecCallback):integer;
@@ -225,6 +231,8 @@ var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
           CurrentAudioSpec:TAudioSpec;
           s_desired, s_obtained: TAudioSpec;
 
+          audio_opened:boolean=false;
+          balance:integer=128;
 
 procedure InitAudioEx(range,t_length:integer);  forward;
 function noiseshaper8(bufaddr,outbuf,oversample,len:integer):integer; forward;
@@ -261,6 +269,12 @@ ctrl2_ptr:=PCtrlBlock(dmactrl_ptr+8);   // second ctrl block is 8 longs further
 dmabuf1_ptr:=getmem(65536);                       // allocate 64k for DMA buffer
 dmabuf2_ptr:=getmem(65536);                       // .. and the second one
 
+for i:=0 to 16383 do
+  begin
+  dmabuf1_ptr[i]:=127;
+  dmabuf2_ptr[i]:=127;
+  end;
+
 ctrl1_ptr^[0]:=transfer_info;             // transfer info
 ctrl1_ptr^[1]:=nocache+dmabuf1_adr;       // source address -> buffer #1
 ctrl1_ptr^[2]:=_pwm_fif1_ph;              // destination address
@@ -287,6 +301,9 @@ pwm_dmac:=pwm_dmac_val;                                    // pwm dma enable
 dma_enable:=dma_enable or (1 shl dma_chn);                 // enable dma channel # dma_chn
 dma_conblk:=nocache+ctrl1_adr;                             // init DMA ctr block to ctrl block # 1
 dma_cs:=$00FF0003;                                         // start DMA
+
+audio_opened:=true;
+
 end;
 
 
@@ -332,6 +349,8 @@ case bits of
   end;
 result:=ChangeAudioParams(@s_desired,@s_obtained);
 end;
+
+
 // ----------------------------------------------------------------------
 // OpenAudio
 // Inits the audio according to specifications in 'desired' record
@@ -577,28 +596,32 @@ begin
 // Stop audio worker thread
 
 //PauseAudio(1);
-AudioThread.terminate;
-repeat sleep(1) until AudioOn=1;
+if audio_opened then
+  begin
+  AudioThread.terminate;
+  repeat sleep(1) until AudioOn=1;
 
 // ...then switch off DMA...
 
-ctrl1_ptr^[5]:=0;
-ctrl2_ptr^[5]:=0;
+  ctrl1_ptr^[5]:=0;
+  ctrl2_ptr^[5]:=0;
 
 // up to 8 ms of audio can still reside in the buffer
 
-sleep(20);
+  sleep(20);
 
 // Now disable PWM...
 
-pwm_ctl:=0;
+  pwm_ctl:=0;
 
 //... and return the memory to the system
 
-dispose(dmabuf1_ptr);
-dispose(dmabuf2_ptr);
-freemem(dmactrl_ptr);
-freemem(samplebuffer_ptr);
+  dispose(dmabuf1_ptr);
+  dispose(dmabuf2_ptr);
+  freemem(dmactrl_ptr);
+  freemem(samplebuffer_ptr);
+  audio_opened:=false;
+  end;
 end;
 
 procedure pauseaudio(p:integer);
@@ -633,12 +656,18 @@ if vol<-72 then volume:=0;
 if vol>=0 then volume:=4096;
 end;
 
+procedure setbalance(amount:integer);
+
+begin
+balance:=amount;
+end;
+
 
 function noiseshaper9(bufaddr,outbuf,oversample,len:integer):integer;
 
 label p101,p102,p999,i1l,i1r,i2l,i2r;
 
-// -- rev 20170126
+// -- rev 20170621
 
 begin
                  asm
@@ -706,7 +735,7 @@ label p101,p102,p999,i1l,i1r,i2l,i2r;
 begin
                  asm
                  push {r0-r10,r12,r14}
-                 ldr r3,i1l            // init integerators
+                 ldr r3,i1l            // init integrators
                  ldr r4,i1r
                  ldr r7,i2l
                  ldr r8,i2r
@@ -716,8 +745,8 @@ begin
                  ldr r0,len            // outer loop counter
 
  p102:           mov r1,r14            // inner loop counter
-                 ldr r12,[r5],#4        // new input value left
-                 ldr r6,[r5],#4       // new input value right
+                 ldr r12,[r5],#4       // new input value left
+                 ldr r6,[r5],#4        // new input value right
 
  p101:           add r3,r6             // inner loop: do oversampling
                  add r4,r12
@@ -759,6 +788,7 @@ p999:           pop {r0-r10,r12,r14}
 CleanDataCacheRange(outbuf,$10000);
 end;
 
+
 // Audio thread
 // After the audio is opened it calls audiocallback when needed
 
@@ -777,14 +807,19 @@ procedure TAudioThread.Execute;
 var
     i:integer;
     ns_size:integer;
+    vl,vr:integer;
+
 
 begin
 AudioOn:=1;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_1);
 ThreadSetPriority(ThreadGetCurrent,7);
 threadsleep(1);
-  repeat
+repeat
   repeat threadsleep(1) until (dma_cs and 2) <>0 ;
+  if balance<128 then begin vl:=(volume*balance) div 128; vr:=volume; end
+  else if (balance>128) and (balance<=256) then begin vr:=(volume*(256-balance)) div 128; vl:=volume; end
+  else begin vl:=volume; vr:=volume; end;
   working:=1;
   nc:=dma_nextcb;
   if pauseA>0 then  // clean the buffers
@@ -793,8 +828,6 @@ threadsleep(1);
     if nc=nocache+ctrl2_adr then for i:=0 to 16383 do dmabuf2_ptr[i]:=CurrentAudioSpec.range div 2;
     if nc=nocache+ctrl1_adr then CleanDataCacheRange(dmabuf1_adr,$10000);
     if nc=nocache+ctrl2_adr then CleanDataCacheRange(dmabuf2_adr,$10000);
-//    if nc=nocache+ctrl1_adr then lpoke($2f06000c,255);
-//    if nc=nocache+ctrl2_adr then lpoke($2f06000c,$FF00);
     end
   else
     begin
@@ -808,24 +841,22 @@ threadsleep(1);
     if CurrentAudioSpec.channels=2 then // stereo
       begin
       case CurrentAudioSpec.format of
-        AUDIO_U8:  for i:=0 to 2*CurrentAudioSpec.samples-1 do samplebuffer_32_ptr[i]:= volume*256*samplebuffer_ptr_b[i];
-        AUDIO_S16: for i:=0 to 2*CurrentAudioSpec.samples-1 do samplebuffer_32_ptr[i]:= volume*samplebuffer_ptr_si[i]+$8000000;
-        AUDIO_F32: for i:=0 to 2*CurrentAudioSpec.samples-1 do samplebuffer_32_ptr[i]:= round(volume*32768*samplebuffer_ptr_f[i])+$8000000;
+        AUDIO_U8:  for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= vl*256*samplebuffer_ptr_b[2*i]; samplebuffer_32_ptr[2*i+1]:= vr*256*samplebuffer_ptr_b[2*i+1]; end;
+        AUDIO_S16: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= vl*samplebuffer_ptr_si[2*i]+$8000000; samplebuffer_32_ptr[2*i+1]:= vr*samplebuffer_ptr_si[2*i+1]+$8000000; end;
+        AUDIO_F32: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= round(vl*32768*samplebuffer_ptr_f[2*i])+$8000000; samplebuffer_32_ptr[2*i+1]:= round(vr*32768*samplebuffer_ptr_f[2*i+1])+$8000000; end;
         end;
       end
     else
       begin
       case CurrentAudioSpec.format of
-        AUDIO_U8:  for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= volume*256*samplebuffer_ptr_b[i]; samplebuffer_32_ptr[2*i+1]:= samplebuffer_32_ptr[2*i]; end;
-        AUDIO_S16: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= volume*samplebuffer_ptr_si[i]+$8000000; samplebuffer_32_ptr[2*i+1]:= samplebuffer_32_ptr[2*i]; end;
-        AUDIO_F32: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= round(volume*32768*samplebuffer_ptr_f[i])+$8000000; samplebuffer_32_ptr[2*i+1]:= samplebuffer_32_ptr[2*i]; end;
+        AUDIO_U8:  for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= vl*256*samplebuffer_ptr_b[i]; samplebuffer_32_ptr[2*i+1]:= vr*256*samplebuffer_ptr_b[i];; end;
+        AUDIO_S16: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= vl*samplebuffer_ptr_si[i]+$8000000; samplebuffer_32_ptr[2*i+1]:= vr*samplebuffer_ptr_si[i]+$8000000; end;
+        AUDIO_F32: for i:=0 to CurrentAudioSpec.samples-1 do begin samplebuffer_32_ptr[2*i]:= round(vl*32768*samplebuffer_ptr_f[i])+$8000000; samplebuffer_32_ptr[2*i+1]:= round(vr*32768*samplebuffer_ptr_f[i])+$8000000; end;
         end;
       end;
     if nc=nocache+ctrl1_adr then noiseshaper8(samplebuffer_32_adr,dmabuf1_adr,CurrentAudioSpec.oversample,CurrentAudioSpec.samples)
     else noiseshaper8(samplebuffer_32_adr,dmabuf2_adr,CurrentAudioSpec.oversample,CurrentAudioSpec.samples);
     if nc=nocache+ctrl1_adr then CleanDataCacheRange(dmabuf1_adr,$10000) else CleanDataCacheRange(dmabuf2_adr,$10000);
-//    if nc=nocache+ctrl1_adr then lpoke($2f06000c,$FFFF);
-//    if nc=nocache+ctrl2_adr then lpoke($2f06000c,$FF0000);
     end;
   dma_cs:=$00FF0003;
   working:=0;

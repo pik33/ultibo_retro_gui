@@ -162,12 +162,13 @@ raspbian:=Testicon.append('Raspbian');
 raspbian.icon48:=i48_raspi;
 raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:=96; raspbian.draw;
 //sleep(1000);
-desired.callback:=@AudioCallback;
-desired.channels:=2;
-desired.format:=AUDIO_S16;
-desired.freq:=480000;
-desired.samples:=1200;
-error:=openaudio(@desired,@obtained);
+filetype:=-1;
+//desired.callback:=@AudioCallback;
+//desired.channels:=2;
+//desired.format:=AUDIO_S16;
+//desired.freq:=480000;
+//desired.samples:=1200;
+//error:=openaudio(@desired,@obtained);
 
 //------------------- The main loop
 

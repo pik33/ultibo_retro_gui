@@ -42,7 +42,7 @@ type mad_stream=record
                                         // unsigned char (*main_data)[MAD_BUFFER_MDLEN];
 
 					//* Layer III main_data() */
-                 md_len:cardinal;       //* bytes in main_data */
+                md_len:cardinal;       //* bytes in main_data */
 
                 options:integer;        //* decoding options (see below) */
                 error:integer;		//* error code (see above) */
