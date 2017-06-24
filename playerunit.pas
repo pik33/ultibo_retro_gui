@@ -54,44 +54,48 @@ type TPlayerThread=class (TThread)
      name:string;
      time:integer;
      rep:integer;
+     x,y:integer;
+     selected:boolean;
+     granny:TWindow;
      next,prev:TPlaylistItem;
      constructor create(aitem:string);
      procedure append(aitem:string);
      procedure remove;
+     function checkall:boolean;
+     procedure draw;
      end;
 
 
           // File buffer thread
 
-          TFileBuffer= class(TThread)
-          private
-          buf:array[0..131071] of byte;
-          tempbuf:array[0..32767] of byte;
-          outbuf: array[0..8191] of byte;
-          //outbuf: array[0..4095] of smallint;// absolute outbuf;
-          pocz:integer;
-          koniec:integer;
-          il,fh,newfh:integer;
-          newfilename:string;
-          needclear:boolean;
-          seekamount:int64;
-          eof:boolean;
-          mp3:integer;
-          qq:integer;
-          maintenance:boolean;
-          reading:boolean;
-          protected
-            procedure Execute; override;
-          public
-           m:integer;
-           empty,full:boolean;
-           Constructor Create(CreateSuspended : boolean);
-           function getdata(b,ii:integer):integer;
-           procedure setfile(nfh:integer);
-           procedure clear;
-           procedure seek(amount:int64);
-           procedure setmp3(mp3b:integer);
-          end;
+    TFileBuffer= class(TThread)
+    private
+      buf:array[0..131071] of byte;
+      tempbuf:array[0..32767] of byte;
+      outbuf: array[0..8191] of byte;
+    pocz:integer;
+    koniec:integer;
+    il,fh,newfh:integer;
+    newfilename:string;
+    needclear:boolean;
+    seekamount:int64;
+    eof:boolean;
+    mp3:integer;
+    qq:integer;
+    maintenance:boolean;
+    reading:boolean;
+    protected
+      procedure Execute; override;
+    public
+     m:integer;
+     empty,full:boolean;
+     Constructor Create(CreateSuspended : boolean);
+     function getdata(b,ii:integer):integer;
+     procedure setfile(nfh:integer);
+     procedure clear;
+     procedure seek(amount:int64);
+     procedure setmp3(mp3b:integer);
+    end;
 
 
 
@@ -165,7 +169,7 @@ var pl:TWindow=nil;
 
    playlistitem:TPlaylistitem=nil;
    infofh:integer;
-       filebuffer:TFileBuffer=nil;
+   filebuffer:TFileBuffer=nil;
 
 
 procedure hide_sprites;
@@ -306,7 +310,7 @@ else skip:=0;
 mp3buf[0]:=0; mp3buf[1]:=0;
 fileseek(fh,skip,fsfrombeginning);
 {if skip>0 then} begin
-  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$F3) and (mp3buf[1]=$FF));
+  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$FA) and (mp3buf[1]=$FF));
   fileseek(fh,skip-2,fsfrombeginning);
   fileread(fh,mp3buf,4);
   samplerate:=freqs[(mp3buf[2] and $0C) shr 2];
@@ -472,8 +476,6 @@ else if key=key_f1 then begin if channel1on=0 then channel1on:=1 else channel1on
 else if key=key_f2 then begin if channel2on=0 then channel2on:=1 else channel2on:=0; end   // F2 toggle channel 1 on/off
 else if key=key_f3 then begin if channel3on=0 then channel3on:=1 else channel3on:=0; end   // F3 toggle channel 1 on/off
 
-
-
 else if key=ord('q') then   // volume up
   begin
   vol123-=1; if vol123<0 then vol123:=0;
@@ -487,328 +489,324 @@ else if key=ord('a') then  // volume down
   end
 
 else if key=ord('+') then  // next subsong
+  begin
+  if songs>0 then
     begin
-    if songs>0 then
+    if song<songs-1 then
       begin
-      if song<songs-1 then
-        begin
-        song+=1;
-        jsr6502(song,init);
-        end;
+      song+=1;
+      jsr6502(song,init);
       end;
-    end
+    end;
+  end
 
 else if key=ord('-') then // previous subsong
+  begin
+  if songs>0 then
     begin
-    if songs>0 then
+    if song>0 then
       begin
-      if song>0 then
-        begin
-        song-=1;
-        jsr6502(song,init);
-        end;
+      song-=1;
+      jsr6502(song,init);
       end;
-    end
+    end;
+  end
 
 else if key=key_leftarrow then
-     begin
-     if abs(SA_GetCurrentFreq-44100)<200 then filebuffer.seek(-1760000)
-     else filebuffer.seek(-7680000);
-     end
+   begin
+   if abs(SA_GetCurrentFreq-44100)<200 then filebuffer.seek(-1760000)
+   else filebuffer.seek(-7680000);
+   end
 
 else if key=key_rightarrow then
-     begin
-     if abs(SA_GetCurrentFreq-44100)<200 then filebuffer.seek(1760000)
-     else filebuffer.seek(7680000);
-     end
+   begin
+   if abs(SA_GetCurrentFreq-44100)<200 then filebuffer.seek(1760000)
+   else filebuffer.seek(7680000);
+   end
 
 
 else if key=ord('f') then  // set 432 Hz
-    begin
-    a1base:=432;
-    if abs(SA_GetCurrentFreq-44100)<200 then SA_ChangeParams(43298,0,0,0);
-    if abs(SA_GetCurrentFreq-48000)<200 then SA_ChangeParams(47127,0,0,0);
-    if abs(SA_GetCurrentFreq-480000)<2000 then SA_ChangeParams(471270,0,0,0);
-    if abs(SA_GetCurrentFreq-96000)<400 then SA_ChangeParams(94254,0,0,0);
-    if abs(SA_GetCurrentFreq-49152)<200 then SA_ChangeParams(48258,0,0,0);
-    end
+  begin
+  a1base:=432;
+  if abs(SA_GetCurrentFreq-44100)<200 then SA_ChangeParams(43298,0,0,0);
+  if abs(SA_GetCurrentFreq-48000)<200 then SA_ChangeParams(47127,0,0,0);
+  if abs(SA_GetCurrentFreq-480000)<2000 then SA_ChangeParams(471270,0,0,0);
+  if abs(SA_GetCurrentFreq-96000)<400 then SA_ChangeParams(94254,0,0,0);
+  if abs(SA_GetCurrentFreq-49152)<200 then SA_ChangeParams(48258,0,0,0);
+  end
 
 else if key=ord('g') then   // set 440 Hz
-     begin
-     a1base:=440;
-     if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
-     if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
-     if abs(SA_GetCurrentFreq-471270)<2000 then SA_ChangeParams(480000,0,0,0);
-     if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
-     if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
-     end
+   begin
+   a1base:=440;
+   if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
+   if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
+   if abs(SA_GetCurrentFreq-471270)<2000 then SA_ChangeParams(480000,0,0,0);
+   if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
+   if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
+   end
 
 
 else if playfilename<>'' then //  key=key_enter then
 
+  begin
+  i:=length(playfilename);
+  while (playfilename[i]<>'.') and (i>1) do i:=i-1;
+  ext:=lowercase(copy(playfilename,i+1,length(playfilename)-i+1));
+  if (ext<>'wav')
+    and (ext<>'mp2')
+      and (ext<>'mp3')
+        and (ext<>'s48')
+          and (ext<>'sid')
+            and (ext<>'dmp')
+              and (ext<>'mod')
+                and (ext<>'s3m')
+                  and (ext<>'xm')
+                    and (ext<>'it')
+                      then begin playfilename:=''; goto p997; end;
+
+  av6502:=0;
+  pause1a:=true;
+  pauseaudio(1);
+  sleep(10);
+  for i:=$d400 to $d420 do poke(base+i,0);
+  if sfh>=0 then fileclose(sfh);
+  sfh:=-1;
+  sleep(10);
+  for i:=0 to $2F do siddata[i]:=0;
+  for i:=$50 to $7F do siddata[i]:=0;
+  siddata[$0e]:=$7FFFF8;
+  siddata[$1e]:=$7FFFF8;
+  siddata[$2e]:=$7FFFF8;
+  songtime:=0;
+
+  fn:= playfilename; // currentdir2+filenames[sel+selstart,0];
+  playfilename:='';
+  sfh:=fileopen(fn,$40);
+  s:=copy(fn,1,length(fn)-4);
+  for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
+  siddelay:=20000;
+  filetype:=0;
+  fileread(sfh,buf,4);
+
+  if (buf[0]=ord('S')) and (buf[1]=ord('D')) and (buf[2]=ord('M')) and (buf[3]=ord('P')) then
     begin
-    i:=length(playfilename);
-    while (playfilename[i]<>'.') and (i>1) do i:=i-1;
-    ext:=lowercase(copy(playfilename,i+1,length(playfilename)-i+1));
-    if (ext<>'wav')
-      and (ext<>'mp2')
-        and (ext<>'mp3')
-          and (ext<>'s48')
-            and (ext<>'sid')
-              and (ext<>'dmp')
-                and (ext<>'mod')
-                  and (ext<>'s3m')
-                    and (ext<>'xm')
-                      and (ext<>'it')
-                        then begin playfilename:=''; goto p997; end;
-
-
-      av6502:=0;
-
-
-      begin
-      pause1a:=true;
-      pauseaudio(1);
-      sleep(10);
-      for i:=$d400 to $d420 do poke(base+i,0);
-     if sfh>=0 then fileclose(sfh);
-      sfh:=-1;
-      sleep(10);
-      for i:=0 to $2F do siddata[i]:=0;
-      for i:=$50 to $7F do siddata[i]:=0;
-      siddata[$0e]:=$7FFFF8;
-      siddata[$1e]:=$7FFFF8;
-      siddata[$2e]:=$7FFFF8;
-      songtime:=0;
-
-      fn:= playfilename; // currentdir2+filenames[sel+selstart,0];
-      playfilename:='';
-      sfh:=fileopen(fn,$40);
-      s:=copy(fn,1,length(fn)-4);
-      for j:=1 to length(s) do if s[j]='_' then s[j]:=' ';
-      siddelay:=20000;
-      filetype:=0;
-      fileread(sfh,buf,4);
-
-      if (buf[0]=ord('S')) and (buf[1]=ord('D')) and (buf[2]=ord('M')) and (buf[3]=ord('P')) then
-        begin
-        for i:=0 to 15 do times6502[i]:=0;
+    for i:=0 to 15 do times6502[i]:=0;
 //         fi.box(0,0,600,600,15);
 //        fi.outtextxy(10,10,'type: SDMP',178);
-        songs:=0;
-        fileread(sfh,buf,4);
-        siddelay:=1000000 div buf[0];
+    songs:=0;
+    fileread(sfh,buf,4);
+    siddelay:=1000000 div buf[0];
 //        fi.outtextxy(10,30,'speed: '+inttostr(buf[0])+' Hz',178);
-        atitle:='                                ';
-        fileread(sfh,atitle[1],16);
-        fileread(sfh,buf,1);
+    atitle:='                                ';
+    fileread(sfh,atitle[1],16);
+    fileread(sfh,buf,1);
 //         fi.outtextxy (10,50,'title: '+atitle,178);
-        if a1base=432 then error:=SA_changeparams(10*47127,16,2,1200)
-                      else error:=SA_changeparams(10*48000,16,2,1200);
-        songs:=0;
-        end
-     else if (buf[0]=ord('P')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
-        begin
-        reset6502;
-        sidopen(sfh);
-        for i:=1 to 4 do waitvbl;
-        if cia>0 then siddelay:={985248}1000000 div (50*round(19652/cia));
-        filetype:=1;
-        if a1base=432 then error:=SA_changeparams(10*47127,16,2,10*120)
-                      else error:=SA_changeparams(10*48000,16,2,10*120);
-        fileclose(sfh);
-        end
-     else if (buf[0]=ord('R')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
-        begin
-        filetype:=2;
+    if a1base=432 then error:=SA_changeparams(10*47127,16,2,1200)
+                  else error:=SA_changeparams(10*48000,16,2,1200);
+    songs:=0;
+    end
+ else if (buf[0]=ord('P')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
+    begin
+    reset6502;
+    sidopen(sfh);
+    for i:=1 to 4 do waitvbl;
+    if cia>0 then siddelay:={985248}1000000 div (50*round(19652/cia));
+    filetype:=1;
+    if a1base=432 then error:=SA_changeparams(10*47127,16,2,10*120)
+                  else error:=SA_changeparams(10*48000,16,2,10*120);
+    fileclose(sfh);
+    end
+ else if (buf[0]=ord('R')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
+    begin
+    filetype:=2;
 
 //         fi.box(0,0,600,600,15);
 //         fi.outtextxy(10,10,'type: RSID, not yet supported',44);
-        fileclose(sfh);
-        end
-      else if ext='mp3' then //copy(fn,length(fn)-2,3)='mp3' then
-        begin
-        filetype:=4;
-        sr:=mp3open(sfh);
+    fileclose(sfh);
+    end
+  else if ext='mp3' then //copy(fn,length(fn)-2,3)='mp3' then
+    begin
+    filetype:=4;
+    sr:=mp3open(sfh);
         sleep(20);
-        filebuffer.setmp3(1);
-        sleep(50);
-        for i:=0 to 15 do times6502[i]:=0;
-        filetype:=4;
-        filebuffer.setfile(sfh);
-        sleep(200);
-        songs:=0;
-        if sr>=44100 then
-          begin
-          if a1base=432 then error:=SA_changeparams(((sr*432) div 440),16,2,384)
-                     else error:=SA_changeparams(sr,16,2,384);
-          end
-        else
-          begin
-          if a1base=432 then error:=SA_changeparams(((sr*432) div 440),16,2,160)
-                        else error:=SA_changeparams(22050,16,2,160);
-          end;
+    filebuffer.setmp3(1);
+    sleep(50);
+    for i:=0 to 15 do times6502[i]:=0;
+    filetype:=4;
+    filebuffer.setfile(sfh);
+    sleep(200);
+    songs:=0;
+    if sr>=44100 then
+      begin
+      if a1base=432 then error:=SA_changeparams(((sr*432) div 440),16,2,384)
+                 else error:=SA_changeparams(sr,16,2,384);
+      end
+    else
+      begin
+      if a1base=432 then error:=SA_changeparams(((sr*432) div 440),16,2,160)
+                    else error:=SA_changeparams(22050,16,2,160);
+      end;
 
-        if sr>=44100 then siddelay:=(8707*44100) div sr
-        else siddelay:=(160*8707*44100) div (384*sr);
+    if sr>=44100 then siddelay:=(8707*44100) div sr
+    else siddelay:=(160*8707*44100) div (384*sr);
 
-        pauseaudio(0);
-        end
+    pauseaudio(0);
+    end
 
-       else if {copy(fn,length(fn)-2,3)}ext='mp2' then
-        begin
-        fileseek(sfh,0,fsfrombeginning);
+   else if {copy(fn,length(fn)-2,3)}ext='mp2' then
+    begin
+    fileseek(sfh,0,fsfrombeginning);
 
-        filetype:=5;
-        filebuffer.setmp3(2);
-        sleep(50);
-        for i:=0 to 15 do times6502[i]:=0;
-        filebuffer.setfile(sfh);
-        sleep(200);
-        songs:=0;
+    filetype:=5;
+    filebuffer.setmp3(2);
+    sleep(50);
+    for i:=0 to 15 do times6502[i]:=0;
+    filebuffer.setfile(sfh);
+    sleep(200);
+    songs:=0;
 
-        siddelay:=8707 ;
-                 if a1base=432 then error:=SA_changeparams(43298,16,2,384)
-                     else error:=SA_changeparams(44100,16,2,384);
+    siddelay:=8707 ;
+             if a1base=432 then error:=SA_changeparams(43298,16,2,384)
+                 else error:=SA_changeparams(44100,16,2,384);
 
-  //      fi.box(0,0,600,600,15);
- //       fi.outtextxy(10,10,'type: MP2',178);
-        pauseaudio(0);
-        end
+//      fi.box(0,0,600,600,15);
+//       fi.outtextxy(10,10,'type: MP2',178);
+    pauseaudio(0);
+    end
 
-   {    else if (copy(fn,length(fn)-2,3)='mod')
-                     or (copy(fn,length(fn)-2,3)='s3m')
-                     or (copy(fn,length(fn)-1,2)='xm')
-                     or (copy(fn,length(fn)-1,2)='it')
-                     then
-    }
-       else if (ext='mod')
-                     or (ext='s3m')
-                     or (ext='xm')
-                     or (ext='it')
-                     then
-        begin
-        fileclose(sfh);
-        i:=xmp_test_module(Pchar(fn),nil);
-        if i<>0 then goto p102;
-        if xmp_context<>nil then
-          begin
-          xmp_end_player(xmp_context);
-          xmp_release_module(xmp_context);
-          xmp_free_context(xmp_context);
-          end;
-
-
-        xmp_context:=xmp_create_context;
-        if a1base=432 then error:=SA_changeparams(48258,16,2,384)
-                      else error:=SA_changeparams(49152,16,2,384);
-        siddelay:=7812;
-        filetype:=6;
+{    else if (copy(fn,length(fn)-2,3)='mod')
+                 or (copy(fn,length(fn)-2,3)='s3m')
+                 or (copy(fn,length(fn)-1,2)='xm')
+                 or (copy(fn,length(fn)-1,2)='it')
+                 then
+}
+   else if (ext='mod')
+                 or (ext='s3m')
+                 or (ext='xm')
+                 or (ext='it')
+                 then
+    begin
+    fileclose(sfh);
+    i:=xmp_test_module(Pchar(fn),nil);
+    if i<>0 then goto p102;
+    if xmp_context<>nil then
+      begin
+      xmp_end_player(xmp_context);
+      xmp_release_module(xmp_context);
+      xmp_free_context(xmp_context);
+      end;
 
 
-        i:=xmp_load_module(xmp_context,Pchar(fn));
+    xmp_context:=xmp_create_context;
+    if a1base=432 then error:=SA_changeparams(48258,16,2,384)
+                  else error:=SA_changeparams(49152,16,2,384);
+    siddelay:=7812;
+    filetype:=6;
 
-                xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
-              xmp_set_player(xmp_context,xmp_player_mix,50);
-        if i<>0 then
-          begin
-         xmp_free_context(xmp_context);
-               goto p102;
-          end;
-        i:= xmp_start_player(xmp_context,49152,34);
-          xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
+
+    i:=xmp_load_module(xmp_context,Pchar(fn));
+
+            xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
           xmp_set_player(xmp_context,xmp_player_mix,50);
+    if i<>0 then
+      begin
+     xmp_free_context(xmp_context);
+           goto p102;
+      end;
+    i:= xmp_start_player(xmp_context,49152,34);
+      xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
+      xmp_set_player(xmp_context,xmp_player_mix,50);
 
-        if i<>0 then
-          begin
-                     xmp_release_module(xmp_context);
-          xmp_free_context(xmp_context);
-          goto p102;
-          end;
-        sleep(50);
-        for i:=0 to 15 do times6502[i]:=0;
+    if i<>0 then
+      begin
+                 xmp_release_module(xmp_context);
+      xmp_free_context(xmp_context);
+      goto p102;
+      end;
+    sleep(50);
+    for i:=0 to 15 do times6502[i]:=0;
 
 //          fi.box(0,0,600,600,15);
 //          fi.outtextxy(10,10,'type: MOD',178);
-        pauseaudio(0);
-        p102:
-        end
+    pauseaudio(0);
+    p102:
+    end
 
 
-       else if ext='s48' then
-         begin
-         fileseek(sfh,$2800,fsfrombeginning);
-         filebuffer.clear;
-         sleep(50);
-         filetype:=5;
-         filebuffer.setmp3(2);
-         for i:=0 to 15 do times6502[i]:=0;
-         filebuffer.setfile(sfh);
-         sleep(200);
-         songs:=0;
+   else if ext='s48' then
+     begin
+     fileseek(sfh,$2800,fsfrombeginning);
+     filebuffer.clear;
+     sleep(50);
+     filetype:=5;
+     filebuffer.setmp3(2);
+     for i:=0 to 15 do times6502[i]:=0;
+     filebuffer.setfile(sfh);
+     sleep(200);
+     songs:=0;
 
-         siddelay:=8000;
-         error:=SA_changeparams(48000,16,2,384);
+     siddelay:=8000;
+     error:=SA_changeparams(48000,16,2,384);
 //          fi.box(0,0,600,600,15);
 //          fi.outtextxy(10,10,'type: MP2',178);
-         pauseaudio(0);
-         end
+     pauseaudio(0);
+     end
 
-      else if (buf[0]=ord('R')) and (buf[1]=ord('I')) and (buf[2]=ord('F')) and (buf[3]=ord('F')) then
-        begin
-        pauseaudio(1);
+  else if (buf[0]=ord('R')) and (buf[1]=ord('I')) and (buf[2]=ord('F')) and (buf[3]=ord('F')) then
+    begin
+    pauseaudio(1);
 
-        for i:=0 to 15 do times6502[i]:=0;
+    for i:=0 to 15 do times6502[i]:=0;
 
-        waveopen(sfh);
-        if head.pcm=85 then
-          begin
-          filebuffer.setmp3(1);
-          filetype:=4;
-          end
-        else
-          begin
-          filebuffer.setmp3(0);
-          filetype:=3;
-          end;
-        filebuffer.clear;
-        filebuffer.setfile(sfh);
-        sleep(200);
-        songs:=0;
-
-        if head.srate=44100 then siddelay:=8707 else siddelay:=2000;
-
-        if head.srate=44100 then if a1base=432 then error:=SA_changeparams(43298,16,head.channels,384)
-                                               else error:=SA_changeparams(44100,16,head.channels,384);
-        if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
-                                               else error:=SA_changeparams(96000,32,2,192);
-
-
-
-        pauseaudio(0);
-
-        end
-      else
-
+    waveopen(sfh);
+    if head.pcm=85 then
       begin
-        for i:=0 to 15 do times6502[i]:=0;
-        fileread(sfh,buf,21);
+      filebuffer.setmp3(1);
+      filetype:=4;
+      end
+    else
+      begin
+      filebuffer.setmp3(0);
+      filetype:=3;
+      end;
+    filebuffer.clear;
+    filebuffer.setfile(sfh);
+    sleep(200);
+    songs:=0;
+
+    if head.srate=44100 then siddelay:=8707 else siddelay:=2000;
+
+    if head.srate=44100 then if a1base=432 then error:=SA_changeparams(43298,16,head.channels,384)
+                                           else error:=SA_changeparams(44100,16,head.channels,384);
+    if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
+                                           else error:=SA_changeparams(96000,32,2,192);
+
+
+
+    pauseaudio(0);
+
+    end
+  else
+
+  begin
+    for i:=0 to 15 do times6502[i]:=0;
+    fileread(sfh,buf,21);
 //        fi.box(0,0,600,600,15);
 //
- //       fi.outtextxy(10,10,'type: unknown, 50 Hz SDMP assumed',178);
+//       fi.outtextxy(10,10,'type: unknown, 50 Hz SDMP assumed',178);
 
-        if a1base=432 then error:=SA_changeparams(471270,16,2,1200)
-                      else error:=SA_changeparams(480000,16,2,1200);
+    if a1base=432 then error:=SA_changeparams(471270,16,2,1200)
+                  else error:=SA_changeparams(480000,16,2,1200);
 
-        songs:=0;
-        end;
+    songs:=0;
+    end;
 
-      songname:=s;
-      songtime:=0;
-      timer1:=-1;
-      if filetype<>2 then begin pause1a:=false; pauseaudio(0); end;
+  songname:=s;
+  songtime:=0;
+  timer1:=-1;
+  if filetype<>2 then begin pause1a:=false; pauseaudio(0); end;
 
-      end;
+
    end;
 p997:
 end;
@@ -861,7 +859,13 @@ begin
 //  filebuffer.start;
 //  end;
 
-if playlistitem=nil then playlistitem:=Tplaylistitem.create('');
+if playlistitem=nil then
+  begin
+  playlistitem:=Tplaylistitem.create('');
+  playlistitem.x:=28;
+  playlistitem.y:=30;
+
+  end;
 item:=playlistitem;
 
 
@@ -993,9 +997,9 @@ blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550); // pl b
 blit8(integer(monoster),58,24,integer(pl.canvas),428,82,58,24,116,550);  // green stereo
 blit8(integer(monoster),0,0,integer(pl.canvas),476,82,58,24,116,550);    // gray mono
 
-for i:=0 to 47 do                                      // retamp icon instead of winamp
-  for j:=0 to 47 do
-    if i48_player[j+48*i]<>0 then pl.putpixel(488+j,172+i,i48_player[j+48*i]);
+//for i:=0 to 47 do                                      // retamp icon instead of winamp
+//  for j:=0 to 47 do
+//    if i48_player[j+48*i]<>0 then pl.putpixel(488+j,172+i,i48_player[j+48*i]);
 
 pl.needclose:=false;
 
@@ -1510,6 +1514,8 @@ procedure TOscilloscope.Execute;
 var scr,xx,yy:integer;
     wh:TWindow;
     t:int64;
+    i,j,k,l,color:integer;
+    newsc:array[0..883,0..186] of byte;
 begin
 
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
@@ -1521,6 +1527,10 @@ if sc=nil then
   sc.decoration.vscroll:=false;
   sc.resizable:=false;
   xx:=pl.x; yy:=pl.y;
+    sc.box(0,0,884,187,178);
+   sc.box(0,93,884,2,140);
+  sc.box(0,27,884,2,140);
+  sc.box(0,158,884,2,140);
   if yy>600 then sc.move(xx,yy-220,884,187,0,0) else sc.move(xx,yy+260,884,187,0,0);
   sc.select;
   end;
@@ -1531,10 +1541,33 @@ repeat
   sc.box(0,93,884,2,140);
   sc.box(0,27,884,2,140);
   sc.box(0,158,884,2,140);
-  for j:=20 to 840 do if abs(scope[j])<46000 then sc.box(10+j,93-scope[j] div 768,2,2,190);
+
+{   for i:=1 to 882 do
+    for j:=1 to 185 do
+      begin
+      color:=-5+sc.getpixel(i,j);
+      for k:=-1 to 1 do
+        for l:=-1 to 1 do
+          begin
+          color+=sc.getpixel(i+k,j+l);
+          end;
+      color:=color div 10;
+      newsc[i,j]:=color;
+      end;
+  for i:=0 to 883 do
+    for j:=0 to 186 do
+      sc.putpixel(i,j,newsc[i,j]);
+}
+for j:=20 to 840 do {if abs(scope[j])<46000 then }
+    begin
+    color:=12+(abs(scope[j]) div 8000);
+    if color>15 then color:=color-15;
+    sc.box(10+j,93-scope[j] div 768,2,2,{190} 16*color+8 {255});
+    end;
+
   sc.redraw:=false;
   t:=gettime-t;
-  sc.outtextxy(0,0,inttostr(t),15);
+//  sc.outtextxy(0,0,inttostr(t),15);
   until sc.needclose;
 sc.destroy; sc:=nil;
 end;
@@ -1840,6 +1873,52 @@ end;
 // Visualization menu thread
 //------------------------------------------------------------------------------
 
+
+procedure playlistdrawdecoration(ax,ay:integer);  // todo" make this a method
+
+var i,up_fill,up_fill_n,up_fill_rest,up_fill_title:integer;
+    bottom_gap, bottom_gap_n:integer;
+    right_fill_n:integer;
+
+begin
+
+// --------------------------- Top
+
+up_fill:=(ax-300) div 2;
+up_fill_n:=up_fill div 50;
+up_fill_rest:=up_fill mod 50;
+up_fill_title:=50+up_fill;
+blit8(integer(pledit),0,0,integer(list.canvas),0,0,50,40,560,800);                                          //upper left corner
+for i:=1 to up_fill_n do
+  blit8(integer(pledit),254,0,integer(list.canvas),50*i,0,50,40,560,800);                                   //upper filler
+blit8(integer(pledit),254,0,integer(list.canvas),50+50*up_fill_n,0,up_fill_rest,40,560,800);                //upper filler - the rest
+blit8(integer(pledit),52,0,integer(list.canvas),up_fill_title,0,200,40,560,800);                            // title
+for i:=1 to up_fill_n do
+  blit8(integer(pledit),254,0,integer(list.canvas),up_fill_title+150+50*i,0,50,40,560,800);                 // upper filler
+blit8(integer(pledit),254,0,integer(list.canvas),up_fill_title+200+50*up_fill_n,0,up_fill_rest,40,560,800); // upper filler rest
+blit8(integer(pledit),306,0,integer(list.canvas),ax-50,0,50,40,560,800);                                    // upper right corner
+
+// right,left
+
+right_fill_n:=(ay-116) div 58;
+for i:=0 to right_fill_n do
+  begin
+  blit8(integer(pledit),0,84,integer(list.canvas),0,40+58*i,50,58,560,800);
+  blit8(integer(pledit),52,84,integer(list.canvas),ax-50,40+58*i,50,58,560,800);
+  end;
+
+// -------------------------- Bottom
+bottom_gap:=ax-550;
+bottom_gap_n:=bottom_gap div 50;
+for i:=0 to bottom_gap_n do
+  blit8(integer(pledit),358,0,integer(list.canvas),250+50*i,ay-76,50,76,560,800);
+
+blit8(integer(pledit),0,144,integer(list.canvas),0,ay-76,250,76,560,800);
+blit8(integer(pledit),252,144,integer(list.canvas),ax-300,ay-76,300,76,560,800);
+
+list.box(28,40,ax-76,ay-116,0);
+end;
+
 constructor TPlaylistThread.Create;
 
 begin
@@ -1852,102 +1931,83 @@ procedure TPlaylistThread.execute;
 
 var xx,yy,i:integer;
     item:TPlaylistItem;
-    selecteditem:integer;
+    selecteditem:integer=0;
+    items:integer=0;
+    state:integer=0;
+    dx,dy,dmx,dmy:integer;
 
+
+// work area: up+40, down-76, yr=y-116
 
 begin
 if list=nil then
   begin
-  list:=TWindow.create(550,464,'');
- // list.decoration.hscroll:=false;
- // list.decoration.vscroll:=true;
+  list:=TWindow.create(800,2116,'');
   list.resizable:=false;
   list.cls(0);
   list.activey:=24;
   end;
+playlistitem.granny:=list;
+item:=playlistitem;
+while item.next<>nil do
+  begin
+  item:=item.next;
+  item.granny:=list;
+  end;
+playlistdrawdecoration(550,464);
 
-
-blit8(integer(pledit),0,0,integer(list.canvas),0,0,50,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),50,0,50,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),100,0,50,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),150,0,25,40,560,550);
-blit8(integer(pledit),52,0,integer(list.canvas),175,0,200,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),375,0,50,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),425,0,50,40,560,550);
-blit8(integer(pledit),254,0,integer(list.canvas),475,0,25,40,560,550);
-blit8(integer(pledit),306,0,integer(list.canvas),500,0,50,40,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,40,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,40,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,98,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,98,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,156,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,156,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,214,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,214,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,272,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,272,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,330,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,330,50,58,560,550);
-blit8(integer(pledit),0,84,integer(list.canvas),0,378,50,58,560,550);
-blit8(integer(pledit),52,84,integer(list.canvas),500,378,50,58,560,550);
-blit8(integer(pledit),0,144,integer(list.canvas),0,388,250,76,560,550);
-blit8(integer(pledit),252,144,integer(list.canvas),250,388,300,76,560,550);
-// test
 xx:=pl.x; yy:=pl.y;
 list.move(pl.x+550,pl.y,550,464,0,0);
-//for xx:=0 to 31 do list.putchar8(30+8*xx, 50, chr(xx),200);
-//for xx:=32 to 63 do list.putchar8(30+8*(xx-32), 60, chr(xx),200);
-//for xx:=64 to 95 do list.putchar8(30+8*(xx-64), 70, chr(xx),200);
-//for xx:=96 to 127 do list.putchar8(30+8*(xx-96), 80, chr(xx),200);
 
-//list.outtextxy8(30,90,'ABCDEFG abcdefg 123456 !@#$%^',200);
 item:=playlistitem;
 i:=0;
-if item=nil then list.outtextxy(30,50,'nil',200);
-while item<>nil do
-  begin
-  list.outtextxy8(28,40+i*10,copy(item.name,1,60),200);
-  i+=1;
-  item:=item.next;
-  end;
+if item<>nil then item.draw;
+
+
 item:=playlistitem;
+while item.next<>nil do item:=item.next;
 
-// retromalina.box(0,0,200,200,0);
- //    i:=0;
-while item.next<>nil do
-
-  begin
-  item:=item.next; // now the item points to the last one
-//  retromalina.outtextxy(0,16*i,inttostr(integer(item))+' '+inttostr(integer(item.prev))+' '+inttostr(integer(item.next)),15);
-//  i:=i+1;
-  end;
 
 
 
 repeat
 
-
   repeat sleep(2) until list.redraw;
-
-
-
 
   list.redraw:=false;
   if item.next<>nil then // someone added something
     begin
-    list.box(28,40,473,338,0);
     item:=playlistitem;
-    i:=0;
-    while item<>nil do
-      begin
-      list.outtextxy8(28,40+i*10,copy(item.name,1,60),200);
-      i+=1;
-      item:=item.next;
-      end;
+    item.draw;
     item:=playlistitem;
     while item.next<>nil do item:=item.next
     end;
-if (mousek=1) and (list.selected) and (list.mx>28) and (list.mx<468) then selecteditem:=list.my div 10;
+
+ if playlistitem.checkall then playlistitem.draw;
+
+
+//------------------------ Playlist window resizing
+
+if mousek=0 then state:=0;
+
+if (mousek=1) and (list.selected) and (list.mx>list.l-40) and (list.mx<list.l) and (list.my>list.h-40) and (list.my<list.h) and (state=0) then
+  begin
+  state:=1;
+  dmx:=list.l+list.x-mousex;
+  dmy:=list.h+list.y-mousey;
+
+  end;
+if (mousek=1) and (state=1) then
+  begin
+  dx:=mousex-list.x+dmx; if dx>800 then dx:=800;  if dx<550 then dx:=550;
+  dy:=mousey-list.y+dmy; if dy<223 then dy:=223;
+  list.move(-2048,-2048,dx,dy,0,0);
+  playlistdrawdecoration(dx,dy);     //550,464
+  playlistitem.draw;
+  end;
+
+
+//box(0,0,300,50,0); outtextxy(0,0,inttostr(state)+' '+inttostr(dmx)+' '+inttostr(dmy)+' '+inttostr(mousex)+' '+inttostr(list.x+list.l),15);
 until terminated or list.needclose;
 sleep(100);
 list.destroy; list:=nil;
@@ -1979,6 +2039,10 @@ temp:=self;
 while temp.next<>nil do temp:=temp.next;
 temp.next:=TPlaylistitem.create(AItem);
 temp.next.prev:=temp;
+temp.next.x:=temp.x;
+temp.next.y:=temp.y+10;
+temp.next.selected:=false;
+temp.next.granny:=temp.granny;
 end;
 
 procedure TPlaylistItem.remove;
@@ -1989,6 +2053,69 @@ if prev<>nil then prev.next:=next;
 self.destroy;
 end;
 
+function TPlaylistitem.checkall:boolean;
+
+var temp,temp2:TPlaylistitem;
+    needredraw:boolean;
+    mmx,mmy,mmk:integer;
+
+begin
+needredraw:=false;
+mmx:=granny.mx;
+mmy:=granny.my;
+mmk:=mousek;
+temp:=self;
+while temp.prev<>nil do temp:=temp.prev;
+while temp.next<>nil do
+  begin
+  temp:=temp.next;
+  if (mmx>temp.x) and (mmx<temp.x+granny.l-78) and (mmy>temp.y) and (mmy<temp.y+10) and (mmk=1) and not temp.selected then
+    begin
+    needredraw:=true;
+    temp.selected:=true;
+    temp2:=temp;
+    while temp2.next<>nil do
+      begin
+      temp2:=temp2.next;
+      temp2.selected:=false;
+      end;
+    temp2:=temp;
+    while temp2.prev<>nil do
+      begin
+      temp2:=temp2.prev;
+      temp2.selected:=false;
+      end;
+    end;
+
+  end;
+result:=needredraw;
+end;
+
+procedure TPlaylistItem.draw;
+
+var temp:TPlaylistItem;
+
+begin
+temp:=self;
+while temp.prev<>nil do temp:=temp.prev;
+while temp.next<>nil do
+  begin
+  temp:=temp.next;
+  if (temp.y>=temp.granny.vy+30) and (temp.y<temp.granny.vy+temp.granny.h-86) then
+    begin
+    if temp.selected then
+      begin
+      granny.box(temp.x-1,temp.y-2,granny.l-78,10,200);
+      granny.outtextxy8(temp.x,temp.y,temp.name,0);
+      end
+    else
+      begin
+      granny.box(temp.x-1,temp.y-2,granny.l-78,10,0);
+      granny.outtextxy8(temp.x,temp.y,temp.name,200);
+      end;
+    end;
+  end;
+end;
 
 // ---- TFileBuffer thread methods --------------------------------------------------
 
@@ -2142,8 +2269,8 @@ procedure TFileBuffer.setmp3(mp3b:integer);
 
 begin
 mp3:=mp3b;
-//qq:=2048;
-//needclear:=true;
+qq:=2048;
+needclear:=true;
 end;
 
 procedure TFileBuffer.seek(amount:int64);
@@ -2199,147 +2326,147 @@ end;
 
 
 
-        procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
+procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
 
-        label p999;
+label p999;
 
-        var audio2:psmallint;
-            audio3:psingle;
-            s:tsample;
-            ttt:int64;
-            i,il:integer;
-            buf:array[0..25] of byte;
+var audio2:psmallint;
+    audio3:psingle;
+    s:tsample;
+    ttt:int64;
+    i,il:integer;
+    buf:array[0..25] of byte;
 
-        const aa:integer=0;
+const aa:integer=0;
 
+
+begin
+
+audio2:=psmallint(stream);
+audio3:=psingle(stream);
+
+ttt:=clockgettotal;
+
+
+
+if (filetype=3) or (filetype=4) or (filetype=5) then
+  begin
+  time6502:=0;
+  if sfh>0 then
+    begin
+    if filebuffer.empty {and filebuffer.eof {eof}} then // il<>1536 then
+      begin
+      fileclose(sfh);
+      sfh:=-1;
+      songtime:=0;
+      pauseaudio(1);
+      nextsong:=1;
+      timer1:=-1;
+      end
+    else
+      begin
+      il:=filebuffer.getdata(integer(stream),len);
+      timer1+=siddelay;
+      songtime+=siddelay;
+      if ((head.pcm=1) or (filetype>=4)) and (len=1536) then for i:=0 to 383 do oscilloscope1(audio2[2*i]+audio2[2*i+1])
+                         else if ((head.pcm=1) or (filetype>=4)) and (len=640) then for i:=0 to 159 do oscilloscope1(audio2[2*i]+audio2[2*i+1])
+                         else if ((head.pcm=1) or (filetype>=4)) and (len=768) then for i:=0 to 383 do oscilloscope1(audio2[i])
+                         else for i:=0 to 95 do oscilloscope1(round(16384*(audio3[4*i]+audio3[4*i+1]+audio3[4*i+2]+audio3[4*i+3])));
+      end;
+    end;
+  end
+else if filetype=6 then
+  begin
+  time6502:=0;
+  timer1+=siddelay;
+  songtime+=siddelay;
+  for i:=0 to 383 do oscilloscope1(audio2[2*i]+audio2[2*i+1]);
+  if xmp_play_buffer(xmp_context,stream,len,2)<>0 then
+    begin
+     pauseaudio(1);
+     nextsong:=1;
+    end
+   else
+   begin
+     for i:=0 to 767 do audio2[i]:=word(audio2[i])-32768;
+   end;
+  end
+else if filetype=-1 then
+  begin
+   s:=sid(1);
+   audio2[0]:=(s[0]);
+   audio2[1]:=(s[1]);
+   oscilloscope1(s[0]+s[1]);
+   for i:=1 to 1199 do
+     begin
+     s:=sid(0);
+     audio2[2*i]:=(s[0]);
+     audio2[2*i+1]:=(s[1]);
+     if (i mod 10) = 0 then oscilloscope1(s[0]+s[1]);
+     end;
+  end
+else
+  begin
+  aa+=2500;
+  if (aa>=siddelay) then
+    begin
+    aa-=siddelay;
+    if sfh>-1 then
+      begin
+      if filetype=0 then
 
         begin
-
-        audio2:=psmallint(stream);
-        audio3:=psingle(stream);
-
-        ttt:=clockgettotal;
-
-
-
-        if (filetype=3) or (filetype=4) or (filetype=5) then
+        time6502:=0;
+        il:=fileread(sfh,buf,25);
+        if il=25 then
           begin
-          time6502:=0;
-          if sfh>0 then
-            begin
-            if filebuffer.empty {and filebuffer.eof {eof}} then // il<>1536 then
-              begin
-              fileclose(sfh);
-              sfh:=-1;
-              songtime:=0;
-              pauseaudio(1);
-              nextsong:=1;
-              timer1:=-1;
-              end
-            else
-              begin
-              il:=filebuffer.getdata(integer(stream),len);
-              timer1+=siddelay;
-              songtime+=siddelay;
-              if ((head.pcm=1) or (filetype>=4)) and (len=1536) then for i:=0 to 383 do oscilloscope1(audio2[2*i]+audio2[2*i+1])
-                                 else if ((head.pcm=1) or (filetype>=4)) and (len=640) then for i:=0 to 159 do oscilloscope1(audio2[2*i]+audio2[2*i+1])
-                                 else if ((head.pcm=1) or (filetype>=4)) and (len=768) then for i:=0 to 383 do oscilloscope1(audio2[i])
-                                 else for i:=0 to 95 do oscilloscope1(round(16384*(audio3[4*i]+audio3[4*i+1]+audio3[4*i+2]+audio3[4*i+3])));
-              end;
-            end;
-          end
-        else if filetype=6 then
-          begin
-          time6502:=0;
+          for i:=0 to 24 do poke(base+$d400+i,buf[i]);
           timer1+=siddelay;
           songtime+=siddelay;
-          for i:=0 to 383 do oscilloscope1(audio2[2*i]+audio2[2*i+1]);
-          if xmp_play_buffer(xmp_context,stream,len,2)<>0 then
-            begin
-             pauseaudio(1);
-             nextsong:=1;
-            end
-           else
-           begin
-             for i:=0 to 767 do audio2[i]:=word(audio2[i])-32768;
-           end;
-          end
-        else if filetype=-1 then
-          begin
-           s:=sid(1);
-           audio2[0]:=(s[0]);
-           audio2[1]:=(s[1]);
-           oscilloscope1(s[0]+s[1]);
-           for i:=1 to 1199 do
-             begin
-             s:=sid(0);
-             audio2[2*i]:=(s[0]);
-             audio2[2*i+1]:=(s[1]);
-             if (i mod 10) = 0 then oscilloscope1(s[0]+s[1]);
-             end;
           end
         else
           begin
-          aa+=2500;
-          if (aa>=siddelay) then
-            begin
-            aa-=siddelay;
-            if sfh>-1 then
-              begin
-              if filetype=0 then
-
-                begin
-                time6502:=0;
-                il:=fileread(sfh,buf,25);
-                if il=25 then
-                  begin
-                  for i:=0 to 24 do poke(base+$d400+i,buf[i]);
-                  timer1+=siddelay;
-                  songtime+=siddelay;
-                  end
-                else
-                  begin
-                  fileclose(sfh);
-                  sfh:=-1;
-                  pause1:=true;
-                  songtime:=0;
-                  timer1:=-1;
-                  for i:=0 to 6 do lpoke(base+$d400+4*i,0);
-                  end;
-                end
-              else if filetype=1 then
-                begin
-                for i:=0 to 15 do times6502[i]:=times6502[i+1];
-                t6:=clockgettotal;
-                jsr6502(256,play);
-                times6502[15]:=clockgettotal-t6;
-                t6:=0; for i:=0 to 15 do t6+=times6502[i];
-                time6502:=t6-15;
-                //CleanDataCacheRange($d400,32);
-                timer1+=siddelay;
-                songtime+=siddelay;
-                end;
-
-
-              end;
-            end;
-            s:=sid(1);
-            audio2[0]:=(s[0]);
-            audio2[1]:=(s[1]);
-            oscilloscope1(s[0]+s[1]);
-            for i:=1 to 1199 do
-              begin
-              s:=sid(0);
-              audio2[2*i]:=(s[0]);
-              audio2[2*i+1]:=(s[1]);
-              if (i mod 10) = 0 then oscilloscope1(s[0]+s[1]);
-              end;
+          fileclose(sfh);
+          sfh:=-1;
+          pause1:=true;
+          songtime:=0;
+          timer1:=-1;
+          for i:=0 to 6 do lpoke(base+$d400+4*i,0);
           end;
-        inc(sidcount);
-        //sidtime+=gettime-t;
-        p999:
-        sidtime:=clockgettotal-ttt;
+        end
+      else if filetype=1 then
+        begin
+        for i:=0 to 15 do times6502[i]:=times6502[i+1];
+        t6:=clockgettotal;
+        jsr6502(256,play);
+        times6502[15]:=clockgettotal-t6;
+        t6:=0; for i:=0 to 15 do t6+=times6502[i];
+        time6502:=t6-15;
+        //CleanDataCacheRange($d400,32);
+        timer1+=siddelay;
+        songtime+=siddelay;
         end;
+
+
+      end;
+    end;
+    s:=sid(1);
+    audio2[0]:=(s[0]);
+    audio2[1]:=(s[1]);
+    oscilloscope1(s[0]+s[1]);
+    for i:=1 to 1199 do
+      begin
+      s:=sid(0);
+      audio2[2*i]:=(s[0]);
+      audio2[2*i+1]:=(s[1]);
+      if (i mod 10) = 0 then oscilloscope1(s[0]+s[1]);
+      end;
+  end;
+inc(sidcount);
+//sidtime+=gettime-t;
+p999:
+sidtime:=clockgettotal-ttt;
+end;
 
 
 end.
