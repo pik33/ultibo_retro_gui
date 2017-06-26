@@ -97,6 +97,10 @@ function  SA_ChangeParams(freq,bits,channels,samples:integer): Integer;
 function  SA_GetCurrentFreq:integer;
 function  SA_GetCurrentRange:integer;
 
+var
+dmanextcb,
+ctrl1adr,
+ctrl2adr:cardinal;
 
 //------------------ End of Interface ------------------------------------------
 
@@ -303,7 +307,9 @@ dma_conblk:=nocache+ctrl1_adr;                             // init DMA ctr block
 dma_cs:=$00FF0003;                                         // start DMA
 
 audio_opened:=true;
-
+//dmanextcb:=dma_nextcb;
+//ctrl1adr:=ctrl1_adr;
+//ctrl2adr:=ctrl2_adr;
 end;
 
 
@@ -534,6 +540,9 @@ if (desired^.samples>maxsize) then
 if (desired^.callback=nil) then  desired^.callback:=CurrentAudioSpec.callback;
 
 obtained^:=desired^;
+
+
+
 obtained^.oversample:=max_pwm_freq div desired^.freq;
   // the workaround for simply making 432 Hz tuned sound
   // the problem is: when going 44100->43298
@@ -574,8 +583,9 @@ if obtained^.range<>CurrentAudioSpec.range then
   pwm_rng2:=obtained^.range;
   pwm_ctl:=pwm_ctl_val;         // start PWM
   end;
-
-if obtained^.oversampled_size<>CurrentAudioSpec.oversampled_size then
+  debug1:=dma_nextcb;
+  debug2:=ctrl2_adr;
+  debug3:=ctrl1_adr;
   begin
   repeat sleep(0) until dma_nextcb=nocache+ctrl2_adr;
   ctrl1_ptr^[3]:=obtained^.oversampled_size;
@@ -586,6 +596,9 @@ if obtained^.oversampled_size<>CurrentAudioSpec.oversampled_size then
 repeat until working=1;
 repeat until working=0;
 CurrentAudioSpec:=obtained^;
+
+
+//outtextxy(100,16,inttostr(ctrl1_adr),15);
 end;
 
 
@@ -599,18 +612,21 @@ begin
 if audio_opened then
   begin
   AudioThread.terminate;
-  repeat sleep(1) until AudioOn=1;
+  repeat sleep(1) until AudioOn=0;
 
 // ...then switch off DMA...
 
   ctrl1_ptr^[5]:=0;
   ctrl2_ptr^[5]:=0;
 
+
 // up to 8 ms of audio can still reside in the buffer
 
   sleep(20);
 
-// Now disable PWM...
+// Now disable DMA and PWM...
+
+  dma_cs:=$80000000;
 
   pwm_ctl:=0;
 
@@ -620,6 +636,7 @@ if audio_opened then
   dispose(dmabuf2_ptr);
   freemem(dmactrl_ptr);
   freemem(samplebuffer_ptr);
+  freemem(samplebuffer_32_ptr);
   audio_opened:=false;
   end;
 end;
@@ -813,7 +830,7 @@ var
 begin
 AudioOn:=1;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_1);
-ThreadSetPriority(ThreadGetCurrent,7);
+ThreadSetPriority(ThreadGetCurrent,6);
 threadsleep(1);
 repeat
   repeat threadsleep(1) until (dma_cs and 2) <>0 ;
@@ -877,5 +894,6 @@ result:=CurrentAudioSpec.range;
 end;
 
 end.
+
 
 

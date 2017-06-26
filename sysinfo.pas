@@ -129,6 +129,10 @@ si.outtextxy(222,212,inttostr(mousetype),157);
 
 si.outtextxy(10,232,'SID waveforms:',157);
 si.outtextxy(10,252,'Windows time: ',157);
+si.outtextxy(10,272,inttohex(debug1,8),157);
+si.outtextxy(90,272,inttohex(debug2,8),157);
+si.outtextxy(170,272,inttohex(debug3,8),157);
+
 
 s1:=inttostr(wt);
 l1:=8*length(s1);

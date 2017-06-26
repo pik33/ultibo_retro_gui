@@ -63,6 +63,7 @@ type TPlayerThread=class (TThread)
      procedure remove;
      function checkall:boolean;
      procedure draw;
+     procedure select;
      end;
 
 
@@ -108,7 +109,7 @@ const
       CPU_AFFINITY_1  = 2;
       CPU_AFFINITY_2  = 4;
       CPU_AFFINITY_3  = 8;
-
+      ver='RetAMP v. 0.28 (2017.06.27)';
 
 var pl:TWindow=nil;
     info:TWindow=nil;
@@ -153,23 +154,26 @@ var pl:TWindow=nil;
     spr6x,spr6y,spr6dx,spr6dy:integer;
     spr0,spr1,spr2,spr3,spr4,spr5,spr6:TAnimatedSprite;
     pause1a:boolean=true;
-       song:word=0;
+    song:word=0;
     songs:word=0;
-        init:word;
-            mp3buf:array[0..4096] of byte;
-       atitle,author,copyright:string[32];
-         cia:integer;
-        a1base:integer=440;
-     ext:string;
-         av6502:int64=0;
-          s, fn:string;
-              buf:array[0..25] of  byte;
-                  songname:string;
-                  key:integer;
+    init:word;
+    mp3buf:array[0..4096] of byte;
+    atitle,author,copyright:string[32];
+    cia:integer;
+    a1base:integer=440;
+    ext:string;
+    av6502:int64=0;
+    s, fn:string;
+    buf:array[0..25] of  byte;
+    songname:string;
+    key:integer;
 
-   playlistitem:TPlaylistitem=nil;
-   infofh:integer;
-   filebuffer:TFileBuffer=nil;
+    playlistitem:TPlaylistitem=nil;
+    infofh:integer;
+    filebuffer:TFileBuffer=nil;
+    player_item:TPlaylistitem;
+
+    desired, obtained:TAudioSpec;
 
 
 procedure hide_sprites;
@@ -770,11 +774,17 @@ else if playfilename<>'' then //  key=key_enter then
       filetype:=3;
       end;
     filebuffer.clear;
+
+//    box(100,100,100,100,40);
     filebuffer.setfile(sfh);
-    sleep(200);
+
+
+    sleep(300);
     songs:=0;
 
     if head.srate=44100 then siddelay:=8707 else siddelay:=2000;
+
+//    box(100,100,100,100,120);
 
     if head.srate=44100 then if a1base=432 then error:=SA_changeparams(43298,16,head.channels,384)
                                            else error:=SA_changeparams(44100,16,head.channels,384);
@@ -782,8 +792,9 @@ else if playfilename<>'' then //  key=key_enter then
                                            else error:=SA_changeparams(96000,32,2,192);
 
 
-
+//    box(100,100,100,100,250);
     pauseaudio(0);
+
 
     end
   else
@@ -800,8 +811,10 @@ else if playfilename<>'' then //  key=key_enter then
 
     songs:=0;
     end;
-
-  songname:=s;
+  i:=length(s);
+  while (copy(s,i,1)<>'\') and (i>1) do i:=i-1;
+  if i>1 then songname:=copy(s,i+1,length(s)-2) else songname:=s;
+//  songname:=s;
   songtime:=0;
   timer1:=-1;
   if filetype<>2 then begin pause1a:=false; pauseaudio(0); end;
@@ -827,9 +840,9 @@ end;
 
 procedure TPlayerThread.Execute;
 
-var fh,i,j,hh,mm,ss,q,sl1,sl2:integer;
+var fh,i,j,hh,mm,ss,q,vq,sl1,sl2:integer;
     s1,s2:string;
-    mms,hhs,sss:string;
+    ext,mms,hhs,sss,ps:string;
     qq,qqq:integer;
     eject_down: boolean=false;
     pause_down: boolean=false;
@@ -843,12 +856,14 @@ var fh,i,j,hh,mm,ss,q,sl1,sl2:integer;
     repeat_selected:boolean=false;
     shuffle_selected:boolean=false;
     playlist_selected:boolean=false;
-    item:TPlaylistitem;
+
 
 
 const clickcount:integer=0;
       vbutton_x:integer=0;
       vbutton_dx:integer=0;
+      bbutton_x:integer=0;
+      bbutton_dx:integer=0;
       select:boolean=true;
       cnt:integer=0;
 
@@ -859,6 +874,9 @@ begin
 //  filebuffer.start;
 //  end;
 
+songtime:=0;
+
+
 if playlistitem=nil then
   begin
   playlistitem:=Tplaylistitem.create('');
@@ -866,12 +884,14 @@ if playlistitem=nil then
   playlistitem.y:=30;
 
   end;
-item:=playlistitem;
+player_item:=playlistitem;
 
 
 if filebuffer=nil then
-filebuffer:=Tfilebuffer.create(true);
-filebuffer.start;
+  begin
+  filebuffer:=Tfilebuffer.create(true);
+  filebuffer.start;
+  end;
 
 filetype:=-1;
 
@@ -883,7 +903,7 @@ desired.freq:=480000;
 desired.samples:=1200;
 error:=openaudio(@desired,@obtained);
 
-
+//box(0,0,100,30,0); outtextxy(0,0,inttostr(error),15);
 prepare_sprites;
 hide_sprites;
 dir:=drive;
@@ -989,7 +1009,7 @@ blit8(integer(volume),0,810,integer(pl.canvas),214,112,136,28,136,550);  // volu
 blit8(integer(volume),0,0,integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
 blit8(integer(volume),98,0,integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
 blit8(integer(volume),30,844,integer(pl.canvas),318,116,28,22,136,550);  // volume slider
-blit8(integer(volume),30,844,integer(pl.canvas),376,116,28,22,136,550);  // balance slider
+blit8(integer(volume),30,844,integer(pl.canvas),378,116,28,22,136,550);  // balance slider
 blit8(integer(shufrep),56,0,integer(pl.canvas),330,178,90,30,184,550);   // shuffle button
 blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);    // rep button
 blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,46,24,184,550);  // eq button
@@ -1014,15 +1034,16 @@ if visarea=nil then
 // initialize volume button position
 
 vbutton_x:=318;
+bbutton_x:=378;
 
 // The player main loop
 
 repeat
-//   retromalina.box(0,0,500,100,0);
-//   retromalina.outtextxy(0,0,inttostr(integer(item))+' '+item.name,15) ;
-// Wait until redraw done
+//box(0,0,200,50,0) ;
+//outtextxy(0,0,inttohex(ctrl1adr,8),15);
+//outtextxy(0,16,inttohex(ctrl2adr,8),15);
+//outtextxy(100,0,inttohex(dmanextcb,8),15);
 
-//  box(0,100,100,40,0); outtextxy(0,100,inttostr(mp3frames),15);
   repeat sleep(1) until pl.redraw;
   pl.redraw:=false;
   inc(cnt);
@@ -1061,10 +1082,11 @@ repeat
 
   if (mousek=1) and pl.selected then dblclick;
 
-// volume button/slider release
+// buttons release
 
   if mousek=0 then
   begin
+  ps:='';
   if eject_down then begin blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); eject_down:=false; end; // eject button
   if pause_down then begin blit8(integer(cbuttons),92,0,integer(pl.canvas),32+92,176,46,36,272,550); pause_down:=false; end;  // transport buttons
   if start_down then begin blit8(integer(cbuttons),46,0,integer(pl.canvas),32+46,176,46,36,272,550); start_down:=false; end;  // transport buttons
@@ -1092,6 +1114,16 @@ repeat
     playlist_down:=false;
     end;
 
+  if bbutton_dx<>0 then
+    begin
+    bbutton_x:=mousex-pl.x-bbutton_dx;
+    if bbutton_x>402 then bbutton_x:=402;
+    if bbutton_x<354 then bbutton_x:=354;
+    blit8(integer(volume),0,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
+    blit8(integer(volume),98,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
+    blit8(integer(volume),30,844,integer(pl.canvas),vq,116,28,22,136,550);
+    end;
+  bbutton_dx:=0;
 
 
   if vbutton_dx<>0 then
@@ -1119,7 +1151,31 @@ repeat
     begin
     blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,112,136,28,136,550);
     blit8(integer(volume),00,844,integer(pl.canvas),q,116,28,22,136,550);
-    if q<220 then setdbvolume(-73) else setdbvolume(-24+round(24*(q-214)/100));
+    if q<215 then setdbvolume(-73) else setdbvolume(-26+round(26*(q-214)/104));
+    if q<215 then ps:='Mute' else ps:='Volume: '+inttostr(-26+round(26*(q-214)/104))+' dB';
+    end;
+
+// balance button/slider change if mouse drag
+
+  if (pl.mx>bbutton_x) and (pl.mx<bbutton_x+28) and (pl.my>116) and (pl.my<138) and (mousek=1) and (bbutton_dx=0) and (pl.selected) then
+    begin
+    bbutton_dx:=pl.mx-bbutton_x;
+    end;
+
+  vq:=mousex-pl.x-bbutton_dx;
+  if vq<354 then vq:=354;
+  if vq>402 then vq:=402;
+  if ((mousex-pl.x-bbutton_dx)>0) and ((mousex-pl.x-bbutton_dx)<550) and (mousek=1) and (bbutton_dx<>0) and (pl.selected) then
+    begin
+    blit8(integer(volume),0,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
+    blit8(integer(volume),98,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
+    blit8(integer(volume),00,844,integer(pl.canvas),vq,116,28,22,136,550);
+    if vq<375 then setbalance(128-round(6.095*(vq-375)));
+    if vq>381 then setbalance(128-round(6.095*(vq-381)));
+    ps:='Balance: ';
+    if vq<375 then ps:=ps+'left '+inttostr(abs(round(6.095*(vq-375))))
+    else if vq>381 then ps:=ps+'right '+inttostr(abs(round(6.095*(vq-381))))
+    else ps:=ps+' center ';
     end;
 
 // if V leter clicked, open visualization menu
@@ -1147,7 +1203,7 @@ repeat
     info.move(650,400,500,160,0,0);
     info.cls(0);
     info.outtextxy(8,8,'RetAMP - the Retromachine Advanced Music Player',200);
-    info.outtextxy(8,28,'Version: 0.26 - 20170619',200);
+    info.outtextxy(8,28,'Version: 0.28 - 20170626',200);
     info.outtextxy(8,48,'Alpha code',200);
     info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',200);
     info.outtextxy(8,88,'GPL 2.0 or higher',200);
@@ -1169,15 +1225,19 @@ if (pl.mx>32+184) and (pl.mx<78+184) and (pl.my>176) and (pl.my<212) and (mousek
   blit8(integer(cbuttons),184,36,integer(pl.canvas),32+184,176,44,36,272,550);   // next button is 2 px shorter
   clickcount:=0;
   next_down:=true;
-  if (item.next<>nil) then
+  if (player_item.next<>nil) then
     begin
-    item:=item.next;
-    playfilename:=item.item
+    player_item:=player_item.next;
+    player_item.select;
+    if list<>nil then playlistitem.draw;
+    playfilename:=player_item.item
     end
-  else if (item.next=nil) and repeat_selected then
+  else if (player_item.next=nil) and repeat_selected then
     begin
-    item:=playlistitem.next;
-    playfilename:=item.item;
+    player_item:=playlistitem.next;
+    player_item.select;
+    if list<>nil then playlistitem.draw;
+    playfilename:=player_item.item;
     end;
   end;       // todo: dont play if not started
 
@@ -1188,15 +1248,19 @@ if (pl.mx>32) and (pl.mx<78) and (pl.my>176) and (pl.my<212) and (mousek=1) and 
   blit8(integer(cbuttons),0,36,integer(pl.canvas),32,176,46,36,272,550);   // transport buttons
   clickcount:=0;
   prev_down:=true;
-  if (item.prev<>nil) and (item.prev<>playlistitem) then
+  if (player_item.prev<>nil) and (player_item.prev<>playlistitem) then
     begin
-    item:=item.prev;
-    playfilename:=item.item
+    player_item:=player_item.prev;
+    player_item.select;
+    if list<>nil then playlistitem.draw;
+    playfilename:=player_item.item
     end
-  else if (item.prev=playlistitem) and repeat_selected then
+  else if (player_item.prev=playlistitem) and repeat_selected then
     begin
-    while item.next<>nil do item:=item.next;
-    playfilename:=item.item;
+    while player_item.next<>nil do player_item:=player_item.next;
+    playfilename:=player_item.item;
+    player_item.select;
+    if list<>nil then playlistitem.draw;
     end;
   end;       // todo: dont play if not started
 
@@ -1210,15 +1274,17 @@ if (pl.mx>78) and (pl.mx<124) and (pl.my>176) and (pl.my<212) and (mousek=1) and
   blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
   blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // transport status     clickcount:=0;
   start_down:=true;
-  if item=playlistitem then
+  if player_item=playlistitem then
     begin
-    if item.next<>nil then
+    if player_item.next<>nil then
       begin
-      item:=item.next;
-      playfilename:=item.item;
+      player_item:=player_item.next;
+      player_item.select;
+      playfilename:=player_item.item;
       end;
     end
-  else if item<>nil then playfilename:=item.item;
+  else if player_item<>nil then begin player_item.select; playfilename:=player_item.item; end;
+  if list<>nil then playlistitem.draw;
   end;
 
 // stop button
@@ -1299,7 +1365,22 @@ if sel1<>nil then
     begin
     if list<>nil then
       begin
-      playlistitem.append(sel1.filename);
+        i:=length(sel1.filename);
+        while (sel1.filename[i]<>'.') and (i>1) do i:=i-1;
+        ext:=lowercase(copy(sel1.filename,i+1,length(sel1.filename)-i+1));
+        if (ext<>'wav')
+          and (ext<>'mp2')
+            and (ext<>'mp3')
+              and (ext<>'s48')
+                and (ext<>'sid')
+                  and (ext<>'dmp')
+                    and (ext<>'mod')
+                      and (ext<>'s3m')
+                        and (ext<>'xm')
+                          and (ext<>'it')
+                            then begin sel1.filename:='';  end
+
+      else playlistitem.append(sel1.filename);
 //      retromalina.box(0,0,100,100,0); retromalina.outtextxy(0,0,inttostr(mp3check(sel1.filename)),15);
 
       dir:=sel1.currentdir2;
@@ -1333,14 +1414,14 @@ if sel1<>nil then
 
 // if the player is closing, close its child windows too
 
-  if (pl.needclose) then
-    begin
-    if (oscilloscopebutton<>nil) then begin oscilloscopebutton.destroy; oscilloscopebutton:=nil; end;
-    if (spritebutton<>nil) then begin spritebutton.destroy; spritebutton:=nil; end;
-    if (sel1<>nil) then begin sel1.destroy; sel1:=nil; end;
-    if (vis<>nil) then begin vis.destroy; vis:=nil; end;
-    if (info<>nil) then begin info.destroy; info:=nil; end;
-    end;
+//  if (pl.needclose) then
+//    begin
+//    if (oscilloscopebutton<>nil) then begin oscilloscopebutton.destroy; oscilloscopebutton:=nil; end;
+//    if (spritebutton<>nil) then begin spritebutton.destroy; spritebutton:=nil; end;
+////    if (sel1<>nil) then begin sel1.destroy; sel1:=nil; end;
+//    if (vis<>nil) then begin vis.destroy; vis:=nil; end;
+//    if (info<>nil) then begin info.destroy; info:=nil; end;
+//    end;
 
 
   if pl.selected or (playfilename<>'') then old_player;
@@ -1359,11 +1440,11 @@ if sel1<>nil then
 
   if filetype=0 then s2:=inttostr(songfreq)
   else if filetype=1 then s2:=inttostr(1000000 div siddelay)
-  else if filetype=3 then s2:='??'   //'Wave file, '+inttostr(head.srate)+' Hz'
+  else if filetype=3 then s2:=inttostr(head.brate div 125) //'??'   //'Wave file, '+inttostr(head.srate)+' Hz'
   else if filetype=4 then s2:=inttostr(head.brate)
   else if filetype=5 then s2:=inttostr(head.brate)
-  else if filetype=6 then s2:='??'; //'Module file';
-  if s1='' then begin s1:='No file playing'; s2:=''; end;
+  else if filetype=6 then s2:='MOD'; //'Module file';
+  if s1='' then begin s1:=ver; s2:=''; end;
 
   sl1:=8*length(s1);
   sl2:=8*length(s2);
@@ -1371,6 +1452,7 @@ if sel1<>nil then
   if i<192 then i:=192;
   //np.l:=i;
   //np.box(0,8,i,16,0);
+  if ps<>'' then s1:=ps;
   qq:=length(s1);
   if qq>38 then
     begin
@@ -1388,22 +1470,58 @@ if sel1<>nil then
   if (nextsong=1) then
     begin
     nextsong:=0;
-    if (item.next<>nil) and (item<>playlistitem) then
+    if (playlistitem.next=nil) and (pf2<>'') and repeat_selected then playfilename:=pf2
+
+    else if (player_item.next<>nil) and (player_item<>playlistitem) then
       begin
-      item:=item.next;
-      playfilename:=item.item;
-      end;
-    if repeat_selected and (item.next=nil) then
+      player_item:=player_item.next;
+      player_item.select;
+      if list<>nil then playlistitem.draw;
+      playfilename:=player_item.item;
+      end
+
+    else if repeat_selected and (player_item.next=nil) then
       begin
-      item:=playlistitem.next;
-      playfilename:=item.item;
+      player_item:=playlistitem.next;
+      player_item.select;
+      if list<>nil then playlistitem.draw;
+      playfilename:=player_item.item;
       end;
     end;
 
 until pl.needclose;
+
+// now clean up
+if sel1<>nil then
+  begin
+  sel1.destroy;
+  sel1:=nil;
+  end;
+hide_sprites;
+//pauseaudio(1);
+
+closeaudio;
+//repeat sleep(20) until audio_opened=false;
+filebuffer.terminate;
+repeat sleep(10) until filebuffer.Terminated;
+filebuffer:=nil;
+if sfh>0 then fileclose(sfh);
+sfh:=-1; s1:=''; s2:='';  songname:='';
+if (oscilloscopebutton<>nil) then begin oscilloscopebutton.destroy; oscilloscopebutton:=nil; end;
+if (spritebutton<>nil) then begin spritebutton.destroy; spritebutton:=nil; end;
 if info<>nil then begin info.destroy; info:=nil; end;
 if sc<>nil then sc.needclose:=true;
 if vis<>nil then vis.needclose:=true;
+if list<>nil then list.needclose:=true;
+repeat sleep(10) until list=nil;
+player_item:=playlistitem;
+while player_item.next<>nil do player_item:=player_item.next;
+while player_item.prev<>nil do
+  begin
+  player_item:=player_item.prev;
+  player_item.next.destroy;
+  end;
+playlistitem.next:=nil;
 pl.destroy;
 pl:=nil;
 end;
@@ -1930,7 +2048,7 @@ end;
 procedure TPlaylistThread.execute;
 
 var xx,yy,i:integer;
-    item:TPlaylistItem;
+    temp,item:TPlaylistItem;
     selecteditem:integer=0;
     items:integer=0;
     state:integer=0;
@@ -1985,6 +2103,16 @@ repeat
 
  if playlistitem.checkall then playlistitem.draw;
 
+if list.selected then
+  if (readkey and $FF)=127 then
+    begin
+    temp:=playlistitem;
+    while (temp.next<>nil) and not temp.selected do temp:=temp.next;
+    if temp.selected then temp.remove;
+    list.box(28,40,list.l-76,list.h-116,0);
+    playlistitem.draw;
+    end;
+
 
 //------------------------ Playlist window resizing
 
@@ -2007,10 +2135,18 @@ if (mousek=1) and (state=1) then
   end;
 
 
+
 //box(0,0,300,50,0); outtextxy(0,0,inttostr(state)+' '+inttostr(dmx)+' '+inttostr(dmy)+' '+inttostr(mousex)+' '+inttostr(list.x+list.l),15);
 until terminated or list.needclose;
 sleep(100);
-list.destroy; list:=nil;
+list.destroy;
+item:=playlistitem;
+while item<>nil do
+  begin
+  item.granny:=nil;
+  item:=item.next;
+  end;
+list:=nil;
 end;
 
 
@@ -2047,10 +2183,18 @@ end;
 
 procedure TPlaylistItem.remove;
 
+var temp:TPlaylistItem;
+
 begin
+temp:=self.next;
 if next<>nil then next.prev:=prev;
 if prev<>nil then prev.next:=next;
 self.destroy;
+while temp<>nil do
+  begin
+  temp.y:=temp.y-10;
+  temp:=temp.next;
+  end;
 end;
 
 function TPlaylistitem.checkall:boolean;
@@ -2065,6 +2209,7 @@ mmx:=granny.mx;
 mmy:=granny.my;
 mmk:=mousek;
 temp:=self;
+
 while temp.prev<>nil do temp:=temp.prev;
 while temp.next<>nil do
   begin
@@ -2087,6 +2232,16 @@ while temp.next<>nil do
       end;
     end;
 
+  end;
+if playlistitem.granny<>nil then
+  begin
+  if playlistitem.granny.selected and (mousex>playlistitem.granny.x+28) and (mousex<playlistitem.granny.x+playlistitem.granny.l-78) and (mousey>playlistitem.granny.y+30) and (mousey<playlistitem.granny.y+playlistitem.granny.h-76) and dblclick then
+    begin
+    temp:=playlistitem;
+    while (temp.next<>nil) and not temp.selected do temp:=temp.next;
+    if temp.selected then playfilename:=temp.item;
+    player_item:=temp;
+    end;
   end;
 result:=needredraw;
 end;
@@ -2117,6 +2272,26 @@ while temp.next<>nil do
   end;
 end;
 
+procedure TPlaylistitem.select;
+
+var temp:TPlaylistItem;
+
+begin
+self.selected:=true;
+temp:=self;
+while temp.next<>nil do
+  begin
+  temp:=temp.next;
+  temp.selected:=false;
+  end;
+temp:=self;
+while temp.prev<>nil do
+  begin
+  temp:=temp.prev;
+  temp.selected:=false;
+  end;
+end;
+
 // ---- TFileBuffer thread methods --------------------------------------------------
 
 constructor TFileBuffer.Create(CreateSuspended : boolean);
@@ -2137,6 +2312,7 @@ seekamount:=0;
 eof:=true;
 mp3:=0;
 qq:=2048;
+reading:=false;
 end;
 
 procedure TFileBuffer.Execute;
@@ -2144,7 +2320,7 @@ procedure TFileBuffer.Execute;
 var i,il2,k:integer;
     ml:int64;
     const cnt:integer=0;
- var   outbuf2: PSmallint;
+var   outbuf2: PSmallint;
      pcml:integer;
 
 //    info:mp3_info_t;
@@ -2156,9 +2332,12 @@ ThreadSetaffinity(ThreadGetCurrent,2);
 sleep(1);
 repeat
   if needclear or (seekamount<>0) or (newfh>0) then
+
   // now do not do maintenence tasks while other thread is reading the buffer or the conflit may happen
     begin
+
     repeat until not reading;
+//                 box(100,100,100,100,200);
     maintenance:=true;
     if eof and (newfh>0) then
       begin
@@ -2318,6 +2497,7 @@ begin
 self.newfh:=nfh;
 //eof:=false;
 end;
+
 procedure TFileBuffer.clear;
 
 begin

@@ -444,7 +444,7 @@ var fh,filetype:integer;                // this needs cleaning...
     nativey:         cardinal absolute base+_nativey;
 
 
-    desired, obtained:TAudioSpec;
+
     error:integer;
     mousereports:array[0..31] of TMouseReport;
 
@@ -458,7 +458,7 @@ var fh,filetype:integer;                // this needs cleaning...
     drive:string;
 
     mp3frames:integer=0;
-
+    debug1,debug2,debug3:cardinal;
 
 // prototypes
 
