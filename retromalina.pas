@@ -197,40 +197,6 @@ type
        Constructor Create(CreateSuspended : boolean);
      end;
 
-{
-     // File buffer thread
-
-     TFileBuffer= class(TThread)
-     private
-     buf:array[0..131071] of byte;
-     tempbuf:array[0..32767] of byte;
-     outbuf: array[0..8191] of byte;
-     //outbuf: array[0..4095] of smallint;// absolute outbuf;
-     pocz:integer;
-     koniec:integer;
-     il,fh,newfh:integer;
-     newfilename:string;
-     needclear:boolean;
-     seekamount:int64;
-     eof:boolean;
-     mp3:integer;
-     qq:integer;
-     maintenance:boolean;
-     reading:boolean;
-     protected
-       procedure Execute; override;
-     public
-      m:integer;
-      empty,full:boolean;
-      Constructor Create(CreateSuspended : boolean);
-      function getdata(b,ii:integer):integer;
-      procedure setfile(nfh:integer);
-      procedure clear;
-      procedure seek(amount:int64);
-      procedure setmp3(mp3b:integer);
-     end;
-
-}
 
      // mouse thread
 
@@ -767,211 +733,7 @@ repeat
   until terminated;
 end;
 
-{
-// ---- TFileBuffer thread methods --------------------------------------------------
 
-constructor TFileBuffer.Create(CreateSuspended : boolean);
-
-begin
-FreeOnTerminate := True;
-inherited Create(CreateSuspended);
-m:=131072;
-pocz:=0;
-koniec:=0;
-fh:=-1;
-newfh:=-1;
-il:=0;
-newfilename:='';
-empty:=true; full:=false;
-needclear:=false;
-seekamount:=0;
-eof:=true;
-mp3:=0;
-qq:=2048;
-end;
-
-procedure TFileBuffer.Execute;
-
-var i,il2,k:integer;
-    ml:int64;
-    const cnt:integer=0;
- var   outbuf2: PSmallint;
-     pcml:integer;
-
-//    info:mp3_info_t;
-//    framesize:integer;
-
-begin
-outbuf2:=@outbuf;
-ThreadSetaffinity(ThreadGetCurrent,2);
-sleep(1);
-repeat
-  if needclear or (seekamount<>0) or (newfh>0) then
-  // now do not do maintenence tasks while other thread is reading the buffer or the conflit may happen
-    begin
-    repeat until not reading;
-    maintenance:=true;
-    if eof and (newfh>0) then
-      begin
-      fh:=newfh;
-      newfh:=-1;
-      eof:=false;
-      qq:=2048;
-      end;
-    if seekamount<>0 then needclear:=true;
-    if needclear then
-      begin
-      koniec:=0;
-      pocz:=0;
-      needclear:=false;
-      empty:=true;
-      m:=131071;
-      for i:=0 to 131071 do buf[i]:=0;
-      qq:=2048;
-      for i:=0 to 32767 do tempbuf[i]:=0;
-      end;
-    if (seekamount<>0) and (fh>0) then
-      begin
-      fileseek(fh,seekamount,fsFromCurrent);
-      seekamount:=0;
-      end;
-    maintenance:=false;
-    end;
-    // end of maintenance processes
-
-  if (fh>0){ and not eof} then
-    begin
-    if koniec>=pocz then m:=131072-koniec+pocz-1 else m:=pocz-koniec-1;
-    if m>=32768 then // more than 32k free place, do a read
-      begin
-      if mp3=0 then  // no decoding needed, simply read 32k from file
-        begin
-        il:=fileread(fh,tempbuf[0],qq);
-        if il<>0 then for i:=0 to il-1 do buf[(i+koniec) and $1FFFF]:=tempbuf[i] ;
-        koniec:=(koniec+il) and $1FFFF;
-        m:=m-il;
-        if m<3*32678 then empty:=false;
-        if (il<qq) and empty then eof:=true;
-        end
-      else // compressed file: read and decompress
-        begin
-        cnt+=1;
-        il:=fileread(fh,tempbuf[2048-qq],qq);
-        if (il<qq) then eof:=true;
-        if il=qq then
-          begin
-
-           ml:=gettime;
-
-
-           mad_stream_buffer(@test_mad_stream,@tempbuf, 2048);
-           mad_frame_decode(@test_mad_frame, @test_mad_stream);
-           mad_synth_frame(@test_mad_synth,@test_mad_frame);
-           mp3frames+=1;
-           pcml:=test_mad_synth.pcm.length;
-
-  //        box(0,0,100,100,0); outtextxy(0,0,inttostr(l),15);
-          if test_mad_synth.pcm.channels=2 then for i:=0 to pcml-1 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[1,i] div 8704;  end;
-          if test_mad_synth.pcm.channels=1 then for i:=0 to pcml-1 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[0,i] div 8704;  end;
-          il2:= (PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf));
-
-      // box(100,100,100,100,0); outtextxyz(100,100,inttostr(PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf)),15,2,2);     outtextxyz(100,132,inttostr(tempbuf[il2]),15,2,2);
-
-          if head.srate=44100 then head.brate:=8*((130+il2*10) div 261)
-          else head.brate:=8*((120+il2*10) div 240);
-          head.srate:=44100;//info.sample_rate;
-          head.channels:=2;//info.channels;
-          for i:=il2 to 2047 do tempbuf[i-il2]:=tempbuf[i];
-          for i:=0 to 4*pcml-1 do buf[(i+koniec) and $1FFFF]:=outbuf[i]; // audio bytes
-          qq:=il2;
-          koniec:=(koniec+4*pcml) and $1FFFF;
-          mp3time:=gettime-ml;
-
-          if koniec>=pocz then m:=131072-koniec+pocz-1 else m:=pocz-koniec-1;
-          if m<131072-1152 then empty:=false;
-          end;
-        end;
-      end
-    else
-      begin
-      full:=true;
-      end;
-    end
-  else
-    begin
-//    if newfh>0 then
-//      begin
-//      fh:=newfh;
-//      newfh:=-1;
-//      eof:=false;
-//      end;
-    end;
-  sleep(1);
-until terminated;
-
-end;
-
-procedure TFileBuffer.setmp3(mp3b:integer);
-
-begin
-mp3:=mp3b;
-qq:=2048;
-needclear:=true;
-end;
-
-procedure TFileBuffer.seek(amount:int64);
-
-begin
-seekamount:=amount;
-end;
-
-function TFileBuffer.getdata(b,ii:integer):integer;
-
-var i,d:integer;
-
-begin
-repeat until not maintenance;
-reading:=true;
-result:=0;
-if not empty then
-  begin
-  if koniec>=pocz then d:=koniec-pocz
-  else d:=131072-pocz+koniec;
-  pizda:=d;
-  if d>=ii then
-    begin
-    full:=false;
-    result:=ii;
-    for i:=0 to ii-1 do poke(b+i,buf[(pocz+i) and $1FFFF]);
-    pocz:=(pocz+ii) and $1FFFF;
-    if pocz=koniec then empty:=true;
-    end
-  else
-    begin
-    for i:=0 to d-1 do poke(b+i,buf[(pocz+i) and $1FFFF]);
-    for i:=d to ii-1 do poke(b+i,0);
-    result:=d;
-    pocz:=(pocz+d) and $1FFFF;
-    empty:=true;
-    end;
-  end;
-reading:=false;
-end;
-
-
-procedure TFileBuffer.setfile(nfh:integer);
-
-begin
-self.newfh:=nfh;
-//eof:=false;
-end;
-procedure TFileBuffer.clear;
-
-begin
-self.needclear:=true;
-end;
-
-}
 // ---- TRetro thread methods --------------------------------------------------
 
 // ----------------------------------------------------------------------
@@ -1013,7 +775,7 @@ repeat
 
 
 // scrconvert(pointer($30800000),p2);   //8
- scrconvertnative(pointer($30800000),p2);   //8
+  scrconvertnative(pointer($30800000),p2);   //8
   screenaddr:=$30800000;
 
 
@@ -1022,28 +784,28 @@ repeat
   sprite(p2);
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2),xres*yres*4);
+  CleanDataCacheRange(integer(p2),(xres+64)*yres*4);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,32,True);
+  FramebufferDeviceSetOffset(fb,0,0,True);
   FramebufferDeviceWaitSync(fb);
 
   vblank1:=0;
   t:=gettime;
 
 //  scrconvert(pointer($30b00000),p2+2304000);   //a
-  scrconvertnative(pointer($30b00000),p2+xres*(yres+32));   //a
+  scrconvertnative(pointer($30b00000),p2+(xres+64)*(yres{+32}));   //a
   screenaddr:=$30b00000;
 
   tim:=gettime-t;
   t:=gettime;
-  sprite(p2+xres*(yres+32));
+  sprite(p2+(xres+64)*(yres));
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2)+xres*(yres+32)*4,xres*yres*4);
+  CleanDataCacheRange(integer(p2)+(xres+64)*(yres{+32})*4,(xres)*yres*4);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,yres+64,True);
+  FramebufferDeviceSetOffset(fb,0,yres,True);
   FramebufferDeviceWaitSync(fb);
 
 
@@ -1089,16 +851,16 @@ else
 FramebufferProperties.Depth:=32;
 FramebufferProperties.PhysicalWidth:=xres;
 FramebufferProperties.PhysicalHeight:=yres;
-FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
-FramebufferProperties.VirtualHeight:=96+FramebufferProperties.PhysicalHeight * 2;
+FramebufferProperties.VirtualWidth:=xres+64;
+FramebufferProperties.VirtualHeight:=yres*2;
 q:=FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(200);
+sleep(300);
 //i:=0;
 //repeat inc(i); sleep(100); until (fb^.FramebufferState = FRAMEBUFFER_STATE_ENABLED) or (i>20);
 //if i>20 then systemrestart(0);
 
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address+128*xres);
+p2:=Pointer(FramebufferProperties.Address);//+128*xres);
 
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 
@@ -1118,7 +880,7 @@ setpallette(ataripallette,0);
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
 // start frame refreshing thread
-sleep(100);
+sleep(300);
 
 // init sid variables
 
@@ -1138,6 +900,7 @@ mad_synth_init(@test_mad_synth);
 mad_frame_init(@test_mad_frame);
 
 removeramlimits(integer(@sprite));
+
 
 
 //filebuffer:=Tfilebuffer.create(true);
@@ -1385,6 +1148,8 @@ nx:=xres*4;//nativex*4;
                 ldr r2,screen
                 ldr r3,b
                 mov r5,r2
+                sub r2,#256
+                sub r5,#256
 
                 //upper border
 
@@ -1393,6 +1158,8 @@ nx:=xres*4;//nativex*4;
 
 p11:            ldr r4,nx                                   //active screen
                 add r5,r4 //#7168
+                    add r2,#256
+                    add r5,#256
 
 p1:
                 ldm r1!,{r4,r9}
@@ -1461,7 +1228,6 @@ p999:           ldmfd r13!,{r0-r12,r14}
 
 
 end;
-
 
 procedure scrconvertdl(screen:pointer);
 
@@ -1719,15 +1485,20 @@ procedure sprite(screen:pointer);
 // A sprite procedure
 // --- rev 21070111
 
-label p101,p102,p103,p104,p105,p106,p107,p999,a7680,affff,affff0000,spritedata;
+label p101,p102,p103,p104,p105,p106,p107,p108,p109,p999,a7680,affff,affff0000,spritedata;
 var spritebase:integer;
     nx:cardinal;
+    yr:cardinal;
+    scrl:cardinal;
 
 begin
+yr:=yres;
 spritebase:=base+_spritebase;
-nx:=xres*4;
+nx:=xres*4+256;
+scrl:=integer(screen)+(xres+64)*yres*4;
+
                asm
-               stmfd r13!,{r0-r12}     //Push registers
+               stmfd r13!,{r0-r12,r14}     //Push registers
                ldr r12,nx
                str r12,a7680
                mov r12,#0
@@ -1737,12 +1508,11 @@ nx:=xres*4;
                mov r2,r1, lsl #16      // sprite 0 position
                mov r3,r1, asr #16
                asr r2,#14              // x pos*4
-//              cmp r2,#-2048
- //              blt p107
-                cmp r3,#0
-                blt p107
- //              cmp r3,#2048
- //              bge p107
+
+               ldr r14,yr
+               cmp r3,r14
+               bge p107
+
                cmp r2,#8192            // switch off the sprite if x>2048
                blt p104
 p107:          add r12,#1
@@ -1782,7 +1552,14 @@ p104:          ldr r4,a7680
 
                push {r0}
 
-p101:          ldr r5,[r4],#4
+p101:
+                   ldr r14,screen
+                   cmp r3,r14
+                   bge p109
+                   add r3,r8
+                   b p106
+
+p109:          ldr r5,[r4],#4
                cmp r5,#0
                bne p102
                add r3,r3,r8,lsr #5
@@ -1800,11 +1577,16 @@ p102:          ldr r0,[r3]
 
 p105:          mov r7,r2
                subs r6,#1
-               bne p101
+               bne p109
 
 p106:          ldr r0,a7680
                add r3,r0
                sub r3,r8
+
+                   ldr r14,scrl
+                   cmp r3,r14
+                   bge p108
+
                subs r10,#1
                subne r4,#128
                addeq r10,r1
@@ -1812,7 +1594,7 @@ p106:          ldr r0,a7680
                subs r9,#1
                bne p101
 
-               pop {r0}
+p108:          pop {r0}
 
 
                add r12,#1
@@ -1825,7 +1607,7 @@ affff0000:     .long 0xFFFF0000
 a7680:         .long 7680
 spritedata:    .long base+0x60080
 
-p999:          ldmfd r13!,{r0-r12}
+p999:          ldmfd r13!,{r0-r12,r14}
                end;
 end;
 
@@ -1837,6 +1619,9 @@ var Entry:TPageTableEntry;
 
 begin
 Entry:=PageTableGetEntry(addr);
+Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
+PageTableSetEntry(Entry);
+Entry:=PageTableGetEntry(addr+4096);
 Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
 end;

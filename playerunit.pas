@@ -41,7 +41,23 @@ type TPlayerThread=class (TThread)
        Constructor Create;
      end;
 
+     TSettings= class(TThread)
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create;
+     end;
+
      TPlaylistThread= class(TThread)
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create;
+     end;
+
+     TCountThread= class(TThread)
      private
      protected
        procedure Execute; override;
@@ -117,6 +133,7 @@ var pl:TWindow=nil;
     vis:TWindow=nil;
     fi:TWindow=nil;
     list:TWindow=nil;
+    sett:TWindow=nil;
     spritebutton:TButton;
     oscilloscopebutton:TButton;
 
@@ -138,6 +155,7 @@ var pl:TWindow=nil;
     oscilloscope:TOscilloscope=nil;
     visualization:TVisualization=nil;
     playlistthread:Tplaylistthread=nil;
+    settings:TSettings=nil;
 
     sel1:TFileselector=nil;
     playfilename,pf2:string;
@@ -174,7 +192,12 @@ var pl:TWindow=nil;
     player_item:TPlaylistitem;
 
     desired, obtained:TAudioSpec;
-
+    skintextcolor:integer=200;
+    countfilename:string;
+        skindir:string;
+        sdir:string;
+        sliders:boolean=true;
+   volume_pos,balance_pos:integer;
 
 procedure hide_sprites;
 procedure start_sprites;
@@ -190,12 +213,19 @@ function mp3check(name:string):integer;
 
 label p999;
 
-var i,il,j,infofh,bitrate, freq, skip, samplerate, padding,len,channels,fs,err:integer;
+var i,il,j,infofh,q,bitrate, freq, samplerate, padding,channels,fs,err:integer;
     mp3buf:array[0..32767] of byte;
     bitrates:array[0..15] of integer=(0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0);
+    bitrates2:array[0..15] of integer=(0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,0);
+    bitrates22:array[0..15] of integer=(0,32,48,56,64,80,96,112,128,160,192,224,256,320,384,0);
     freqs:array[0..3] of integer=(44100,48000,32000,0);
+    freqs2:array[0..3] of integer=(22050,24000,16000,0);
+    crc,lll,layer:integer;
+    skip,len: int64;
+    t:int64;
 
 begin
+t:=gettime;
 infofh:=fileopen(name,$40);
 fileread(infofh,mp3buf,10);
 if (mp3buf[0]=ord('I')) and (mp3buf[1]=ord('D')) and (mp3buf[2]=ord('3')) then // Skip ID3
@@ -205,29 +235,61 @@ if (mp3buf[0]=ord('I')) and (mp3buf[1]=ord('D')) and (mp3buf[2]=ord('3')) then /
 else skip:=0;
 fileseek(infofh,skip,fsfrombeginning);
 
-if skip>0 then begin
-  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(infofh,mp3buf,1) until (mp3buf[0]=$FB) and (mp3buf[1]=$FF);
+begin
+  repeat skip+=1; mp3buf[1]:=mp3buf[0]; il:=fileread(infofh,mp3buf,1) until
+    (il=0) or
+      ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or
+        ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or
+          ((mp3buf[0]=$FA) and (mp3buf[1]=$FF)) or
+            ((mp3buf[0]=$F2) and (mp3buf[1]=$FF)) or
+             ((mp3buf[0]=$FC) and (mp3buf[1]=$FF)) or
+                ((mp3buf[0]=$FD) and (mp3buf[1]=$FF));
   fileseek(infofh,skip-2,fsfrombeginning);
   end;
+
 err:=0;
 i:=0;
 repeat
+  q:=0;
   i:=i+1;
-  il:= fileread(infofh,mp3buf,2);
-  if (mp3buf[0]<>$FF) or (mp3buf[1]<>$FB) then     begin err+=1;
-    repeat mp3buf[1]:=mp3buf[0]; il:=fileread(infofh,mp3buf,1) until (il=0) or ((mp3buf[0]=$FB) and (mp3buf[1]=$FF));  end;
+  il:= fileread(infofh,mp3buf,1); mp3buf[1]:=mp3buf[0]; il:= fileread(infofh,mp3buf,1);
+
+  if (mp3buf[1]<>$FF) or ((mp3buf[0]<>$FB) and (mp3buf[0]<>$FA) and (mp3buf[0]<>$F3) and (mp3buf[0]<>$F2) and (mp3buf[0]<>$FC) and (mp3buf[0]<>$FD)) then
+    begin
+    err+=1;
+    repeat mp3buf[1]:=mp3buf[0]; il:=fileread(infofh,mp3buf,1); q+=1; until
+      (il=0) or
+        ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or
+          ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or
+            ((mp3buf[0]=$FA) and (mp3buf[1]=$FF)) or
+              ((mp3buf[0]=$F2) and (mp3buf[1]=$FF)) or
+                ((mp3buf[0]=$FC) and (mp3buf[1]=$FF)) or
+                   ((mp3buf[0]=$FD) and (mp3buf[1]=$FF));
+//       box(200,200,300,300,40);
+    end;
+
+  if (mp3buf[0]=$FA) or (mp3buf[0]=$F2) or (mp3buf[0]=$FC) then crc:=2 else crc:=0;
+  if (mp3buf[0]=$F3) or (mp3buf[0]=$F2) then lll:=72 else lll:=144;
+  if (mp3buf[0]=$FC) or (mp3buf[0]=$FD) then layer:=2 else layer:=3;
+//   box(0,00,100,100,0); outtextxy(0,0,inttostr(layer),15);
   if il=0 then goto p999;
   il:=fileread(infofh,mp3buf,2);
-  bitrate:=bitrates[mp3buf[0] shr 4];
-  samplerate:=freqs[(mp3buf[0] and $0C) shr 2];
+
+  if (layer=3) and (lll=144) then bitrate:=bitrates[mp3buf[0] shr 4]
+    else if (layer=3) and (lll=72) then bitrate:=bitrates2[mp3buf[0] shr 4]
+      else bitrate:=bitrates22[mp3buf[0] shr 4];  //layer 2
+//   outtextxy(0,16,inttostr(q)+' '+inttohex(mp3buf[0],2)+' '+inttostr(bitrate)+' '+inttostr(il),15);
+  if lll=144 then samplerate:=freqs[(mp3buf[0] and $0C) shr 2] else samplerate:=freqs2[(mp3buf[0] and $0C) shr 2];
   if (mp3buf[1] shr 6)=3 then channels:=1 else channels:=2;
   if (mp3buf[0] and 2)=2 then padding:=1 else padding:=0;
-  len:=padding+trunc((144*bitrate*1000)/samplerate);
+  len:=crc+padding+trunc((lll*bitrate*1000)/samplerate);
   fs:=fileseek(infofh,len-4,fsfromcurrent);
-  box(0,200,100,100,0); outtextxy(0,200,inttostr(i),15); outtextxy(0,216,inttostr(bitrate),15);outtextxy(0,232,inttostr(samplerate),15); outtextxy(0,248,inttostr(err),15);
+ // box(0,200,100,100,0); outtextxy(0,200,inttostr(i),15); outtextxy(0,216,inttostr(bitrate),15);outtextxy(0,232,inttostr(samplerate),15); outtextxy(0,248,inttostr(err),15);
 until (il<>2) or (fs<0);
 p999:
 result:=i;
+t:=gettime-t;
+box(0,00,100,100,0); outtextxy(0,0,inttostr(i)+' '+inttostr(t),15);
 fileclose(infofh);
 end;
 
@@ -297,8 +359,9 @@ function mp3open (var fh:integer):integer;
 label p999;
 
 var
-    il2:integer;
+    il,il2:integer;
     skip:integer;
+    q:int64;
     bitrates:array[0..15] of integer=(0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0);
     freqs:array[0..3] of integer=(44100,48000,32000,0);
     samplerate,channels:integer;
@@ -312,16 +375,32 @@ if (mp3buf[0]=ord('I')) and (mp3buf[1]=ord('D')) and (mp3buf[2]=ord('3')) then /
   end
 else skip:=0;
 mp3buf[0]:=0; mp3buf[1]:=0;
-fileseek(fh,skip,fsfrombeginning);
-{if skip>0 then} begin
-  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$FA) and (mp3buf[1]=$FF));
-  fileseek(fh,skip-2,fsfrombeginning);
+q:=skip;
+fileseek(fh,q,fsfrombeginning);
+
+repeat q+=1; mp3buf[1]:=mp3buf[0]; il:=fileread(fh,mp3buf,1) until
+  (il=0) or
+    ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or
+      ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or
+        ((mp3buf[0]=$FA) and (mp3buf[1]=$FF)) or
+          ((mp3buf[0]=$F2) and (mp3buf[1]=$FF)) or
+           ((mp3buf[0]=$FC) and (mp3buf[1]=$FF)) or
+              ((mp3buf[0]=$FD) and (mp3buf[1]=$FF));
+fileseek(fh,q-2,fsfrombeginning);
+
+
+
+//begin
+//  repeat q+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$FA) and (mp3buf[1]=$FF));
+//  fileseek(fh,q-2,fsfrombeginning);
   fileread(fh,mp3buf,4);
   samplerate:=freqs[(mp3buf[2] and $0C) shr 2];
+//  box(0,100,100,100,0); outtextxy(0,100,inttohex(mp3buf[0],2)+' '+  inttohex(mp3buf[1],2)+' '+  inttohex(mp3buf[2],2)+' '+  inttohex(mp3buf[3],2)+' '+inttostr(samplerate),15);
   if (mp3buf[3] shr 6)=3 then channels:=1 else channels:=2;
   if mp3buf[1]=$F3 then samplerate:=samplerate div 2;
-  fileseek(fh,skip-2,fsfrombeginning);
-  end;
+  q:=-4;
+  fileseek(fh,q,fsfromcurrent);
+//  end;
 result:=samplerate;
 
 // visualize wave data
@@ -648,7 +727,7 @@ else if playfilename<>'' then //  key=key_enter then
     else
       begin
       if a1base=432 then error:=SA_changeparams(((sr*432) div 440),16,2,160)
-                    else error:=SA_changeparams(22050,16,2,160);
+                    else error:=SA_changeparams(sr,16,2,160);
       end;
 
     if sr>=44100 then siddelay:=(8707*44100) div sr
@@ -666,7 +745,7 @@ else if playfilename<>'' then //  key=key_enter then
     sleep(50);
     for i:=0 to 15 do times6502[i]:=0;
     filebuffer.setfile(sfh);
-    sleep(200);
+    sleep(300);
     songs:=0;
 
     siddelay:=8707 ;
@@ -840,8 +919,9 @@ end;
 
 procedure TPlayerThread.Execute;
 
-var fh,i,j,hh,mm,ss,q,vq,sl1,sl2:integer;
+var fh,i,j,hh,mm,ss,sl1,sl2:integer;
     s1,s2:string;
+
     ext,mms,hhs,sss,ps:string;
     qq,qqq:integer;
     eject_down: boolean=false;
@@ -856,8 +936,9 @@ var fh,i,j,hh,mm,ss,q,vq,sl1,sl2:integer;
     repeat_selected:boolean=false;
     shuffle_selected:boolean=false;
     playlist_selected:boolean=false;
-
-
+    fh2:textfile;
+    q,vq:integer;
+    il:integer;
 
 const clickcount:integer=0;
       vbutton_x:integer=0;
@@ -868,14 +949,7 @@ const clickcount:integer=0;
       cnt:integer=0;
 
 begin
-//if filebuffer=nil then
-//  begin
-//  filebuffer:=Tfilebuffer.create(true);
-//  filebuffer.start;
-//  end;
-
 songtime:=0;
-
 
 if playlistitem=nil then
   begin
@@ -916,85 +990,101 @@ pl.resizable:=false;
 pl.move(400,500,550,232,0,0);
 
 // If the skin is not loaded, load it
-
+skindir:=drive+'Colors\Bitmaps\Player\xmms\';
 
 if cbuttons=nil then
   begin
   cbuttons:=getmem(72*272);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\cbuttons.rbm',$40);
+  fh:=fileopen(skindir+'cbuttons.rbm',$40);
   fileread(fh,cbuttons^,72*272);
   fileclose(fh);
   end;
 if posbar=nil then
   begin
   posbar:=getmem(614*20);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\posbar.rbm',$40);
+  fh:=fileopen(skindir+'posbar.rbm',$40);
   fileread(fh,posbar^,614*20);
   fileclose(fh);
   end;
 if titlebar=nil then
   begin
   titlebar:=getmem(174*688);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\titlebar.rbm',$40);
+  fh:=fileopen(skindir+'titlebar.rbm',$40);
   fileread(fh,titlebar^,174*688);
   fileclose(fh);
   end;
 if baseskin=nil then
   begin
   baseskin:=getmem(127600);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\base.rbm',$40);
+  fh:=fileopen(skindir+'main.rbm',$40);
   fileread(fh,baseskin^,127600);
   fileclose(fh);
   end;
 if numbers=nil then
   begin
   numbers:=getmem(26*216);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\nums_ex.rbm',$40);
+  fh:=fileopen(skindir+'nums_ex.rbm',$40);
   fileread(fh,numbers^,26*216);
   fileclose(fh);
   end;
 if volume=nil then
   begin
   volume:=getmem(866*136);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\volume.rbm',$40);
-  fileread(fh,volume^,866*136);
+  fh:=fileopen(skindir+'volume.rbm',$40);
+  il:=fileread(fh,volume^,866*136);
+  if il<866*136 then sliders:=false;
   fileclose(fh);
   end;
 if shufrep=nil then
   begin
   shufrep:=getmem(170*184);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\shufrep.rbm',$40);
+  fh:=fileopen(skindir+'shufrep.rbm',$40);
   fileread(fh,shufrep^,170*184);
   fileclose(fh);
   end;
 if monoster=nil then
   begin
   monoster:=getmem(48*116);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\monoster.rbm',$40);
+  fh:=fileopen(skindir+'monoster.rbm',$40);
   fileread(fh,monoster^,48*116);
   fileclose(fh);
   end;
 if playpaus=nil then
   begin
   playpaus:=getmem(84*18);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\playpaus.rbm',$40);
+  fh:=fileopen(skindir+'playpaus.rbm',$40);
   fileread(fh,playpaus^,84*18);
   fileclose(fh);
   end;
 if eqmain=nil then
   begin
   eqmain:=getmem(550*630);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\eqmain.rbm',$40);
+  fh:=fileopen(skindir+'eqmain.rbm',$40);
   fileread(fh,eqmain^,550*630);
   fileclose(fh);
   end;
 if pledit=nil then
   begin
   pledit:=getmem(560*372);
-  fh:=fileopen(drive+'Colors\Bitmaps\Player\pledit.rbm',$40);
+  fh:=fileopen(skindir+'pledit.rbm',$40);
   fileread(fh,pledit^,560*372);
   fileclose(fh);
   end;
+if (balance=nil) and fileexists(skindir+'balance.rbm') then
+  begin
+  balance:=getmem(866*136);
+  fh:=fileopen(skindir+'balance.rbm',$40);
+  fileread(fh,balance^,866*136);
+  fileclose(fh);
+  end;
+try
+  assignfile(fh2,skindir+'color.txt');
+  reset(fh2);
+  read(fh2,skintextcolor);
+  closefile(fh2);
+except
+  skintextcolor:=200;
+end;
 
 // Draw the skin
 
@@ -1005,17 +1095,25 @@ blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY
 blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // PLAY sign
 blit8(integer(cbuttons),0,0,integer(pl.canvas),32,176,228,36,272,550);   // transport buttons
 blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); // eject button
-blit8(integer(volume),0,810,integer(pl.canvas),214,112,136,28,136,550);  // volume bar
-blit8(integer(volume),0,0,integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
-blit8(integer(volume),98,0,integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
-blit8(integer(volume),30,844,integer(pl.canvas),318,116,28,22,136,550);  // volume slider
-blit8(integer(volume),30,844,integer(pl.canvas),378,116,28,22,136,550);  // balance slider
-blit8(integer(shufrep),56,0,integer(pl.canvas),330,178,90,30,184,550);   // shuffle button
-blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);    // rep button
+blit8(integer(volume),0,810,integer(pl.canvas),214,114,136,26,136,550);  // volume bar
+if balance=nil then
+  begin
+  blit8(integer(volume),0,0,integer(pl.canvas),352,114,38,26,136,550);     // balance bar left
+  blit8(integer(volume),98,0,integer(pl.canvas),390,114,38,26,136,550);    // balance bar right
+  end
+else
+  begin
+  blit8(integer(balance),18,0,integer(pl.canvas),352,114,76,26,136,550);     // balance bar left
+  end;
+
+if sliders then blit8(integer(volume),30,844,integer(pl.canvas),318,116,28,22,136,550);  // volume slider
+if sliders then blit8(integer(volume),30,844,integer(pl.canvas),376,116,28,22,136,550);  // balance slider
+blit8(integer(shufrep),56,0,integer(pl.canvas),328,178,90,30,184,550);   // shuffle button
+blit8(integer(shufrep),0,0,integer(pl.canvas),418,178,54,30,184,550);    // rep button
 blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,46,24,184,550);  // eq button
 blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550); // pl button
-blit8(integer(monoster),58,24,integer(pl.canvas),428,82,58,24,116,550);  // green stereo
-blit8(integer(monoster),0,0,integer(pl.canvas),476,82,58,24,116,550);    // gray mono
+blit8(integer(monoster),58,24,integer(pl.canvas),424,82,58,24,116,550);  // green stereo
+blit8(integer(monoster),0,0,integer(pl.canvas),478,82,58,24,116,550);    // gray mono
 
 //for i:=0 to 47 do                                      // retamp icon instead of winamp
 //  for j:=0 to 47 do
@@ -1094,8 +1192,8 @@ repeat
   if prev_down then begin blit8(integer(cbuttons),0,0,integer(pl.canvas),32,176,46,36,272,550);  prev_down:=false; end;  // transport buttons
   if next_down then begin blit8(integer(cbuttons),184,0,integer(pl.canvas),32+184,176,44,36,272,550);  next_down:=false; end;  // transport buttons
   if repeat_down then begin
-    if repeat_selected then blit8(integer(shufrep),0,60,integer(pl.canvas),420,178,54,30,184,550)
-    else blit8(integer(shufrep),0,0,integer(pl.canvas),420,178,54,30,184,550);
+    if repeat_selected then blit8(integer(shufrep),0,60,integer(pl.canvas),418,178,54,30,184,550)
+    else blit8(integer(shufrep),0,0,integer(pl.canvas),418,178,54,30,184,550);
     repeat_down:=false; end;
 
   if playlist_down then begin
@@ -1117,11 +1215,17 @@ repeat
   if bbutton_dx<>0 then
     begin
     bbutton_x:=mousex-pl.x-bbutton_dx;
-    if bbutton_x>402 then bbutton_x:=402;
-    if bbutton_x<354 then bbutton_x:=354;
-    blit8(integer(volume),0,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
-    blit8(integer(volume),98,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
-    blit8(integer(volume),30,844,integer(pl.canvas),vq,116,28,22,136,550);
+    if bbutton_x>400 then bbutton_x:=400;
+    if bbutton_x<352 then bbutton_x:=352;
+    balance_pos:=bbutton_x;
+    if balance=nil then
+      begin
+      blit8(integer(volume),0,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),352,114,38,26,136,550);     // balance bar left
+      blit8(integer(volume),98,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),390,114,38,26,136,550);    // balance bar right
+      end
+    else
+      blit8(integer(balance),18,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),352,114,76,26,136,550);
+    if sliders then blit8(integer(volume),30,844,integer(pl.canvas),vq,116,28,22,136,550);
     end;
   bbutton_dx:=0;
 
@@ -1131,8 +1235,9 @@ repeat
     vbutton_x:=mousex-pl.x-vbutton_dx;
     if vbutton_x>318 then vbutton_x:=318;
     if vbutton_x<214 then vbutton_x:=214;
-    blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,112,136,28,136,550);
-    blit8(integer(volume),30,844,integer(pl.canvas),q,116,28,22,136,550);
+    volume_pos:=vbutton_x;
+    blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,114,136,26,136,550);
+    if sliders then blit8(integer(volume),30,844,integer(pl.canvas),q,116,28,22,136,550);
     end;
   vbutton_dx:=0;
   end;
@@ -1149,8 +1254,8 @@ repeat
   if q>318 then q:=318;
   if ((mousex-pl.x-vbutton_dx)>0) and ((mousex-pl.x-vbutton_dx)<550) and (mousek=1) and (vbutton_dx<>0) and (pl.selected) then
     begin
-    blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,112,136,28,136,550);
-    blit8(integer(volume),00,844,integer(pl.canvas),q,116,28,22,136,550);
+    blit8(integer(volume),0,30*round(27*(q-214)/104),integer(pl.canvas),214,114,136,26,136,550);
+    if sliders then blit8(integer(volume),00,844,integer(pl.canvas),q,116,28,22,136,550);
     if q<215 then setdbvolume(-73) else setdbvolume(-26+round(26*(q-214)/104));
     if q<215 then ps:='Mute' else ps:='Volume: '+inttostr(-26+round(26*(q-214)/104))+' dB';
     end;
@@ -1163,20 +1268,37 @@ repeat
     end;
 
   vq:=mousex-pl.x-bbutton_dx;
-  if vq<354 then vq:=354;
-  if vq>402 then vq:=402;
+  if vq<352 then vq:=352;
+  if vq>400 then vq:=400;
   if ((mousex-pl.x-bbutton_dx)>0) and ((mousex-pl.x-bbutton_dx)<550) and (mousek=1) and (bbutton_dx<>0) and (pl.selected) then
     begin
-    blit8(integer(volume),0,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),354,112,38,28,136,550);     // balance bar left
-    blit8(integer(volume),98,30*abs(round(27*(vq-378)/24)),integer(pl.canvas),392,112,38,28,136,550);    // balance bar right
-    blit8(integer(volume),00,844,integer(pl.canvas),vq,116,28,22,136,550);
-    if vq<375 then setbalance(128-round(6.095*(vq-375)));
-    if vq>381 then setbalance(128-round(6.095*(vq-381)));
+    if balance=nil then
+      begin
+      blit8(integer(volume),0,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),352,114,38,26,136,550);     // balance bar left
+      blit8(integer(volume),98,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),390,114,38,26,136,550);    // balance bar right
+      end
+    else blit8(integer(balance),18,30*abs(round(27*(vq-376)/24)),integer(pl.canvas),352,114,76,26,136,550);
+    if sliders then blit8(integer(volume),00,844,integer(pl.canvas),vq,116,28,22,136,550);
+    if vq<373 then setbalance(128-round(6.095*(vq-373)))
+    else if vq>379 then setbalance(128-round(6.095*(vq-379)))
+    else setbalance(128);
     ps:='Balance: ';
-    if vq<375 then ps:=ps+'left '+inttostr(abs(round(6.095*(vq-375))))
-    else if vq>381 then ps:=ps+'right '+inttostr(abs(round(6.095*(vq-381))))
+    if vq<373 then ps:=ps+'left '+inttostr(abs(round(6.095*(vq-373))))
+    else if vq>379 then ps:=ps+'right '+inttostr(abs(round(6.095*(vq-379))))
     else ps:=ps+' center ';
     end;
+
+// if O leter clicked, open settings menu
+
+  if (pl.mx>22) and (pl.my>48) and (pl.mx<38) and (pl.my<64)  and (mousek=1) and (pl.selected) then
+    begin
+    if sett=nil then
+      begin
+      settings:=TSettings.Create;
+      settings.start;
+      end;
+    end;
+
 
 // if V leter clicked, open visualization menu
 
@@ -1202,12 +1324,12 @@ repeat
     info.resizable:=false;
     info.move(650,400,500,160,0,0);
     info.cls(0);
-    info.outtextxy(8,8,'RetAMP - the Retromachine Advanced Music Player',200);
-    info.outtextxy(8,28,'Version: 0.28 - 20170626',200);
-    info.outtextxy(8,48,'Alpha code',200);
-    info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',200);
-    info.outtextxy(8,88,'GPL 2.0 or higher',200);
-    info.outtextxy(8,108,'more information: pik33@o2.pl',200);
+    info.outtextxy(8,8,'RetAMP - the Retromachine Advanced Music Player',skintextcolor);
+    info.outtextxy(8,28,'Version: 0.28 - 20170626',skintextcolor);
+    info.outtextxy(8,48,'Alpha code',skintextcolor);
+    info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',skintextcolor);
+    info.outtextxy(8,88,'GPL 2.0 or higher',skintextcolor);
+    info.outtextxy(8,108,'more information: pik33@o2.pl',skintextcolor);
     sleep(100);
     info.select;
     end;
@@ -1460,12 +1582,12 @@ if sel1<>nil then
     qqq:=(cnt div 12) mod (qq+9)+1;
     s1:=copy(s1,qqq,38);
     end;
-  if pl<>nil then begin pl.box(222,52,304,16,0); pl.outtextxy(222,52,s1,200); end;
+  if pl<>nil then begin pl.box(222,52,304,16,0); pl.outtextxy(222,52,s1,skintextcolor); end;
   if pl<>nil then pl.box(220,84,32,16,0);
-  if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,200);
+  if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,skintextcolor);
   s2:=inttostr((SA_getcurrentfreq) div 1000);
   if pl<>nil then pl.box(309,84,24,16,0);
-  if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,200);
+  if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,skintextcolor);
 
   if (nextsong=1) then
     begin
@@ -1561,8 +1683,8 @@ if vis=nil then
   vis.decoration.vscroll:=false;
   vis.resizable:=false;
   vis.cls(0);
-  if spritebutton=nil then spritebutton:=TButton.create(4,4,248,26,4,248,'Dancing sprites',vis) else begin spritebutton.granny:=vis; vis.buttons:=spritebutton; spritebutton.draw; end;
-  if oscilloscopebutton=nil then oscilloscopebutton:=spritebutton.append(4,34,248,26,4,248,'Big oscilloscope') else begin oscilloscopebutton.granny:=vis; oscilloscopebutton.draw; end;
+  if spritebutton=nil then spritebutton:=TButton.create(4,4,248,26,4,skintextcolor,'Dancing sprites',vis) else begin spritebutton.granny:=vis; vis.buttons:=spritebutton; spritebutton.draw; end;
+  if oscilloscopebutton=nil then oscilloscopebutton:=spritebutton.append(4,34,248,26,4,skintextcolor,'Big oscilloscope') else begin oscilloscopebutton.granny:=vis; oscilloscopebutton.draw; end;
   spritebutton.selectable:=true;
   oscilloscopebutton.selectable:=true;
   spritebutton.radiogroup:=1;
@@ -2237,10 +2359,12 @@ if playlistitem.granny<>nil then
   begin
   if playlistitem.granny.selected and (mousex>playlistitem.granny.x+28) and (mousex<playlistitem.granny.x+playlistitem.granny.l-78) and (mousey>playlistitem.granny.y+30) and (mousey<playlistitem.granny.y+playlistitem.granny.h-76) and dblclick then
     begin
+
     temp:=playlistitem;
     while (temp.next<>nil) and not temp.selected do temp:=temp.next;
-    if temp.selected then playfilename:=temp.item;
+    if temp.selected then begin playfilename:=temp.item;     mp3check(temp.item);   end;
     player_item:=temp;
+
     end;
   end;
 result:=needredraw;
@@ -2260,13 +2384,13 @@ while temp.next<>nil do
     begin
     if temp.selected then
       begin
-      granny.box(temp.x-1,temp.y-2,granny.l-78,10,200);
+      granny.box(temp.x-1,temp.y-2,granny.l-78,10,skintextcolor);
       granny.outtextxy8(temp.x,temp.y,temp.name,0);
       end
     else
       begin
       granny.box(temp.x-1,temp.y-2,granny.l-78,10,0);
-      granny.outtextxy8(temp.x,temp.y,temp.name,200);
+      granny.outtextxy8(temp.x,temp.y,temp.name,skintextcolor);
       end;
     end;
   end;
@@ -2291,6 +2415,198 @@ while temp.prev<>nil do
   temp.selected:=false;
   end;
 end;
+
+// ---- TCountThread
+
+constructor TCountThread.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+
+procedure TCountThread.Execute;
+
+begin
+  repeat
+  repeat sleep(10) until countfilename<>'';
+  if countfilename<>'' then mp3check(countfilename);
+  countfilename:='';
+  until terminated;
+end;
+
+constructor TSettings.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+
+procedure TSettings.Execute;
+
+var skins:array of string; //todo: dynamic list
+    ii,il,fh,j:integer;
+    sr:TSearchRec;
+    currentdir:string;
+    fh2:textfile;
+    cnt:integer=0;
+
+begin
+skins:=nil;
+if sett=nil then
+  begin
+  sdir:=drive+'Colors\Bitmaps\Player\';
+  currentdir:=sdir+'*';
+  ii:=0;
+  if findfirst(currentdir,fadirectory,sr)=0 then
+  repeat
+
+  if (sr.attr and faDirectory) = faDirectory then
+    begin
+    if (sr.name<>'.') and (sr.name<>'..') then
+      begin
+      setlength(skins,length(skins)+1);
+      skins[ii]:=sr.name;
+
+      ii+=1;
+      end;
+    end;
+  until (findnext(sr)<>0);
+  sysutils.findclose(sr);
+
+  if ii>5 then sett:=TWindow.create(400,20*ii,'Select the skin') else sett:=TWindow.create(400,100,'Select the skin') ;
+  for j:=0 to ii-1 do sett.outtextxy(8,8+20*j,skins[j],skintextcolor);
+  sett.move(200,200,400,400,0,0);
+  end;
+repeat
+  repeat sleep(2) until sett.redraw;
+  sett.redraw:=false;
+  cnt:=cnt+1;
+  if (sett.selected) and (mousek=1) and (sett.my<8+20*ii) and (sett.my>8) then
+    begin
+
+    sett.cls(0);
+    for j:=0 to ii-1 do sett.outtextxy(8,8+20*j,skins[j],skintextcolor);
+    sett.box(8,6+20*((sett.my-8) div 20),392,20,skintextcolor);
+    sett.outtextxy(8,8+20*((sett.my-8) div 20),skins[(sett.my-8) div 20],skintextcolor-8);
+    end;
+
+
+  if (sett.selected) then
+    if (sett.my<8+20*ii) and (sett.my>8) and dblclick then
+    begin
+    skindir:=sdir+skins[(sett.my-8) div 20]+'\';
+    fh:=fileopen(skindir+'cbuttons.rbm',$40);
+    fileread(fh,cbuttons^,72*272);
+    fileclose(fh);
+    fh:=fileopen(skindir+'posbar.rbm',$40);
+    fileread(fh,posbar^,614*20);
+    fileclose(fh);
+    fh:=fileopen(skindir+'titlebar.rbm',$40);
+    fileread(fh,titlebar^,174*688);
+    fileclose(fh);
+    fh:=fileopen(skindir+'main.rbm',$40);
+    fileread(fh,baseskin^,127600);
+    fileclose(fh);
+    fh:=fileopen(skindir+'nums_ex.rbm',$40);
+    fileread(fh,numbers^,26*216);
+    fileclose(fh);
+    fh:=fileopen(skindir+'volume.rbm',$40);
+    il:=fileread(fh,volume^,866*136);
+    if il<866*136 then sliders:=false else sliders:=true;
+    fileclose(fh);
+    fh:=fileopen(skindir+'shufrep.rbm',$40);
+    fileread(fh,shufrep^,170*184);
+    fileclose(fh);
+    fh:=fileopen(skindir+'monoster.rbm',$40);
+    fileread(fh,monoster^,48*116);
+    fileclose(fh);
+    fh:=fileopen(skindir+'playpaus.rbm',$40);
+    fileread(fh,playpaus^,84*18);
+    fileclose(fh);
+    fh:=fileopen(skindir+'eqmain.rbm',$40);
+    fileread(fh,eqmain^,550*630);
+    fileclose(fh);
+    fh:=fileopen(skindir+'pledit.rbm',$40);
+    fileread(fh,pledit^,560*372);
+    fileclose(fh);
+    if fileexists(skindir+'balance.rbm') then
+      begin
+      if balance=nil then balance:=getmem(866*136);
+      fh:=fileopen(skindir+'balance.rbm',$40);
+      fileread(fh,balance^,866*136);
+      fileclose(fh);
+      end
+    else
+      if balance<>nil then
+        begin
+        freemem(balance);
+        balance:=nil;
+        end;
+
+    try
+      assignfile(fh2,skindir+'color.txt');
+      reset(fh2);
+      read(fh2,skintextcolor);
+      closefile(fh2);
+    except
+      skintextcolor:=200;
+    end;
+
+  // Draw the skin
+
+    blit8(integer(baseskin),0,0,integer(pl.canvas),0,0,550,232,550,550);     // base
+    blit8(integer(titlebar),56,0,integer(pl.canvas),2,0,546,28,688,550);     // title bar
+    blit8(integer(titlebar),658,92,integer(pl.canvas),22,48,16,80,688,550);  // OAIDV
+    blit8(integer(playpaus),0,0,integer(pl.canvas),52,56,18,18,84,550);      // PLAY sign
+    blit8(integer(playpaus),72,0,integer(pl.canvas),48,56,6,18,84,550);      // PLAY sign
+    blit8(integer(cbuttons),0,0,integer(pl.canvas),32,176,228,36,272,550);   // transport buttons
+    blit8(integer(cbuttons),230,0,integer(pl.canvas),272,178,42,32,272,550); // eject button
+    blit8(integer(volume),0,810,integer(pl.canvas),214,114,136,26,136,550);  // volume bar
+    if balance=nil then
+      begin
+      blit8(integer(volume),0,0,integer(pl.canvas),352,114,38,26,136,550);     // balance bar left
+      blit8(integer(volume),98,0,integer(pl.canvas),390,114,38,26,136,550);    // balance bar right
+      end
+    else
+      begin
+      blit8(integer(balance),18,0,integer(pl.canvas),352,114,76,26,136,550);     // balance bar left
+      end;
+
+    if sliders then blit8(integer(volume),30,844,integer(pl.canvas),volume_pos,116,28,22,136,550);  // volume slider
+    if sliders then blit8(integer(volume),30,844,integer(pl.canvas),balance_pos,116,28,22,136,550);  // balance slider
+    blit8(integer(shufrep),56,0,integer(pl.canvas),328,178,90,30,184,550);   // shuffle button
+    blit8(integer(shufrep),0,0,integer(pl.canvas),418,178,54,30,184,550);    // rep button
+    blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,46,24,184,550);  // eq button
+    blit8(integer(shufrep),46,122,integer(pl.canvas),484,116,46,24,184,550); // pl button
+    blit8(integer(monoster),58,24,integer(pl.canvas),424,82,58,24,116,550);  // green stereo
+    blit8(integer(monoster),0,0,integer(pl.canvas),478,82,58,24,116,550);    // gray mono
+
+    blit8(integer(baseskin),44,84,integer(visarea),0,0,158,34,550,158);
+    if list<>nil then
+      begin
+      playlistdrawdecoration(list.l,list.h);
+      playlistitem.draw;
+      end;
+    cnt:=0;
+    sett.cls(0);
+    for j:=0 to ii-1 do sett.outtextxy(8,8+20*j,skins[j],skintextcolor);
+    sett.box(8,6+20*((sett.my-8) div 20),392,20,skintextcolor);
+    sett.outtextxy(8,8+20*((sett.my-8) div 20),skins[(sett.my-8) div 20],skintextcolor-8);
+
+
+
+    end;
+
+
+until sett.needclose or terminated;
+setlength(skins,0);
+sett.destroy;
+sett:=nil;
+end;
+
 
 // ---- TFileBuffer thread methods --------------------------------------------------
 

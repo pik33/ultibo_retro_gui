@@ -255,6 +255,9 @@ begin
 Entry:=PageTableGetEntry(addr);
 Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
+Entry:=PageTableGetEntry(addr+4096);
+Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
+PageTableSetEntry(Entry);
 end;
 
 //------------------------------------------------------------------------------
