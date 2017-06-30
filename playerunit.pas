@@ -193,6 +193,9 @@ var pl:TWindow=nil;
 
     desired, obtained:TAudioSpec;
     skintextcolor:integer=200;
+    skinbackcolor:integer=0;
+    maintextcolor:integer=200;
+    mainbackcolor:integer=0;
     countfilename:string;
         skindir:string;
         sdir:string;
@@ -204,7 +207,6 @@ procedure start_sprites;
 procedure vis_sprites;
 procedure prepare_sprites;
 procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
-
 
 implementation
 
@@ -265,36 +267,33 @@ repeat
               ((mp3buf[0]=$F2) and (mp3buf[1]=$FF)) or
                 ((mp3buf[0]=$FC) and (mp3buf[1]=$FF)) or
                    ((mp3buf[0]=$FD) and (mp3buf[1]=$FF));
-//       box(200,200,300,300,40);
+
     end;
 
   if (mp3buf[0]=$FA) or (mp3buf[0]=$F2) or (mp3buf[0]=$FC) then crc:=2 else crc:=0;
   if (mp3buf[0]=$F3) or (mp3buf[0]=$F2) then lll:=72 else lll:=144;
   if (mp3buf[0]=$FC) or (mp3buf[0]=$FD) then layer:=2 else layer:=3;
-//   box(0,00,100,100,0); outtextxy(0,0,inttostr(layer),15);
+
   if il=0 then goto p999;
   il:=fileread(infofh,mp3buf,2);
 
   if (layer=3) and (lll=144) then bitrate:=bitrates[mp3buf[0] shr 4]
     else if (layer=3) and (lll=72) then bitrate:=bitrates2[mp3buf[0] shr 4]
       else bitrate:=bitrates22[mp3buf[0] shr 4];  //layer 2
-//   outtextxy(0,16,inttostr(q)+' '+inttohex(mp3buf[0],2)+' '+inttostr(bitrate)+' '+inttostr(il),15);
+
   if lll=144 then samplerate:=freqs[(mp3buf[0] and $0C) shr 2] else samplerate:=freqs2[(mp3buf[0] and $0C) shr 2];
   if (mp3buf[1] shr 6)=3 then channels:=1 else channels:=2;
   if (mp3buf[0] and 2)=2 then padding:=1 else padding:=0;
   len:=crc+padding+trunc((lll*bitrate*1000)/samplerate);
   fs:=fileseek(infofh,len-4,fsfromcurrent);
- // box(0,200,100,100,0); outtextxy(0,200,inttostr(i),15); outtextxy(0,216,inttostr(bitrate),15);outtextxy(0,232,inttostr(samplerate),15); outtextxy(0,248,inttostr(err),15);
+
 until (il<>2) or (fs<0);
 p999:
 result:=i;
 t:=gettime-t;
-box(0,00,100,100,0); outtextxy(0,0,inttostr(i)+' '+inttostr(t),15);
+
 fileclose(infofh);
 end;
-
-
-
 
 
 procedure waveopen (var fh:integer);
@@ -389,61 +388,16 @@ repeat q+=1; mp3buf[1]:=mp3buf[0]; il:=fileread(fh,mp3buf,1) until
 fileseek(fh,q-2,fsfrombeginning);
 
 
-
-//begin
-//  repeat q+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until ((mp3buf[0]=$FB) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$F3) and (mp3buf[1]=$FF)) or ((mp3buf[0]=$FA) and (mp3buf[1]=$FF));
-//  fileseek(fh,q-2,fsfrombeginning);
-  fileread(fh,mp3buf,4);
-  samplerate:=freqs[(mp3buf[2] and $0C) shr 2];
-//  box(0,100,100,100,0); outtextxy(0,100,inttohex(mp3buf[0],2)+' '+  inttohex(mp3buf[1],2)+' '+  inttohex(mp3buf[2],2)+' '+  inttohex(mp3buf[3],2)+' '+inttostr(samplerate),15);
-  if (mp3buf[3] shr 6)=3 then channels:=1 else channels:=2;
-  if mp3buf[1]=$F3 then samplerate:=samplerate div 2;
-  q:=-4;
-  fileseek(fh,q,fsfromcurrent);
-//  end;
+fileread(fh,mp3buf,4);
+samplerate:=freqs[(mp3buf[2] and $0C) shr 2];
+if (mp3buf[3] shr 6)=3 then channels:=1 else channels:=2;
+if mp3buf[1]=$F3 then samplerate:=samplerate div 2;
+q:=-4;
+fileseek(fh,q,fsfromcurrent);
 result:=samplerate;
-
-// visualize wave data
-
-//fi.box(0,0,600,600,15);
-//fi.outtextxy (10,10 ,'type:           mp3',177);
-//fi.outtextxy (10,30 ,   'channels:     '+inttostr(head.channels),177);
-//fi.outtextxy (10,50 ,   'sample rate:  '+inttostr(head.srate),177);
 end;
 
-{
-procedure mp3open (var fh:integer);
 
-label p999;
-
-var
-    il2:integer;
-    skip:integer;
-
-
-begin
-fileseek(fh,0,fsfrombeginning);
-fileread(fh,mp3buf,10);
-if (mp3buf[0]=ord('I')) and (mp3buf[1]=ord('D')) and (mp3buf[2]=ord('3')) then // Skip ID3
-  begin
-  skip:=(mp3buf[6] shl 21) + (mp3buf[7] shl 14) + (mp3buf[8] shl 7) + mp3buf[9]+10;
-  end
-else skip:=0;
-fileseek(fh,skip,fsfrombeginning);
-if skip>0 then begin
-  repeat skip+=1; mp3buf[1]:=mp3buf[0]; fileread(fh,mp3buf,1) until (mp3buf[0]=$FB) and (mp3buf[1]=$FF);
-  fileseek(fh,skip-2,fsfrombeginning);
-  end;
-
-
-// visualize wave data
-
-//fi.box(0,0,600,600,15);
-//fi.outtextxy (10,10 ,'type:           mp3',177);
-//fi.outtextxy (10,30 ,   'channels:     '+inttostr(head.channels),177);
-//fi.outtextxy (10,50 ,   'sample rate:  '+inttostr(head.srate),177);
-end;
-}
 procedure sidopen (var fh:integer);
 
 var i:integer;
@@ -507,9 +461,6 @@ jsr6502(song,init);
 cia:=read6502($dc04)+256*read6502($dc05);
 //fi.outtextxy (10,270,'cia:       '+inttohex(read6502($dc04)+256*read6502($dc05),4),178);
 end;
-
-
-
 
 
 //------------------------------------------------------------------------------
@@ -606,7 +557,6 @@ else if key=key_rightarrow then
    if abs(SA_GetCurrentFreq-44100)<200 then filebuffer.seek(1760000)
    else filebuffer.seek(7680000);
    end
-
 
 else if key=ord('f') then  // set 432 Hz
   begin
@@ -707,11 +657,11 @@ else if playfilename<>'' then //  key=key_enter then
 //         fi.outtextxy(10,10,'type: RSID, not yet supported',44);
     fileclose(sfh);
     end
-  else if ext='mp3' then //copy(fn,length(fn)-2,3)='mp3' then
+  else if (ext='mp3') or (ext='mp2') then
     begin
     filetype:=4;
     sr:=mp3open(sfh);
-        sleep(20);
+    sleep(20);
     filebuffer.setmp3(1);
     sleep(50);
     for i:=0 to 15 do times6502[i]:=0;
@@ -736,33 +686,6 @@ else if playfilename<>'' then //  key=key_enter then
     pauseaudio(0);
     end
 
-   else if {copy(fn,length(fn)-2,3)}ext='mp2' then
-    begin
-    fileseek(sfh,0,fsfrombeginning);
-
-    filetype:=5;
-    filebuffer.setmp3(2);
-    sleep(50);
-    for i:=0 to 15 do times6502[i]:=0;
-    filebuffer.setfile(sfh);
-    sleep(300);
-    songs:=0;
-
-    siddelay:=8707 ;
-             if a1base=432 then error:=SA_changeparams(43298,16,2,384)
-                 else error:=SA_changeparams(44100,16,2,384);
-
-//      fi.box(0,0,600,600,15);
-//       fi.outtextxy(10,10,'type: MP2',178);
-    pauseaudio(0);
-    end
-
-{    else if (copy(fn,length(fn)-2,3)='mod')
-                 or (copy(fn,length(fn)-2,3)='s3m')
-                 or (copy(fn,length(fn)-1,2)='xm')
-                 or (copy(fn,length(fn)-1,2)='it')
-                 then
-}
    else if (ext='mod')
                  or (ext='s3m')
                  or (ext='xm')
@@ -779,30 +702,24 @@ else if playfilename<>'' then //  key=key_enter then
       xmp_free_context(xmp_context);
       end;
 
-
     xmp_context:=xmp_create_context;
     if a1base=432 then error:=SA_changeparams(48258,16,2,384)
                   else error:=SA_changeparams(49152,16,2,384);
     siddelay:=7812;
     filetype:=6;
-
-
     i:=xmp_load_module(xmp_context,Pchar(fn));
-
-            xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
-          xmp_set_player(xmp_context,xmp_player_mix,50);
     if i<>0 then
       begin
-     xmp_free_context(xmp_context);
-           goto p102;
+      xmp_free_context(xmp_context);
+      goto p102;
       end;
     i:= xmp_start_player(xmp_context,49152,34);
-      xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
-      xmp_set_player(xmp_context,xmp_player_mix,50);
+    xmp_set_player(xmp_context,xmp_player_interp,xmp_interp_spline);
+    xmp_set_player(xmp_context,xmp_player_mix,30);
 
     if i<>0 then
       begin
-                 xmp_release_module(xmp_context);
+      xmp_release_module(xmp_context);
       xmp_free_context(xmp_context);
       goto p102;
       end;
@@ -990,7 +907,7 @@ pl.resizable:=false;
 pl.move(400,500,550,232,0,0);
 
 // If the skin is not loaded, load it
-skindir:=drive+'Colors\Bitmaps\Player\xmms\';
+skindir:=drive+'Colors\Bitmaps\Player\Base\';
 
 if cbuttons=nil then
   begin
@@ -1132,7 +1049,9 @@ if visarea=nil then
 // initialize volume button position
 
 vbutton_x:=318;
-bbutton_x:=378;
+volume_pos:=318;
+bbutton_x:=376;
+balance_pos:=376;
 
 // The player main loop
 
@@ -1582,12 +1501,12 @@ if sel1<>nil then
     qqq:=(cnt div 12) mod (qq+9)+1;
     s1:=copy(s1,qqq,38);
     end;
-  if pl<>nil then begin pl.box(222,52,304,16,0); pl.outtextxy(222,52,s1,skintextcolor); end;
-  if pl<>nil then pl.box(220,84,32,16,0);
-  if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,skintextcolor);
+  if pl<>nil then begin pl.box(222,54,304,14,mainbackcolor); pl.outtextxy(220,54,s1,maintextcolor); end;
+  if pl<>nil then pl.box(220,84,32,16,mainbackcolor);
+  if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,maintextcolor);
   s2:=inttostr((SA_getcurrentfreq) div 1000);
-  if pl<>nil then pl.box(309,84,24,16,0);
-  if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,skintextcolor);
+  if pl<>nil then pl.box(309,84,24,16,mainbackcolor);
+  if pl<>nil then pl.outtextxy(333-8*length(s2),84,s2,maintextcolor);
 
   if (nextsong=1) then
     begin
@@ -2156,7 +2075,7 @@ for i:=0 to bottom_gap_n do
 blit8(integer(pledit),0,144,integer(list.canvas),0,ay-76,250,76,560,800);
 blit8(integer(pledit),252,144,integer(list.canvas),ax-300,ay-76,300,76,560,800);
 
-list.box(28,40,ax-76,ay-116,0);
+list.box(24,40,ax-64,ay-116,skinbackcolor);
 end;
 
 constructor TPlaylistThread.Create;
@@ -2362,9 +2281,12 @@ if playlistitem.granny<>nil then
 
     temp:=playlistitem;
     while (temp.next<>nil) and not temp.selected do temp:=temp.next;
-    if temp.selected then begin playfilename:=temp.item;     mp3check(temp.item);   end;
-    player_item:=temp;
-
+    if temp.selected then
+      begin
+      playfilename:=temp.item;
+      // mp3check(temp.item);   end;
+      player_item:=temp;
+      end;
     end;
   end;
 result:=needredraw;
@@ -2385,11 +2307,11 @@ while temp.next<>nil do
     if temp.selected then
       begin
       granny.box(temp.x-1,temp.y-2,granny.l-78,10,skintextcolor);
-      granny.outtextxy8(temp.x,temp.y,temp.name,0);
+      granny.outtextxy8(temp.x,temp.y,temp.name,skinbackcolor);
       end
     else
       begin
-      granny.box(temp.x-1,temp.y-2,granny.l-78,10,0);
+      granny.box(temp.x-1,temp.y-2,granny.l-78,10,skinbackcolor);
       granny.outtextxy8(temp.x,temp.y,temp.name,skintextcolor);
       end;
     end;
@@ -2549,10 +2471,16 @@ repeat
     try
       assignfile(fh2,skindir+'color.txt');
       reset(fh2);
-      read(fh2,skintextcolor);
+      readln(fh2,skintextcolor);
+      readln(fh2,skinbackcolor);
+      readln(fh2,maintextcolor);
+      readln(fh2,mainbackcolor);
       closefile(fh2);
     except
       skintextcolor:=200;
+      skinbackcolor:=0;
+      maintextcolor:=200;
+      mainbackcolor:=0;
     end;
 
   // Draw the skin
@@ -2595,11 +2523,7 @@ repeat
     for j:=0 to ii-1 do sett.outtextxy(8,8+20*j,skins[j],skintextcolor);
     sett.box(8,6+20*((sett.my-8) div 20),392,20,skintextcolor);
     sett.outtextxy(8,8+20*((sett.my-8) div 20),skins[(sett.my-8) div 20],skintextcolor-8);
-
-
-
     end;
-
 
 until sett.needclose or terminated;
 setlength(skins,0);
