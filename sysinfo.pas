@@ -117,8 +117,8 @@ si.outtextxy(10,172,'A4 base frequency: ',157);
 si.outtextxy(206,172, inttostr(a1base)+' Hz',157);
 
 
-s1:=inttostr(-vol123);
-if vol123<73 then s1:=inttostr(-vol123) else s1:='Mute' ;
+s1:=inttostr(round(getdbvolume));
+if (round(getdbvolume)<-72) then s1:='Mute' ;
 l1:=8*length(s1);
 if l1<32 then s1:=s1+' dB';
 si.outtextxy(10,192,'Volume: ',157);
@@ -129,9 +129,8 @@ si.outtextxy(222,212,inttostr(mousetype),157);
 
 si.outtextxy(10,232,'SID waveforms:',157);
 si.outtextxy(10,252,'Windows time: ',157);
-si.outtextxy(10,272,inttohex(debug1,8),157);
-si.outtextxy(90,272,inttohex(debug2,8),157);
-si.outtextxy(170,272,inttohex(debug3,8),157);
+si.outtextxy(10,272,inttostr(et),157);
+
 
 
 s1:=inttostr(wt);

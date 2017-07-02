@@ -1501,7 +1501,7 @@ if sel1<>nil then
     qqq:=(cnt div 12) mod (qq+9)+1;
     s1:=copy(s1,qqq,38);
     end;
-  if pl<>nil then begin pl.box(222,54,304,14,mainbackcolor); pl.outtextxy(220,54,s1,maintextcolor); end;
+  if pl<>nil then begin pl.box(222,52,304,18,mainbackcolor); pl.outtextxy(222,52,s1,maintextcolor); end; //  218,52
   if pl<>nil then pl.box(220,84,32,16,mainbackcolor);
   if pl<>nil then pl.outtextxy(252-8*length(s2),84,s2,maintextcolor);
   s2:=inttostr((SA_getcurrentfreq) div 1000);
