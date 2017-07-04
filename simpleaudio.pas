@@ -107,7 +107,7 @@ et:int64;
 eq_preamp:integer=0;
 eq:array[0..9] of integer=(0,0,0,0,0,0,0,0,0,0);
 eqdbtable:array[-12..12] of integer=(256,288,323,363,408,458,513,579,646,725,814,914,1024,1150,1292,1450,1628,1828,2051,2302,2583,2900,3253,3651,4096);
-equalizer_active:boolean=true;
+equalizer_active:boolean=false;
 
 //------------------ End of Interface ------------------------------------------
 
@@ -1208,8 +1208,8 @@ p101:           mov r0,#0
                 smull r2,r10,r5,r10
                 smull r2,r12,r5,r12
 
-                lsl r10,#2
-                lsl r12,#2
+                lsl r10,#3
+                lsl r12,#3
 
                 cmp r10,#0x8000000
                 movge r10,#0x8000000
@@ -1356,7 +1356,7 @@ oversample1(bufaddr,outbuf,oversample,len);
 len2:=len*oversample;
 et2:=gettime;
 if equalizer_active then equalizer(outbuf,len2);
- et:=gettime-et2;
+et:=gettime-et2;
 
                  asm
                  push {r0-r10,r12,r14}

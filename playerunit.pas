@@ -2412,9 +2412,11 @@ var i:integer;
     epbutton_dy:array[0..9] of integer;
     epq:array[0..9] of integer;
     eq_pos:array[0..9] of integer;
+    clickcount:integer=0;
 
 const pbutton_y:integer=0;
       pbutton_dy:integer=0;
+      eqon_down:boolean=false;
 
 
 
@@ -2425,8 +2427,8 @@ blit8(integer(eqmain),0,268,integer(eq.canvas),0,0,550,28,550,550);
 blit8(integer(eqmain),20,238,integer(eq.canvas),28,36,50,24,550,550);   //on
 blit8(integer(eqmain),72,238,integer(eq.canvas),80,36,64,24,550,550);   //auto
 blit8(integer(eqmain),448,328,integer(eq.canvas),434,36,88,24,550,550);   //preset
-blit8(integer(eqmain),26,458,integer(eq.canvas),42,76,28,128,550,550);   //yellow back
-for i:=0 to 9 do blit8(integer(eqmain),26,458,integer(eq.canvas),156+36*i,76,28,128,550,550);
+blit8(integer(eqmain),26,458,integer(eq.canvas),42,76,28,126,550,550);   //yellow back
+for i:=0 to 9 do blit8(integer(eqmain),26,458,integer(eq.canvas),156+36*i,76,28,126,550,550);
 if sliders then for i:=0 to 9 do blit8(integer(eqmain),0,328,integer(eq.canvas),158+36*i,127,22,22,550,550);
 if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),44,127,22,22,550,550);
 
@@ -2440,9 +2442,26 @@ eq.move(pl.x,pl.y+232,550,232,0,0);
 
 repeat
   repeat sleep(2) until eq.redraw;
+  clickcount+=1;
   eq.redraw:=false;
   if mousek=0 then
     begin
+
+    if eqon_down then
+      begin
+      if not(equalizer_active) then
+        begin
+         equalizer_active:=true;
+         blit8(integer(eqmain),138,238,integer(eq.canvas),28,36,50,24,550,550);
+         end
+      else
+        begin
+        equalizer_active:=false ;
+        blit8(integer(eqmain),20,238,integer(eq.canvas),28,36,50,24,550,550);
+        end;
+      eqon_down:=false;
+      end;
+
 
     if pbutton_dy<>0 then
       begin
@@ -2450,8 +2469,8 @@ repeat
       if pbutton_y>178 then pbutton_y:=178;
       if pbutton_y<76 then pbutton_y:=76;
       preamp_pos:=pbutton_y;
-      if pq<=127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,128,550,550)
-      else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,128,550,550);
+      if pq<=127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,126,550,550)
+      else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,126,550,550);
       if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),44,pq,22,22,550,550);
       end;
     pbutton_dy:=0;
@@ -2466,8 +2485,8 @@ repeat
         if epbutton_y[i]<76 then epbutton_y[i]:=76;
         eq_pos[i]:=epbutton_y[i];
 
-        if epq[i]<=127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,128,550,550)
-        else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,128,550,550);
+        if epq[i]<=127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,126,550,550)
+        else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,126,550,550);
         if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),158+36*i,epq[i],22,22,550,550);
         end;
       epbutton_dy[i]:=0;
@@ -2477,7 +2496,13 @@ repeat
 
 
 
-
+  if (eq.mx>28) and (eq.mx<78) and (eq.my>36) and (eq.my<60) and (mousek=1) and (clickcount>30) and not eqon_down and (eq.selected) then
+    begin
+    if equalizer_active then  blit8(integer(eqmain),374,238,integer(eq.canvas),28,36,50,24,550,550)
+    else blit8(integer(eqmain),256,238,integer(eq.canvas),28,36,50,24,550,550);
+    eqon_down:=true;
+    clickcount:=0;
+    end;
 
 
 // preamp button/slider change if mouse drag
@@ -2492,8 +2517,8 @@ repeat
   if pq>178 then pq:=178;
   if ((mousey-eq.y-pbutton_dy)>0) and ((mousey-eq.y-pbutton_dy)<232) and (mousek=1) and (pbutton_dy<>0) and (eq.selected) then
     begin
-    if pq<127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,128,550,550)
-    else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,128,550,550);
+    if pq<127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,126,550,550)
+    else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,126,550,550);
     if sliders then blit8(integer(eqmain),0,352,integer(eq.canvas),44,pq,22,22,550,550);
         SA_setEQpreamp((127-epq[i]) div 4);
     end;
@@ -2512,8 +2537,8 @@ repeat
     if epq[i]>178 then epq[i]:=178;
     if ((mousey-eq.y-epbutton_dy[i])>0) and ((mousey-eq.y-epbutton_dy[i])<232) and (mousek=1) and (epbutton_dy[i]<>0) and (eq.selected) then
       begin
-      if epq[i]<127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,128,550,550)
-      else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,128,550,550);
+      if epq[i]<127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,126,550,550)
+      else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,126,550,550);
       if sliders then blit8(integer(eqmain),0,352,integer(eq.canvas),158+36*i,epq[i],22,22,550,550);
       SA_setEQ(i,(127-epq[i]) div 4);
 
