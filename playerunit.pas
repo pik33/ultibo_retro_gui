@@ -57,6 +57,14 @@ type TPlayerThread=class (TThread)
        Constructor Create;
      end;
 
+     TEqualizerThread= class(TThread)
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create;
+     end;
+
      TCountThread= class(TThread)
      private
      protected
@@ -134,6 +142,7 @@ var pl:TWindow=nil;
     fi:TWindow=nil;
     list:TWindow=nil;
     sett:TWindow=nil;
+    eq:TWindow=nil;
     spritebutton:TButton;
     oscilloscopebutton:TButton;
 
@@ -155,6 +164,7 @@ var pl:TWindow=nil;
     oscilloscope:TOscilloscope=nil;
     visualization:TVisualization=nil;
     playlistthread:Tplaylistthread=nil;
+    eqthread:TEqualizerThread=nil;
     settings:TSettings=nil;
 
     sel1:TFileselector=nil;
@@ -853,6 +863,9 @@ var fh,i,j,hh,mm,ss,sl1,sl2:integer;
     repeat_selected:boolean=false;
     shuffle_selected:boolean=false;
     playlist_selected:boolean=false;
+    equalizer_down:boolean=false;
+    equalizer_selected:boolean=false;
+
     fh2:textfile;
     q,vq:integer;
     il:integer;
@@ -1115,6 +1128,23 @@ repeat
     else blit8(integer(shufrep),0,0,integer(pl.canvas),418,178,54,30,184,550);
     repeat_down:=false; end;
 
+  if equalizer_down then begin
+    if (eq=nil) then
+      begin
+      eqthread:=Tequalizerthread.create;
+      eqthread.start;
+      sleep(100);
+      blit8(integer(shufrep),0,146,integer(pl.canvas),438,116,46,24,184,550)
+      end
+    else
+      begin
+      eqthread.terminate;
+      blit8(integer(shufrep),0,122,integer(pl.canvas),438,116,46,24,184,550);;
+      end;
+    equalizer_down:=false;
+    end;
+
+
   if playlist_down then begin
     if (list=nil) then
       begin
@@ -1361,6 +1391,14 @@ if (pl.mx>484) and (pl.mx<528) and (pl.my>116) and (pl.my<138) and (mousek=1) an
   if list<>nil then blit8(integer(shufrep),138,146,integer(pl.canvas),484,116,46,24,184,550)
   else blit8(integer(shufrep),138,122,integer(pl.canvas),484,116,46,24,184,550);
   playlist_down:=true;
+  clickcount:=0;
+  end;
+
+if (pl.mx>438) and (pl.mx<482) and (pl.my>116) and (pl.my<138) and (mousek=1) and (clickcount>60) and not equalizer_down and (pl.selected) then
+  begin
+  if list<>nil then blit8(integer(shufrep),92,146,integer(pl.canvas),438,116,46,24,184,550)
+  else blit8(integer(shufrep),92,122,integer(pl.canvas),438,116,46,24,184,550);
+  equalizer_down:=true;
   clickcount:=0;
   end;
 
@@ -2169,7 +2207,7 @@ if (mousek=1) and (list.selected) and (list.mx>list.l-40) and (list.mx<list.l) a
 if (mousek=1) and (state=1) then
   begin
   dx:=mousex-list.x+dmx; if dx>800 then dx:=800;  if dx<550 then dx:=550;
-  dy:=mousey-list.y+dmy; if dy<223 then dy:=223;
+  dy:=mousey-list.y+dmy; if dy<232 then dy:=232;
   list.move(-2048,-2048,dx,dy,0,0);
   playlistdrawdecoration(dx,dy);     //550,464
   playlistitem.draw;
@@ -2356,6 +2394,137 @@ begin
   if countfilename<>'' then mp3check(countfilename);
   countfilename:='';
   until terminated;
+end;
+
+constructor TEqualizerThread.Create;
+
+begin
+FreeOnTerminate := True;
+inherited Create(true);
+end;
+
+procedure TEqualizerThread.execute;
+
+var i:integer;
+    pq:integer;
+    preamp_pos:integer;
+    epbutton_y:array[0..9] of integer;
+    epbutton_dy:array[0..9] of integer;
+    epq:array[0..9] of integer;
+    eq_pos:array[0..9] of integer;
+
+const pbutton_y:integer=0;
+      pbutton_dy:integer=0;
+
+
+
+begin
+eq:=TWindow.create(550,232,'');
+blit8(integer(eqmain),0,0,integer(eq.canvas),0,0,550,232,550,550);
+blit8(integer(eqmain),0,268,integer(eq.canvas),0,0,550,28,550,550);
+blit8(integer(eqmain),20,238,integer(eq.canvas),28,36,50,24,550,550);   //on
+blit8(integer(eqmain),72,238,integer(eq.canvas),80,36,64,24,550,550);   //auto
+blit8(integer(eqmain),448,328,integer(eq.canvas),434,36,88,24,550,550);   //preset
+blit8(integer(eqmain),26,458,integer(eq.canvas),42,76,28,128,550,550);   //yellow back
+for i:=0 to 9 do blit8(integer(eqmain),26,458,integer(eq.canvas),156+36*i,76,28,128,550,550);
+if sliders then for i:=0 to 9 do blit8(integer(eqmain),0,328,integer(eq.canvas),158+36*i,127,22,22,550,550);
+if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),44,127,22,22,550,550);
+
+pbutton_y:=127;
+for i:=0 to 9 do epbutton_y[i]:=127;
+for i:=0 to 9 do epbutton_dy[i]:=0;
+for i:=0 to 9 do eq_pos[i]:=127;
+preamp_pos:=127;
+
+eq.move(pl.x,pl.y+232,550,232,0,0);
+
+repeat
+  repeat sleep(2) until eq.redraw;
+  eq.redraw:=false;
+  if mousek=0 then
+    begin
+
+    if pbutton_dy<>0 then
+      begin
+      pbutton_y:=mousey-eq.y-pbutton_dy;
+      if pbutton_y>178 then pbutton_y:=178;
+      if pbutton_y<76 then pbutton_y:=76;
+      preamp_pos:=pbutton_y;
+      if pq<=127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,128,550,550)
+      else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,128,550,550);
+      if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),44,pq,22,22,550,550);
+      end;
+    pbutton_dy:=0;
+
+
+    for i:=0 to 9 do
+      begin
+      if epbutton_dy[i]<>0 then
+        begin
+        epbutton_y[i]:=mousey-eq.y-epbutton_dy[i];
+        if epbutton_y[i]>178 then epbutton_y[i]:=178;
+        if epbutton_y[i]<76 then epbutton_y[i]:=76;
+        eq_pos[i]:=epbutton_y[i];
+
+        if epq[i]<=127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,128,550,550)
+        else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,128,550,550);
+        if sliders then blit8(integer(eqmain),0,328,integer(eq.canvas),158+36*i,epq[i],22,22,550,550);
+        end;
+      epbutton_dy[i]:=0;
+      end;
+
+    end;
+
+
+
+
+
+
+// preamp button/slider change if mouse drag
+
+  if (eq.my>pbutton_y) and (eq.my<pbutton_y+28) and (eq.mx>44) and (eq.mx<66) and (mousek=1) and (pbutton_dy=0) and (eq.selected) then
+    begin
+    pbutton_dy:=eq.my-pbutton_y;
+    end;
+
+  pq:=mousey-eq.y-pbutton_dy;
+  if pq<76 then pq:=76;
+  if pq>178 then pq:=178;
+  if ((mousey-eq.y-pbutton_dy)>0) and ((mousey-eq.y-pbutton_dy)<232) and (mousek=1) and (pbutton_dy<>0) and (eq.selected) then
+    begin
+    if pq<127 then blit8(integer(eqmain),26+30*((127-pq) div 4),458,integer(eq.canvas),42,76,28,128,550,550)
+    else blit8(integer(eqmain),56+30*((178-pq) div 4),328,integer(eq.canvas),42,76,28,128,550,550);
+    if sliders then blit8(integer(eqmain),0,352,integer(eq.canvas),44,pq,22,22,550,550);
+        SA_setEQpreamp((127-epq[i]) div 4);
+    end;
+
+  for i:=0 to 9 do
+
+    begin
+
+    if (eq.my>epbutton_y[i]) and (eq.my<epbutton_y[i]+28) and (eq.mx>158+36*i) and (eq.mx<180+36*i) and (mousek=1) and (epbutton_dy[i]=0) and (eq.selected) then
+      begin
+      epbutton_dy[i]:=eq.my-epbutton_y[i];
+      end;
+
+    epq[i]:=mousey-eq.y-epbutton_dy[i];
+    if epq[i]<76 then epq[i]:=76;
+    if epq[i]>178 then epq[i]:=178;
+    if ((mousey-eq.y-epbutton_dy[i])>0) and ((mousey-eq.y-epbutton_dy[i])<232) and (mousek=1) and (epbutton_dy[i]<>0) and (eq.selected) then
+      begin
+      if epq[i]<127 then blit8(integer(eqmain),26+30*((127-epq[i]) div 4),458,integer(eq.canvas),156+36*i,76,28,128,550,550)
+      else blit8(integer(eqmain),56+30*((178-epq[i]) div 4),328,integer(eq.canvas),156+36*i,76,28,128,550,550);
+      if sliders then blit8(integer(eqmain),0,352,integer(eq.canvas),158+36*i,epq[i],22,22,550,550);
+      SA_setEQ(i,(127-epq[i]) div 4);
+
+      end;
+    end;
+
+
+  until terminated;
+
+eq.destroy;
+eq:=nil;
 end;
 
 constructor TSettings.Create;

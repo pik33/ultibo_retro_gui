@@ -97,15 +97,17 @@ function  SA_OpenAudio(freq,bits,channels,samples:integer; callback: TAudioSpecC
 function  SA_ChangeParams(freq,bits,channels,samples:integer): Integer;
 function  SA_GetCurrentFreq:integer;
 function  SA_GetCurrentRange:integer;
-//function  SA_SetEQ(band,db:integer);
+procedure  SA_SetEQ(band,db:integer);
+procedure  SA_SetEQpreamp(db:integer);
 var
 dmanextcb,
 ctrl1adr,
 ctrl2adr:cardinal;
 et:int64;
-eq:array[0..9] of integer=(12,12,-12,-12,-12,-12,-12,-12,12,12);
+eq_preamp:integer=0;
+eq:array[0..9] of integer=(0,0,0,0,0,0,0,0,0,0);
 eqdbtable:array[-12..12] of integer=(256,288,323,363,408,458,513,579,646,725,814,914,1024,1150,1292,1450,1628,1828,2051,2302,2583,2900,3253,3651,4096);
-
+equalizer_active:boolean=true;
 
 //------------------ End of Interface ------------------------------------------
 
@@ -723,6 +725,7 @@ label p101,p999,  testfreq,
 
 
 var  e1db,e2db,e3db,e4db,e5db,e6db,e7db,e8db,e9db,e10db:integer;
+     preamp:integer;
 
 begin
 e1db:=eqdbtable[eq[0]];
@@ -735,14 +738,14 @@ e7db:=eqdbtable[eq[6]];
 e8db:=eqdbtable[eq[7]];
 e9db:=eqdbtable[eq[8]];
 e10db:=eqdbtable[eq[9]];
-
+preamp:=eqdbtable[eq_preamp];
 
 
 //signed 28bit
 
                 asm
 
-                push {r0-r7}
+                push {r0-r10,r12,r14}
 
                 ldr r7,len
                 //lsr r7,#1
@@ -750,14 +753,17 @@ e10db:=eqdbtable[eq[9]];
 
 
 p101:           mov r0,#0
-                str r0,resl
-                str r0,resr
+                mov r10,#0
+                mov r12,#0
+                ldr r8,[r1],#4
+                sub r8,#0x8000000    //signed  28 bit
+                ldr r9,[r1],#4
+                sub r9,#0x8000000    //signed  28 bit
 
 
 //---- One band pass filter #1
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter1bl
                 ldr r3,filter1ll
                 sub r0,r0,r2,asr #1
@@ -770,18 +776,15 @@ p101:           mov r0,#0
                 str r2,filter1bl
                 str r3,filter1ll
 
-                ldr r5,e1db
-                smull r2,r5,r2,r5
+                ldr r14,e1db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
+                add r10,r2
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+                mov r0,r9            //input
                 ldr r2,filter1br
                 ldr r3,filter1lr
                 sub r0,r0,r2,asr #1
@@ -793,21 +796,18 @@ p101:           mov r0,#0
                 str r2,filter1br
                 str r3,filter1lr
 
-                ldr r5,e1db
-                smull r2,r5,r2,r5
+               // ldr r5,e1db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+                add r12,r2
+
+
 
 //-----------------    #2
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter2bl
                 ldr r3,filter2ll
                 sub r0,r0,r2,asr #1
@@ -820,17 +820,16 @@ p101:           mov r0,#0
                 str r2,filter2bl
                 str r3,filter2ll
 
-                ldr r5,e2db
-                smull r2,r5,r2,r5
+                ldr r14,e2db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                  add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+
+                mov r0,r9            //input
                 ldr r2,filter2br
                 ldr r3,filter2lr
                 sub r0,r0,r2,asr #1
@@ -843,21 +842,18 @@ p101:           mov r0,#0
                 str r3,filter2lr
 
 
-                ldr r5,e2db
-                smull r2,r5,r2,r5
+             //   ldr r5,e2db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+                     add r12,r2
+
+
 
 //-----------------    #3
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter3bl
                 ldr r3,filter3ll
                 sub r0,r0,r2,asr #1
@@ -870,18 +866,17 @@ p101:           mov r0,#0
                 str r2,filter3bl
                 str r3,filter3ll
 
-
-                ldr r5,e3db
-                smull r2,r5,r2,r5
+                ldr r14,e3db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                 add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+
+
+                mov r0,r9            //input
                 ldr r2,filter3br
                 ldr r3,filter3lr
                 sub r0,r0,r2,asr #1
@@ -893,22 +888,17 @@ p101:           mov r0,#0
                 str r2,filter3br
                 str r3,filter3lr
 
-                ldr r5,e3db
-                smull r2,r5,r2,r5
+             // ldr r14,e3db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
+                     add r12,r2
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
 
 //----------------    #4
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter4bl
                 ldr r3,filter4ll
                 sub r0,r0,r2,asr #1
@@ -921,18 +911,16 @@ p101:           mov r0,#0
                 str r2,filter4bl
                 str r3,filter4ll
 
-                ldr r5,e4db
-                smull r2,r5,r2,r5
+                    ldr r14,e4db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
+                   add r10,r2
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+                mov r0,r9            //input
                 ldr r2,filter4br
                 ldr r3,filter4lr
                 sub r0,r0,r2,asr #1
@@ -944,22 +932,18 @@ p101:           mov r0,#0
                 str r2,filter4br
                 str r3,filter4lr
 
-                ldr r5,e4db
-                smull r2,r5,r2,r5
+               // ldr r5,e4db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
+                add r12,r2
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+
 
 //-----------------    #5
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter5bl
                 ldr r3,filter5ll
                 sub r0,r0,r2,asr #1
@@ -972,17 +956,15 @@ p101:           mov r0,#0
                 str r2,filter5bl
                 str r3,filter5ll
 
-                ldr r5,e5db
-                smull r2,r5,r2,r5
+                ldr r14,e5db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                  add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+                mov r0,r9            //input
                 ldr r2,filter5br
                 ldr r3,filter5lr
                 sub r0,r0,r2,asr #1
@@ -994,21 +976,18 @@ p101:           mov r0,#0
                 str r2,filter5br
                 str r3,filter5lr
 
-                ldr r5,e5db
-                smull r2,r5,r2,r5
+             //ldr r5,e5db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+                     add r12,r2
+
+
 
 //----------------    #6
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter6bl
                 ldr r3,filter6ll
                 sub r0,r0,r2,asr #1
@@ -1021,17 +1000,15 @@ p101:           mov r0,#0
                 str r2,filter6bl
                 str r3,filter6ll
 
-                ldr r5,e6db
-                smull r2,r5,r2,r5
+                ldr r14,e6db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+                mov r0,r9            //input
                 ldr r2,filter6br
                 ldr r3,filter6lr
                 sub r0,r0,r2,asr #1
@@ -1043,21 +1020,16 @@ p101:           mov r0,#0
                 str r2,filter6br
                 str r3,filter6lr
 
-                ldr r5,e6db
-                smull r2,r5,r2,r5
+              // ldr r5,e6db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
+               add r12,r2
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
 
 //----------------    #7
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter7bl
                 ldr r3,filter7ll
                 sub r0,r0,r2,asr #1
@@ -1070,17 +1042,16 @@ p101:           mov r0,#0
                 str r2,filter7bl
                 str r3,filter7ll
 
-                ldr r5,e7db
-                smull r2,r5,r2,r5
+                ldr r14,e7db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                  add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+
+                mov r0,r9            //input
                 ldr r2,filter7br
                 ldr r3,filter7lr
                 sub r0,r0,r2,asr #1
@@ -1092,23 +1063,16 @@ p101:           mov r0,#0
                 str r2,filter7br
                 str r3,filter7lr
 
-
-                ldr r5,e7db
-                smull r2,r5,r2,r5
+             //  ldr r5,e7db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
+            add r12,r2
 
-
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
 
 //----------------    #8
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter8bl
                 ldr r3,filter8ll
                 sub r0,r0,r2,asr #1
@@ -1122,17 +1086,15 @@ p101:           mov r0,#0
                 str r3,filter8ll
 
 
-                ldr r5,e8db
-                smull r2,r5,r2,r5
+                ldr r14,e8db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                  add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+                mov r0,r9            //input
                 ldr r2,filter8br
                 ldr r3,filter8lr
                 sub r0,r0,r2,asr #1
@@ -1144,21 +1106,17 @@ p101:           mov r0,#0
                 str r2,filter8br
                 str r3,filter8lr
 
-                ldr r5,e8db
-                smull r2,r5,r2,r5
+             //  ldr r5,e8db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+             add r12,r2
+
 
 //----------------    #9
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter9bl
                 ldr r3,filter9ll
                 sub r0,r0,r2,asr #1
@@ -1171,18 +1129,16 @@ p101:           mov r0,#0
                 str r2,filter9bl
                 str r3,filter9ll
 
-
-                ldr r5,e9db
-                smull r2,r5,r2,r5
+                ldr r14,e9db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+                  add r10,r2
+
+
+                mov r0,r9            //input
                 ldr r2,filter9br
                 ldr r3,filter9lr
                 sub r0,r0,r2,asr #1
@@ -1194,21 +1150,16 @@ p101:           mov r0,#0
                 str r2,filter9br
                 str r3,filter9lr
 
-                ldr r5,e9db
-                smull r2,r5,r2,r5
+              // ldr r5,e9db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
+                         add r12,r2
 
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
 
 //----------------    #10
 
-                sub r1,#8
-
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed  28 bit
+                mov r0,r8       //input
                 ldr r2,filter0bl
                 ldr r3,filter0ll
                 sub r0,r0,r2,asr #1
@@ -1221,17 +1172,15 @@ p101:           mov r0,#0
                 str r2,filter0bl
                 str r3,filter0ll
 
-                ldr r5,e10db
-                smull r2,r5,r2,r5
+                ldr r14,e10db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
 
-                ldr r4,resl
-                add r4,r2
-                str r4,resl
+                add r10,r2
 
-                ldr r0,[r1],#4       //input
-                sub r0,#0x8000000    //signed
+
+                mov r0,r9            //input
                 ldr r2,filter0br
                 ldr r3,filter0lr
                 sub r0,r0,r2,asr #1
@@ -1243,33 +1192,45 @@ p101:           mov r0,#0
                 str r2,filter0br
                 str r3,filter0lr
 
-                ldr r5,e10db
-                smull r2,r5,r2,r5
+             //   ldr r5,e10db
+                smull r2,r5,r2,r14
                 lsr r2,#10
                 orr r2,r2,r5,lsl #22
-
-
-                ldr r4,resr
-                add r4,r2
-                str r4,resr
+                add r12,r2
 
 
 // now the result is 28 bit signed while I need 28 bit unsigned
 
                 sub r1,#8
-                mov r2,#0
-                ldr r2,resl
-                                asr r2,#1
-                add r2,#0x8000000
+
+                ldr r5,preamp
+                lsl r5,#18
+                smull r2,r10,r5,r10
+                smull r2,r12,r5,r12
+
+                lsl r10,#2
+                lsl r12,#2
+
+                cmp r10,#0x8000000
+                movge r10,#0x8000000
+                subge r10,#1
+                cmp r10,#-0x8000000
+                movle r10,#-0x8000000
+                addle r10,#1
+
+                cmp r12,#0x8000000
+                movge r12,#0x8000000
+                subge r12,#1
+                cmp r12,#-0x8000000
+                movle r12,#-0x8000000
+                addle r12,#1
 
 
-                str r2,[r1],#4
-                ldr r2,resr
-                                asr r2,#1
-                add r2,#0x8000000
+                add r10,#0x8000000
+                add r12,#0x8000000
+                str r10,[r1],#4
+                str r12,[r1],#4
 
-                str r2,[r1],#4
-               // add r1,#4
                 subs r7,#1
                 bne p101
 
@@ -1277,16 +1238,16 @@ p101:           mov r0,#0
                 b p999
 
 testfreq:       .long 0x00001000
-e1freq:         .long 0x000D6775//b       //30
-e2freq:         .long 0x001ACEE9//7       //60
-e3freq:         .long 0x00359DD3//f       //120
-e4freq:         .long 0x006B3BA7//1       // 250
-e5freq:         .long 0x00D6774F//2       // 500
-e6freq:         .long 0x01ACEE9F//4       // 1k
-e7freq:         .long 0x0359DD3E//8       // 2k
-e8freq:         .long 0x06B3BA7C//1       // 4k
-e9freq:         .long 0x0D6774F9//2       // 8k
-e10freq:        .long 0x1ACEE9F3//4       // 16k
+e1freq:         .long 0x000D6775       //30
+e2freq:         .long 0x001ACEE9       //60
+e3freq:         .long 0x00359DD3       //120
+e4freq:         .long 0x006B3BA7       //250
+e5freq:         .long 0x00D6774F       //500
+e6freq:         .long 0x01ACEE9F       //1k
+e7freq:         .long 0x0359DD3E       //2k
+e8freq:         .long 0x06B3BA7C       //4k
+e9freq:         .long 0x0D6774F9       //8k
+e10freq:        .long 0x1ACEE9F3       //16k
 
 filter1ll:      .long 0
 filter1lr:      .long 0
@@ -1342,7 +1303,7 @@ resl:           .long 0
 resr:           .long 0
 
 
-p999:            pop {r0-r7}
+p999:            pop {r0-r10,r12,r14}
                 end;
 
 end;
@@ -1367,8 +1328,8 @@ begin
                  ldr r4,[r5],#4         // new input value left
                  ldr r6,[r5],#4         // new input value right
 
-                     asr r4,#2
-                     asr r6,#2
+             //        asr r4,#2
+             //        asr r6,#2
 
  p101:           str r4,[r2],#4
                  str r6,[r2],#4
@@ -1387,15 +1348,15 @@ function noiseshaper8a(bufaddr,outbuf,oversample,len:integer):integer;
 
 label p102,p999,i1l,i1r,i2l,i2r;
 var len2:integer;
-
+     et2:int64;
 // -- rev 20170701
 
 begin
 oversample1(bufaddr,outbuf,oversample,len);
 len2:=len*oversample;
-et:=gettime;
-equalizer(outbuf,len2);
-et:=gettime-et;
+et2:=gettime;
+if equalizer_active then equalizer(outbuf,len2);
+ et:=gettime-et2;
 
                  asm
                  push {r0-r10,r12,r14}
@@ -1448,6 +1409,7 @@ p999:           pop {r0-r10,r12,r14}
                 end;
 
 CleanDataCacheRange(outbuf,$10000);
+
 end;
 
 
@@ -1601,7 +1563,7 @@ var
 begin
 AudioOn:=1;
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_1);
-ThreadSetPriority(ThreadGetCurrent,6);
+ThreadSetPriority(ThreadGetCurrent,7);
 threadsleep(1);
 repeat
   repeat threadsleep(1) until (dma_cs and 2) <>0 ;
@@ -1662,6 +1624,24 @@ function  SA_GetCurrentRange:integer;
 
 begin
 result:=CurrentAudioSpec.range;
+end;
+
+procedure  SA_SetEQ(band,db:integer);
+
+begin
+if band<0 then exit;
+if band>9 then exit;
+if db>12 then db:=12;
+if db<-12 then db:=-12;
+eq[band]:=db;
+end;
+
+procedure  SA_SetEQpreamp(db:integer);
+
+begin
+if db>12 then db:=12;
+if db<-12 then db:=-12;
+eq_preamp:=db;
 end;
 
 end.
