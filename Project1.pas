@@ -60,6 +60,7 @@ var
     oneicon:TIcon ;
     fh,i,j:integer;
     message:TWindow;
+    scr:cardinal;
 
 // ---- procedures
 
@@ -69,8 +70,9 @@ var fh1,fh2,il:integer;
     buf:pbyte;
 
 begin
+// todo --- get rid of unallocated mem at hardcoded constant !!!!
 
-buf:=Pbyte($28000000);
+buf:=Pbyte($21000000);
 fh1:=fileopen(src,$40);
 fh2:=filecreate(dest);
 il:=fileread(fh1,buf^,16000000);
@@ -119,12 +121,12 @@ if t=0 then
 //  DeleteFile(pchar(drive+'kernel7.img'));
 //  RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
 //  end;
-
+scr:=mainscreen+$300000;
 fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
-fileread(fh,pointer($30300000)^,235*300);
+fileread(fh,pointer(scr)^,235*300);
 for i:=0 to 299 do
   for j:=0 to 234 do
-    if (peek($30300000+j+i*235)>15) or (peek($30300000+j+i*235)<5) then poke ($30000000+xres*(i+(yres div 2)-150)+j+(xres div 2) - 117,peek($30300000+j+i*235));
+    if (peek(scr+j+i*235)>15) or (peek(scr+j+i*235)<5) then poke (mainscreen+xres*(i+(yres div 2)-150)+j+(xres div 2) - 117,peek(scr+j+i*235));
 for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 songtime:=0;

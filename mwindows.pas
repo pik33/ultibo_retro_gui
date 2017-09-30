@@ -13,9 +13,9 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils, threads, retro, icons;
+  Classes, SysUtils, threads, retro, icons, retromalina;
 
-const mapbase=$30800000;
+const mapbase=mainscreen+$800000;
       framewidth=4;
       moved:integer=-10;
       wt:int64=0;
@@ -326,7 +326,7 @@ procedure makeicon;
 
 implementation
 
-uses retromalina,blitter;
+uses blitter;
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -352,7 +352,7 @@ const dblinvalid=0;
 
 begin
 q:=0;
-scr:=$30a00000;
+scr:=mainscreen+$a00000;
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
 repeat
@@ -570,7 +570,7 @@ else
 // Todo: check if DMA can be better here; fastmove function uses CPU
 wt1:=gettime;
 //moved+=1;    if moved>10 then moved:=10;
-if self=background then begin fastmove($30000000,dest,xres*yres); end
+if self=background then begin fastmove(mainscreen,dest,xres*yres); end
 else
   begin
 

@@ -114,10 +114,11 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager, mwindows;
+     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;
 
-const base=          $2F000000;     // retromachine system area base
+const base=          $23000000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
+      mainscreen=    $24000000;
 
 const _pallette=        $10000;
       _systemfont=      $50000;
@@ -281,7 +282,7 @@ var fh,filetype:integer;                // this needs cleaning...
 //    filebuffer:TFileBuffer=nil;
     amouse:tmouse ;
     akeyboard:tkeyboard ;
-    windows:Twindows;
+
     psystem,psystem2:pointer;
 
     vol123:integer=0;
@@ -417,9 +418,9 @@ var fh,filetype:integer;                // this needs cleaning...
    mp3bufidx:integer=0;
    outbufidx:integer=0;
    framesize:integer;
-   backgroundaddr:integer=$30000000;
-   screenaddr:integer=$30800000;
-   redrawing:integer=$30800000;
+   backgroundaddr:integer=mainscreen;
+   screenaddr:integer=mainscreen+$800000;
+   redrawing:integer=mainscreen+$800000;
    windowsdone:boolean=false;
     drive:string;
 
@@ -478,7 +479,9 @@ procedure scrconvertnative(src,screen:pointer);
 
 implementation
 
-uses blitter;
+uses blitter, mwindows;
+
+var windows:Twindows;
 procedure scrconvert(src,screen:pointer); forward;
 //procedure scrconvert32(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
@@ -775,8 +778,8 @@ repeat
 
 
 // scrconvert(pointer($30800000),p2);   //8
-  scrconvertnative(pointer($30800000),p2);   //8
-  screenaddr:=$30800000;
+  scrconvertnative(pointer(mainscreen+$800000),p2);   //8
+  screenaddr:=mainscreen+$800000;
 
 
   tim:=gettime-t;
@@ -794,8 +797,8 @@ repeat
   t:=gettime;
 
 //  scrconvert(pointer($30b00000),p2+2304000);   //a
-  scrconvertnative(pointer($30b00000),p2+(xres+64)*(yres{+32}));   //a
-  screenaddr:=$30b00000;
+  scrconvertnative(pointer(mainscreen+$b00000),p2+(xres+64)*(yres{+32}));   //a
+  screenaddr:=mainscreen+$b00000;
 
   tim:=gettime-t;
   t:=gettime;
@@ -865,7 +868,7 @@ p2:=Pointer(FramebufferProperties.Address);//+128*xres);
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 
 bordercolor:=0;
-displaystart:=$30000000;                 // vitual framebuffer address
+displaystart:=mainscreen;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
 //for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
 // init pallette, font and mouse cursor
@@ -916,13 +919,18 @@ akeyboard:=tkeyboard.create(true);
 akeyboard.start;
 
 background:=TWindow.create(xres,yres,'');
-//background:=TWindow.create(1792,1120,'');
+
 panel:=TPanel.create;
 sleep(100);
 thread:=tretro.create(true);
 thread.start;
+
+
 windows:=twindows.create(true);
 windows.start;
+
+
+
 // start audio, mouse, kbd and file buffer threads
 
 //desired.callback:=@AudioCallback;
@@ -1237,7 +1245,7 @@ var a,b:integer;
     e:integer;
     c,command, pixels, lines, dl:cardinal;
 
-const scr:cardinal=$30000000;
+const scr:cardinal=mainscreen;
 
 label p001;
 
