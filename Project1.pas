@@ -62,6 +62,8 @@ var
     message:TWindow;
     scr:cardinal;
 
+    testdxwindow:TDispmanWindow=nil;
+
 // ---- procedures
 
 procedure copyfile2(src,dest:string);
@@ -177,6 +179,12 @@ filetype:=-1;
 repeat
 
   background.icons.checkall;
+  if testicon.dblclicked then
+    begin
+    testicon.dblclicked:=false;
+    testdxwindow:=Tdispmanwindow.create(300,300,'Test');
+    end;
+
   if calculator.dblclicked then
     begin
     calculator.dblclicked:=false;

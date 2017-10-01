@@ -13,7 +13,7 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils, threads, retro, icons, retromalina;
+  Classes, SysUtils, threads, retro, icons, retromalina, platform, vc4, dispmanx;
 
 const mapbase=mainscreen+$800000;
       framewidth=4;
@@ -36,6 +36,80 @@ type TWindow=class;
        procedure Execute; override;
      public
       Constructor Create(CreateSuspended : boolean);
+     end;
+
+//------------------------------------------------------------------------------
+// DispmanX window
+//------------------------------------------------------------------------------
+
+type TDispmanWindow=class(TObject)
+
+     handle:TDispmanWindow;
+                                            // dispmanx related fields
+     layer:integer;
+     element:DISPMANX_ELEMENT_HANDLE_T;
+     resource: DISPMANX_RESOURCE_HANDLE_T;
+     alpha:VC_DISPMANX_ALPHA_T;
+     src_rect,dst_rect:VC_RECT_T;
+     type_:VC_IMAGE_TYPE_T;
+     pitch:integer;
+     aligned_height:integer;
+
+     x,y:integer;                           // position on screen
+     l,h:integer;                           // dmensions on screen
+     vx,vy:integer;                         // visible upper left
+     vcl,vch:integer;                       // virtual canvas dimensions
+     vcx,vcy:integer;                       // virtual canvas x,y
+     mx,my,mk:integer;                      // mouse events
+     wl,wh:integer;                         // windows l,h
+     bg:integer;                            // background color
+     canvas:pointer;                        // graphic memory
+     decoration:TDecoration;                // the decoration or nil if none
+     visible:boolean;                       // visible or hidden
+     resizable:boolean;                     // if true windows not resizable
+     movable:boolean;                       // if true windows not movable by mouse
+     redraw:boolean;                        // set true by redrawing process after redraw
+     active:boolean;                        // if false, window doesn't need redrawing
+     title:string;                          // window title
+     buttons:TWidget;                       // widget chain start
+     icons:TIcon;
+     menu:TMenu;
+     statusbar:TStatusbar;
+     mstate:integer;                        // mouse position state
+     dclick:boolean;
+     needclose:boolean;
+     activey:integer;
+     selected:boolean;
+     virtualcanvas:boolean;
+     // The constructor. al, ah - graphic canvas dimensions
+     // atitle - title to set, if '' then windows will have no decoration
+
+     constructor create (al,ah:integer; atitle:string);
+//     destructor destroy; override;
+
+//     procedure draw(dest:integer);                                      // redraw a window
+//     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
+                                                                        // al, ah - visible dimensions without decoration
+                                                                        // avy, avy - upper left visible canvas pixel
+//     function checkmouse:TWindow;                                       // check and react to mouse events
+//     procedure resize(nwl,nwh:integer);                                 // resize the canvas
+//     procedure select;                                                  // select the window and place it on top
+
+     // graphic methods
+
+//     procedure cls(c:integer);                                          // clear window and fill with color
+//     procedure putpixel(ax,ay,color:integer); inline;                   // put a pixel to window
+//     function getpixel(ax,ay:integer):integer; inline;                  // get a pixel from window
+//     procedure putchar(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
+//     procedure putchar8(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
+//     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);       // put a zoomed char, xz,yz - zoom
+//     procedure outtextxy8(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
+//     procedure outtextxy(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
+//     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
+//     procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
+
+     // TODO: add the rest of graphic procedures from retromalina unit
+
      end;
 
 
@@ -320,6 +394,8 @@ var background:TWindow=nil;  // A mother of all windows except the panel
 
 procedure gouttextxy(g:pointer;x,y:integer; t:string;c:integer);
 procedure gputpixel(g:pointer; x,y,color:integer); inline;
+procedure gpouttextxy(g:pointer;x,y:integer; t:string;c,pitch:integer);
+procedure gpputpixel(g:pointer; x,y,color,pitch:integer); inline;
 procedure makeicon;
 
 
@@ -327,6 +403,10 @@ procedure makeicon;
 implementation
 
 uses blitter;
+
+
+
+
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -375,7 +455,172 @@ until terminated;
 end;
 
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Dispmanx Window methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
+constructor TDispmanWindow.create (al,ah:integer; atitle:string);
+
+var who:TWindow;
+    i,j:integer;
+    tag:integer=$6a756863; // todo tag has be different for every window
+    dummy:integer;
+    image:pointer;
+    update:   DISPMANX_UPDATE_HANDLE_T;
+
+
+begin
+inherited create;
+//semaphore:=true;
+mstate:=0;
+dclick:=false;
+needclose:=false;
+retromalina.box(0,0,200,200,0);
+retromalina.outtextxy(0,0,'creator started',15);
+sleep(2000);
+if background<>nil then   // there ia s background so create a normal window
+  begin
+  who:=background;
+  while who.next<>nil do who:=who.next;
+  makeicon;               // Temporary icon, todo: icon class
+  handle:=self;
+  x:=100;                   // initialize the fields
+  y:=100;
+  mx:=-1;
+  my:=-1;
+  mk:=0;
+  vx:=0;
+  vy:=0;
+  vcx:=0;
+  vcy:=0;
+  l:=300;
+  h:=300;
+  bg:=0;
+  wl:=al;
+  wh:=ah;
+  vcl:=0;
+  vch:=0;
+  virtualcanvas:=false;
+  buttons:=nil;
+  icons:=nil;
+//  next:=nil;
+  visible:=false;
+  resizable:=true;
+//  prev:=who;
+retromalina.outtextxy(0,16,'variables inited',15);
+sleep(2000);
+     // now create a dispmanx element
+     layer:=15; // todo: layer as a window number
+     alpha.flags:=1;       // fixed all pixels
+     alpha.opacity:=255;  //opaque
+     alpha.mask:=0;
+     type_:=VC_IMAGE_ARGB8888;
+     pitch:=((wl*4)+31) and $FFFFFFE0;
+     aligned_height:=(wh+15) and $FFFFFFF0;
+
+     image:=@tag;
+     resource:=vc_dispmanx_resource_create(type_, wl, wh, @dummy );
+     vc_dispmanx_rect_set(@dst_rect, 0, 0, wl, wh);
+     vc_dispmanx_resource_write_data(resource,type_,pitch,image,@dst_rect);
+     update:=vc_dispmanx_update_start(10);
+     vc_dispmanx_rect_set( @src_rect, 0, 0, wl shl 16, wh shl 16 );
+     vc_dispmanx_rect_set( @dst_rect, 100, 100, wl, wh);
+     element:=vc_dispmanx_element_add(update,
+                                                  display,
+                                                  layer,
+                                                  @dst_rect,
+                                                  resource,
+                                                  @src_rect,
+                                                  DISPMANX_PROTECTION_NONE,
+                                                  @alpha,
+                                                  nil,             // clamp
+                                                  0 );
+     vc_dispmanx_update_submit_sync(update);
+
+     retromalina.outtextxy(0,32,'dispmanx done',15);
+     sleep(2000);
+  i:=$3F000000;
+  repeat i:=i-4 until (lpeek(i)=$6a756863) or (i<=$25000000);
+  retromalina.outtextxy(0,48,'pointer found at '+ inttohex(i,8),15);
+  canvas:=pointer(i);  //
+  for i:=0 to pitch*wh-1 do poke(cardinal(canvas)+i,255); // go white
+
+  title:=atitle;
+  retromalina.outtextxy(0,64,'window is now white',15);
+  CleanDataCacheRange(integer(canvas),pitch*wh);
+  sleep(2000);
+  gpouttextxy(canvas,10,10,'1234567890',128,pitch);
+  for i:=0 to 1199 do
+    begin
+    update:=vc_dispmanx_update_start(10);
+    if i+wh>1199 then vc_dispmanx_rect_set(@dst_rect, i, i, wl, wh-i+1200) else vc_dispmanx_rect_set(@dst_rect, i, i, wl, wh);
+    if i+wh>1199 then vc_dispmanx_rect_set(@src_rect, 0, 0, wl shl 16, (wh-i+1200) shl 16 ) else  vc_dispmanx_rect_set(@src_rect, 0, 0, wl shl 16, wh shl 16 );
+
+    //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
+    vc_dispmanx_element_change_attributes(update, element, 12, 0,0,@dst_rect,@src_rect,0,0);
+
+    vc_dispmanx_update_submit_sync(update);
+    end;
+//  if atitle<>'' then     // create a decoration
+//    begin
+//    decoration:=TDecoration.create;
+//    decoration.title:=getmem(wl*titleheight);
+//    decoration.hscroll:=true;
+//    decoration.vscroll:=true;
+//    decoration.up:=true;
+//    decoration.down:=true;
+//    decoration.close:=true;
+//    activey:=0;
+//    end
+//  else
+begin decoration:=nil; activey:=24; end;
+//  who.next:=self;
+  end
+else                    // no background, create one
+  begin
+{  handle:=self;
+//  prev:=nil;
+//  next:=nil;
+  x:=0;
+  y:=0;                       // position on screen
+  l:=al;
+  h:=ah;                      // dimensions on screen
+  vx:=0;
+  vy:=0;                      // visible upper left
+  vcx:=0;
+  vcy:=0;
+  wl:=al;
+  wh:=ah;                     // windows l,h
+  vcl:=0;
+  vch:=0;
+  virtualcanvas:=false;
+  bg:=132;                    // todo: get color from a theme
+  buttons:=nil;
+  icons:=nil;
+  canvas:=pointer(backgroundaddr);  // graphic memory address
+                                   // The window manager works at the top
+                                   // of the retromachine. The background window
+                                   // replaces the retromachine background with
+                                   // graphic memory a the same address, so
+                                   // non-windowed retromachine programs will not
+                                   // notice any difference when running on
+                                   // the window manager
+
+  decoration:=nil;            //+48
+  visible:=true;
+  redraw:=true;
+  mx:=-1;
+  my:=-1;
+  decoration:=nil;
+  title:=''; }
+  end;
+
+//  selected:=true;
+/// semaphore:=false;
+//moved:=0;
+end;
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -2367,6 +2612,22 @@ poke(adr,color);
 p999:
 end;
 
+
+// Put pixel on a non assigned canvas given by the pointer with pitch
+
+procedure gpputpixel(g:pointer; x,y,color,pitch:integer); inline;
+
+label p999;
+
+var adr:integer;
+
+begin
+if (x<0) or (x>=xres) or (y<0) or (y>yres) then goto p999;
+adr:=cardinal(g)+4*x+pitch*y;
+lpoke(adr,color);
+p999:
+end;
+
 // Put char on a non assigned canvas given by the pointer
 
 procedure gputchar(g:pointer; x,y:integer;ch:char;col:integer);
@@ -2387,6 +2648,24 @@ for i:=0 to 15 do
   end;
 end;
 
+procedure gpputchar(g:pointer; x,y:integer;ch:char;col,pitch:integer);
+
+
+var i,j,start:integer;
+  b:byte;
+
+begin
+for i:=0 to 15 do
+  begin
+  b:=systemfont[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (1 shl j))<>0 then
+      gpputpixel(g,x+j,y+i,col,pitch);
+    end;
+  end;
+end;
+
 
 // Output a string on a non assigned canvas given by the pointer
 
@@ -2397,6 +2676,14 @@ var i:integer;
 
 begin
 for i:=1 to length(t) do gputchar(g,x+8*i-8,y,t[i],c);
+end;
+
+procedure gpouttextxy(g:Pointer;x,y:integer; t:string;c,pitch:integer);
+
+var i:integer;
+
+begin
+for i:=1 to length(t) do gpputchar(g,x+8*i-8,y,t[i],c,pitch);
 end;
 // Output a string on a non assigned canvas given by the pointer
 

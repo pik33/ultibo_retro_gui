@@ -114,7 +114,7 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;
+     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager, vc4, dispmanx;
 
 const base=          $23000000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
@@ -299,6 +299,7 @@ var fh,filetype:integer;                // this needs cleaning...
 
     mp3time:int64;
 
+    display:  DISPMANX_DISPLAY_HANDLE_T;
 
 // system variables
 
@@ -832,6 +833,7 @@ var i,q:integer;
 
 
 begin
+bcmhostinit;
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
 // get native resolution
@@ -866,6 +868,9 @@ FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);//+128*xres);
 
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
+
+bcmhostinit;
+display := vc_dispmanx_display_open(0);  // todo: detect lcd
 
 bordercolor:=0;
 displaystart:=mainscreen;                 // vitual framebuffer address
