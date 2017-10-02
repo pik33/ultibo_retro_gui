@@ -560,8 +560,8 @@ sleep(2000);
 
     //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
     vc_dispmanx_element_change_attributes(update, element, 12, 0,0,@dst_rect,@src_rect,0,0);
-
-    vc_dispmanx_update_submit_sync(update);
+    sleep(1);
+    vc_dispmanx_update_submit(update,nil,nil);
     end;
 //  if atitle<>'' then     // create a decoration
 //    begin
