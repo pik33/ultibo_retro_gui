@@ -658,13 +658,14 @@ repeat
 
 // now use hardware pointer
 
-mouse_update:=vc_dispmanx_update_start(10);
+mouse_update:=vc_dispmanx_update_start(11);
 if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_dst_rect, mousex, mousey, 32, 32-mousey+yres) else vc_dispmanx_rect_set(@mouse_dst_rect, mousex,mousey, 32,32);
 if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, (32-mousey+yres) shl 16 ) else  vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
 
 //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
 vc_dispmanx_element_change_attributes(mouse_update, mouse_element, 12, 0,0,@mouse_dst_rect,@mouse_src_rect,0,0);
-vc_dispmanx_update_submit_sync(mouse_update);
+vc_dispmanx_update_submit(mouse_update,nil,nil);
+waitvbl;
 
 
                                         //so I have to add $28 to y and $40 to x
@@ -899,8 +900,6 @@ p2:=Pointer(FramebufferProperties.Address);//+128*xres);
 
 //for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 
-bcmhostinit;
-display := vc_dispmanx_display_open(0);  // todo: detect lcd
 
 bordercolor:=0;
 displaystart:=mainscreen;                 // vitual framebuffer address
@@ -910,7 +909,10 @@ framecnt:=0;                             // frame counter
 
 systemfont:=st4font;
 
-   // init mouse cursor as dispmanx element
+bcmhostinit;
+display := vc_dispmanx_display_open(0);  // todo: detect lcd
+
+// init mouse cursor as dispmanx element
 
    mouse_alpha.flags:=0;    // opaciy from pixels
    mouse_alpha.opacity:=0;  //opaque
@@ -981,7 +983,7 @@ akeyboard:=tkeyboard.create(true);
 akeyboard.start;
 
 background:=TWindow.create(xres,yres,'');
-
+dispmanbackground:=TDispmanwindow.create(xres,yres,'');
 panel:=TPanel.create;
 sleep(100);
 thread:=tretro.create(true);
@@ -1019,6 +1021,7 @@ repeat until running=0;
 amouse.terminate;
 akeyboard.terminate;
 windows.terminate;
+vc_dispmanx_display_close(display);
 bcmhostdeinit;
 end;
 

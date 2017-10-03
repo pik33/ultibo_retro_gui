@@ -55,6 +55,9 @@ type TDispmanWindow=class(TObject)
      pitch:integer;
      aligned_height:integer;
 
+     prev,next:TDispmanWindow;                     // 2-way list
+     decup,decdown,decleft,decright:integer; // decoration
+
      x,y:integer;                           // position on screen
      l,h:integer;                           // dmensions on screen
      vx,vy:integer;                         // visible upper left
@@ -85,10 +88,10 @@ type TDispmanWindow=class(TObject)
      // atitle - title to set, if '' then windows will have no decoration
 
      constructor create (al,ah:integer; atitle:string);
-//     destructor destroy; override;
+     destructor destroy; override;
 
 //     procedure draw(dest:integer);                                      // redraw a window
-//     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
+     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
                                                                         // al, ah - visible dimensions without decoration
                                                                         // avy, avy - upper left visible canvas pixel
 //     function checkmouse:TWindow;                                       // check and react to mouse events
@@ -97,16 +100,16 @@ type TDispmanWindow=class(TObject)
 
      // graphic methods
 
-//     procedure cls(c:integer);                                          // clear window and fill with color
-//     procedure putpixel(ax,ay,color:integer); inline;                   // put a pixel to window
-//     function getpixel(ax,ay:integer):integer; inline;                  // get a pixel from window
-//     procedure putchar(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
-//     procedure putchar8(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
-//     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);       // put a zoomed char, xz,yz - zoom
-//     procedure outtextxy8(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
-//     procedure outtextxy(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
-//     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
-//     procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
+     procedure cls(c:cardinal);                                          // clear window and fill with color
+     procedure putpixel(ax,ay:integer;color:cardinal); inline;                   // put a pixel to window
+     function getpixel(ax,ay:integer):cardinal; inline;                  // get a pixel from window
+     procedure putchar(ax,ay:integer;ch:char;col:cardinal);              // put a 8x16 char on window
+     procedure putchar8(ax,ay:integer;ch:char;col:cardinal);              // put a 8x16 char on window
+     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:cardinal);       // put a zoomed char, xz,yz - zoom
+     procedure outtextxy8(ax,ay:integer; t:string;c:cardinal);            // output a string from x,y position
+     procedure outtextxy(ax,ay:integer; t:string;c:cardinal);            // output a string from x,y position
+     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:cardinal);     // output a zoomed string
+     procedure box(ax,ay,al,ah:integer;c:cardinal);                              // draw a filled box
 
      // TODO: add the rest of graphic procedures from retromalina unit
 
@@ -359,6 +362,7 @@ type PRectangle=^TRectangle;
      end;
 
 var background:TWindow=nil;  // A mother of all windows except the panel
+    dispmanbackground:TDispmanWindow=nil;
     panel:TPanel=nil;        // The panel
     vertex:array[0..1023,0..2] of integer;  // x, y, handle
     rectangles:array[0..4096,0..4] of integer; //x, y, l, h, handle
@@ -463,7 +467,7 @@ end;
 
 constructor TDispmanWindow.create (al,ah:integer; atitle:string);
 
-var who:TWindow;
+var who:TDispmanWindow;
     i,j:integer;
     tag:integer=$6a756863; // todo tag has be different for every window
     dummy:integer;
@@ -477,13 +481,46 @@ inherited create;
 mstate:=0;
 dclick:=false;
 needclose:=false;
-retromalina.box(0,0,200,200,0);
-retromalina.outtextxy(0,0,'creator started',15);
-sleep(2000);
-if background<>nil then   // there ia s background so create a normal window
+//retromalina.box(0,0,200,200,0);
+//retromalina.outtextxy(0,0,'creator started',15);
+//sleep(2000);
+
+//borderwidth:integer=6;
+//scrollwidth:integer=16;
+//borderdelta:integer=2;
+//scrollcolor:integer=12;
+//activescrollcolor:integer=124;
+//titleheight:integer=24;
+//menuheight:integer=24;
+//menucolor:integer=142;
+
+
+
+if dispmanbackground<>nil then   // there ia s background so create a normal window
   begin
-  who:=background;
-  while who.next<>nil do who:=who.next;
+  i:=0;
+    if atitle<>'' then     // create a decoration
+    begin
+    decoration:=TDecoration.create;
+    decoration.title:=getmem(wl*titleheight);
+    decoration.hscroll:=true;
+    decoration.vscroll:=true;
+    decoration.menu:=false;
+    decoration.up:=true;
+    decoration.down:=true;
+    decoration.close:=true;
+    activey:=0;
+    decup:=borderwidth+titleheight;
+    decdown:=scrollwidth+borderwidth;
+    decleft:=borderwidth;
+    decright:=scrollwidth+borderwidth;
+    end
+  else
+    begin decoration:=nil; activey:=24; end;
+  who:=dispmanbackground;
+  while who.next<>nil do begin i+=1; who:=who.next; end;
+  layer:=i;
+  tag+=i;
   makeicon;               // Temporary icon, todo: icon class
   handle:=self;
   x:=100;                   // initialize the fields
@@ -495,8 +532,8 @@ if background<>nil then   // there ia s background so create a normal window
   vy:=0;
   vcx:=0;
   vcy:=0;
-  l:=300;
-  h:=300;
+  l:=al;
+  h:=ah;
   bg:=0;
   wl:=al;
   wh:=ah;
@@ -505,14 +542,13 @@ if background<>nil then   // there ia s background so create a normal window
   virtualcanvas:=false;
   buttons:=nil;
   icons:=nil;
-//  next:=nil;
+  next:=nil;
   visible:=false;
   resizable:=true;
-//  prev:=who;
-retromalina.outtextxy(0,16,'variables inited',15);
-sleep(2000);
+  prev:=who;
+//retromalina.outtextxy(0,16,'variables inited',15);
+//sleep(2000);
      // now create a dispmanx element
-     layer:=15; // todo: layer as a window number
      alpha.flags:=1;       // fixed all pixels
      alpha.opacity:=255;  //opaque
      alpha.mask:=0;
@@ -539,11 +575,11 @@ sleep(2000);
                                                   0 );
      vc_dispmanx_update_submit_sync(update);
 
-     retromalina.outtextxy(0,32,'dispmanx done',15);
-     sleep(2000);
+//     retromalina.outtextxy(0,32,'dispmanx done',15);
+
   i:=$3F000000;
-  repeat i:=i-4 until (lpeek(i)=$6a756863) or (i<=$25000000);
-  retromalina.outtextxy(0,48,'pointer found at '+ inttohex(i,8),15);
+  repeat i:=i-4 until (lpeek(i)=tag) or (i<=$25000000);
+//  retromalina.outtextxy(0,48,'pointer found at '+ inttohex(i,8),15);
   canvas:=pointer(i);  //
   for i:=0 to pitch*wh-1 do poke(cardinal(canvas)+i,255); // go white
 
@@ -551,38 +587,22 @@ sleep(2000);
   retromalina.outtextxy(0,64,'window is now white',15);
   CleanDataCacheRange(integer(canvas),pitch*wh);
   sleep(2000);
-  gpouttextxy(canvas,10,10,'1234567890',128,pitch);
-  for i:=0 to 1199 do
-    begin
-    update:=vc_dispmanx_update_start(10);
-    if i+wh>1199 then vc_dispmanx_rect_set(@dst_rect, i, i, wl, wh-i+1200) else vc_dispmanx_rect_set(@dst_rect, i, i, wl, wh);
-    if i+wh>1199 then vc_dispmanx_rect_set(@src_rect, 0, 0, wl shl 16, (wh-i+1200) shl 16 ) else  vc_dispmanx_rect_set(@src_rect, 0, 0, wl shl 16, wh shl 16 );
+  gpouttextxy(canvas,0,0, '12345678901234567890',128,pitch);
+  gpouttextxy(canvas,0,16,'23456789012345678901',128 shl 8,pitch);
+  gpouttextxy(canvas,0,32,'34567890123456789012',128 shl 16,pitch);
+  gpouttextxy(canvas,0,48,'45678901234567890123',128,pitch);
+  gpouttextxy(canvas,0,64,'56789012345678901234',128,pitch);
+  gpouttextxy(canvas,0,80,'67890123456789012345',128,pitch);
+  gpouttextxy(canvas,0,96,'78901234567890123456',128,pitch);
 
-    //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
-    vc_dispmanx_element_change_attributes(update, element, 12, 0,0,@dst_rect,@src_rect,0,0);
-    sleep(1);
-    vc_dispmanx_update_submit(update,nil,nil);
-    end;
-//  if atitle<>'' then     // create a decoration
-//    begin
-//    decoration:=TDecoration.create;
-//    decoration.title:=getmem(wl*titleheight);
-//    decoration.hscroll:=true;
-//    decoration.vscroll:=true;
-//    decoration.up:=true;
-//    decoration.down:=true;
-//    decoration.close:=true;
-//    activey:=0;
-//    end
-//  else
-begin decoration:=nil; activey:=24; end;
-//  who.next:=self;
+
+  who.next:=self;
   end
 else                    // no background, create one
   begin
-{  handle:=self;
-//  prev:=nil;
-//  next:=nil;
+  handle:=self;
+  prev:=nil;
+  next:=nil;
   x:=0;
   y:=0;                       // position on screen
   l:=al;
@@ -614,13 +634,264 @@ else                    // no background, create one
   mx:=-1;
   my:=-1;
   decoration:=nil;
-  title:=''; }
+  title:='';
   end;
 
-//  selected:=true;
-/// semaphore:=false;
-//moved:=0;
+  selected:=true;
+ semaphore:=false;
+  moved:=0;
 end;
+
+
+destructor TDispmanWindow.destroy;
+
+var i,j:integer;
+        update:   DISPMANX_UPDATE_HANDLE_T;
+
+
+begin
+visible:=false;
+prev.next:=next;
+if next<>nil then next.prev:=prev;
+if canvas<>nil then freemem(canvas);
+if decoration<>nil then
+  begin
+  decoration.destroy
+  end;
+update := vc_dispmanx_update_start(10);
+vc_dispmanx_element_remove(update,element);
+vc_dispmanx_update_submit_sync(update);
+vc_dispmanx_resource_delete(resource );
+moved:=0;
+end;
+
+
+procedure TDispmanWindow.move(ax,ay,al,ah,avx,avy:integer);
+
+var q:integer;
+           update:   DISPMANX_UPDATE_HANDLE_T;
+begin
+if ay>yres-25 then ay:=yres-25;
+if al>0 then begin l:=al; {moved:=0;} end;        // now set new window parameters
+if ah>0 then begin h:=ah; {moved:=0;} end;
+
+q:=8*length(title)+96;
+if (decoration<>nil) and (al>0) and (al<q) then l:=q;
+if (ah>0) and (ah<64) then h:=64;
+if al>wl then l:=wl;
+if ah>wh then h:=wh;
+
+if ax>-2048 then begin x:=ax;{ moved:=0; }end;
+if ay>-2048 then begin y:=ay;{ moved:=0;} end;
+if avx>-1 then vx:=avx;
+if avy>-1 then vy:=avy;
+
+update:=vc_dispmanx_update_start(10);
+if y+h>yres then vc_dispmanx_rect_set(@dst_rect, x, y, l, yres-y) else vc_dispmanx_rect_set(@dst_rect, x, y, l, h);
+if y+h>yres then vc_dispmanx_rect_set(@src_rect, vx shl 16, vy shl 16, l shl 16, (yres-y) shl 16 ) else  vc_dispmanx_rect_set(@src_rect, vx shl 16, vy shl 16, l shl 16, h shl 16 );
+
+  //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
+vc_dispmanx_element_change_attributes(update, element, 12, 0,0,@dst_rect,@src_rect,0,0);
+vc_dispmanx_update_submit(update,nil,nil);
+end;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// TDispmanWindow graphic methods
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+// cls - clear window and fill with color
+
+procedure TDispmanWindow.cls(c:cardinal);
+
+var i,al:integer;
+
+begin
+box(decleft,decup,wl-decleft-decright,wh-decup-decdown,c);
+end;
+
+
+//putpixel - put a pixel to window at ay, ay position in color color
+
+procedure TDispmanWindow.putpixel(ax,ay:integer;color:cardinal); inline;
+
+label p999;
+
+var adr:integer;
+
+begin
+if (ax<decleft) or (ax>=wl-decright) or (ay<decup) or (ay>wh-decdown) then goto p999;
+adr:=cardinal(canvas)+4*(ax+decleft)+pitch*(ay+decup);
+lpoke(adr,color);
+p999:
+end;
+
+
+// getpixel - get a pixel color at position ax, ay
+
+function TDispmanWindow.getpixel(ax,ay:integer):cardinal; inline;
+
+label p999;
+
+var adr:integer;
+
+begin
+if (ax<decleft) or (ax>=wl-decright) or (ay<decup) or (ay>wh-decdown) then goto p999;
+adr:=cardinal(canvas)+4*(ax+decleft)+pitch*(ay+decup);
+result:=lpeek(adr);
+p999:
+end;
+
+
+// putchar - put a 8x16 char ch on the window at ax,ay with color col
+// The char definitions are in SystemFont array
+
+procedure TDispmanWindow.putchar(ax,ay:integer;ch:char;col:cardinal);
+
+
+var i,j,start:integer;
+  b:byte;
+
+begin
+for i:=0 to 15 do
+  begin
+  b:=systemfont[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (1 shl j))<>0 then
+      putpixel(ax+j,ay+i,col);
+    end;
+  end;
+end;
+
+procedure TDispmanWindow.putchar8(ax,ay:integer;ch:char;col:cardinal);
+
+
+var i,j,start:integer;
+  b:byte;
+
+begin
+for i:=0 to 7 do
+  begin
+  b:=atari8font[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (128 shr j))<>0 then
+      putpixel(ax+j,ay+i,col);
+    end;
+  end;
+end;
+
+// putcharz - put a zoomed char, xz,yz - zoom
+
+procedure TDispmanWindow.putcharz(ax,ay:integer;ch:char;col,xz,yz:cardinal);
+
+
+var i,j,k,ll:integer;
+  b:byte;
+
+begin
+for i:=0 to 15 do
+  begin
+  b:=systemfont[ord(ch),i];
+  for j:=0 to 7 do
+    begin
+    if (b and (1 shl j))<>0 then
+      for k:=0 to yz-1 do
+        for ll:=0 to xz-1 do
+           putpixel(ax+j*xz+ll,ay+i*yz+k,col);
+    end;
+  end;
+end;
+
+
+// outtextxy - output a string from x,y position; c-color
+
+procedure TDispmanWindow.outtextxy(ax,ay:integer; t:string;c:cardinal);
+
+var i:integer;
+
+begin
+for i:=1 to length(t) do putchar(ax+8*i-8,ay,t[i],c);
+end;
+
+procedure TDispmanWindow.outtextxy8(ax,ay:integer; t:string;c:cardinal);
+
+var i:integer;
+
+begin
+for i:=1 to length(t) do putchar8(ax+8*i-8,ay,t[i],c);
+end;
+
+
+
+// outtextxyz - output a zoomed string
+
+procedure TDispmanWindow.outtextxyz(ax,ay:integer; t:string;c,xz,yz:cardinal);
+
+var i:integer;
+
+begin
+for i:=0 to length(t)-1 do putcharz(ax+8*xz*i,ay,t[i+1],c,xz,yz);
+end;
+
+
+
+// box - draw a filled box
+
+procedure TDispmanWindow.box(ax,ay,al,ah:integer;c:cardinal);
+
+label p101,p102,p999;
+
+var screenptr:cardinal;
+    xres,yres:integer;
+
+begin
+
+screenptr:=cardinal(canvas);
+xres:=wl;
+yres:=wh;
+if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
+if ax>=xres-decleft-decright then goto p999;
+if ay<0 then begin ah:=ah+ay; ay:=0; if ah<1 then goto p999; end;
+if ay>=yres-decup-decdown then goto p999;
+if ax+al>=xres-decright then al:=xres-ax-decright;
+if ay+ah>=yres-decdown then ah:=yres-ay-decdown;
+xres:=pitch;
+ax:=ax+decleft;
+ay:=ay+decup;
+
+             asm
+             push {r0-r6}
+             ldr r2,ay
+             ldr r3,xres
+             ldr r1,ax
+             mul r3,r3,r2
+             ldr r4,al
+             add r3,r3,r1,lsl #2
+             ldr r0,screenptr
+             add r0,r3
+             ldr r3,c
+             ldr r6,ah
+
+p102:        mov r5,r4
+p101:        str r3,[r0],#4  // inner loop
+             subs r5,#1
+             bne p101
+             ldr r1,xres
+             add r0,r1
+             sub r0,r0,r4,lsl #2
+             subs r6,#1
+             bne p102
+
+             pop {r0-r6}
+             end;
+
+p999:
+end;
+
+
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -1763,6 +2034,7 @@ destructor TDecoration.destroy;
 begin
 if title<>nil then freemem(title);
 end;
+
 
 
 //------------------------------------------------------------------------------
