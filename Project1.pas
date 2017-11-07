@@ -33,7 +33,7 @@ uses  //Ultibo units
   blitter,
 //  timezone;
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot, notepad, c64;
+  playerunit, captureunit, mandelbrot, notepad, c64,vc4;
 
 
 label p101, p102 ,p999, p998, p997;
@@ -259,6 +259,7 @@ repeat
       RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
 //      CopyFile2(drive+'\ultibo\Raspbian.u',drive+'kernel7.img');
 //      stopmachine;
+       bcmhostdeinit;
       systemrestart(0);
       end;
     end;
@@ -277,6 +278,7 @@ repeat
 
   until {(mousek=3) or }(key=key_escape) ;
 pauseaudio(1);
+bcmhostdeinit;
 if sfh>0 then fileclose(sfh);
 setcurrentdir(workdir);
 stopmachine;

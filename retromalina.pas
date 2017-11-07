@@ -876,7 +876,7 @@ dectype:VC_IMAGE_TYPE_T;
  //    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
 
 begin
-bcmhostinit;
+
 for i:=base to base+$FFFFF do poke(i,0); // clean all system area
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
 // get native resolution
@@ -920,36 +920,6 @@ framecnt:=0;                             // frame counter
 // init pallette, font and mouse cursor
 
 systemfont:=st4font;
-
-bcmhostinit;
-display := vc_dispmanx_display_open(0);  // todo: detect lcd
-
-// init mouse cursor as dispmanx element
-
-   mouse_alpha.flags:=0;    // opaciy from pixels
-   mouse_alpha.opacity:=0;  //opaque
-   mouse_alpha.mask:=0;
-   mousetype:=VC_IMAGE_ARGB8888;
-   mousedata:=mysz;
-   for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
-   image:=@mousedata;
-   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
-   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
-   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
-   mouse_update:=vc_dispmanx_update_start(10);
-   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
-   mouse_element:=vc_dispmanx_element_add(mouse_update,
-                                          display,
-                                          256, // mouse cursor is on top of all the rest
-                                          @mouse_dst_rect,
-                                          mouse_resource,
-                                          @mouse_src_rect,
-                                          DISPMANX_PROTECTION_NONE,
-                                          @mouse_alpha,
-                                           nil,             // clamp
-                                                  0 );
-     vc_dispmanx_update_submit_sync(mouse_update);
    {
 
 // init the layer for windows decorations
@@ -1058,11 +1028,7 @@ removeramlimits(integer(@sprite));
 mousex:=xres div 2;
 mousey:=yres div 2;
 mousewheel:=128;
-amouse:=tmouse.create(true);
-amouse.start;
 
-akeyboard:=tkeyboard.create(true);
-akeyboard.start;
 
 background:=TWindow.create(xres,yres,'');
 dispmanbackground:=TDispmanwindow.create(xres,yres,'');
@@ -1075,8 +1041,41 @@ thread.start;
 windows:=twindows.create(true);
 windows.start;
 
+bcmhostinit;
+display := vc_dispmanx_display_open(0);  // todo: detect lcd
 
+// init mouse cursor as dispmanx element
 
+   mouse_alpha.flags:=0;    // opaciy from pixels
+   mouse_alpha.opacity:=0;  //opaque
+   mouse_alpha.mask:=0;
+   mousetype:=VC_IMAGE_ARGB8888;
+   mousedata:=mysz;
+   for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
+   image:=@mousedata;
+   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
+   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
+   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
+   mouse_update:=vc_dispmanx_update_start(10);
+   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
+   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
+   mouse_element:=vc_dispmanx_element_add(mouse_update,
+                                          display,
+                                          256, // mouse cursor is on top of all the rest
+                                          @mouse_dst_rect,
+                                          mouse_resource,
+                                          @mouse_src_rect,
+                                          DISPMANX_PROTECTION_NONE,
+                                          @mouse_alpha,
+                                           nil,             // clamp
+                                                  0 );
+     vc_dispmanx_update_submit_sync(mouse_update);
+
+     amouse:=tmouse.create(true);
+     amouse.start;
+
+     akeyboard:=tkeyboard.create(true);
+     akeyboard.start;
 // start audio, mouse, kbd and file buffer threads
 
 //desired.callback:=@AudioCallback;
