@@ -488,8 +488,8 @@ CurrentAudioSpec:=obtained^;
 samplebuffer_ptr:=getmem(sample_buffer_size);
 samplebuffer_32_ptr:=getmem(sample_buffer_32_size);
 removeramlimits(integer(@noiseshaper8));  // noise shaper uses local vars or it will be slower
-removeramlimits(integer(@equalizer));  // noise shaper uses local vars or it will be slower
-removeramlimits(integer(@equalizer2));  // noise shaper uses local vars or it will be slower
+removeramlimits(integer(@equalizer));     // noise shaper uses local vars or it will be slower
+removeramlimits(integer(@equalizer2));    // noise shaper uses local vars or it will be slower
 removeramlimits(integer(@noiseshaper9));  // noise shaper uses local vars or it will be slower
 // now create and start the audio thread
 pauseA:=1;
@@ -566,6 +566,7 @@ obtained^.oversample:=max_pwm_freq div desired^.freq;
 
   if obtained^.oversample=22 then obtained^.oversample:=21;
 
+
 over_freq:=desired^.freq*obtained^.oversample;
 obtained^.range:=round(base_freq/over_freq);
 obtained^.freq:=round(base_freq/(obtained^.range*obtained^.oversample));
@@ -582,6 +583,11 @@ if obtained^.channels=2 then obtained^.oversampled_size:=obtained^.size*4*obtain
                        else obtained^.oversampled_size:=obtained^.size*8*obtained^.oversample; //output is always 2 channels
 if obtained^.format=AUDIO_S16 then obtained^.size:=obtained^.size * 2;
 if obtained^.format=AUDIO_F32 then obtained^.size:=obtained^.size * 4;
+
+
+  retromalina.box(0,0,100,100,0);
+  retromalina.outtextxy (0,0,inttostr(obtained^.oversample),15);
+  retromalina.outtextxy (0,20,inttostr(obtained^.range),15);
 
 // Here the common part ends.
 //

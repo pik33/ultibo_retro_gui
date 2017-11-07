@@ -428,11 +428,18 @@ var fh,filetype:integer;                // this needs cleaning...
     mp3frames:integer=0;
     debug1,debug2,debug3:cardinal;
 
-     mouse_element:DISPMANX_ELEMENT_HANDLE_T;
-     mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
-     mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-     mouse_update:   DISPMANX_UPDATE_HANDLE_T;
+    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
+    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
+    mouse_src_rect,mouse_dst_rect:VC_RECT_T;
+    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
 
+    dec_element:DISPMANX_ELEMENT_HANDLE_T;
+    dec_resource: DISPMANX_RESOURCE_HANDLE_T;
+    dec_src_rect,dec_dst_rect:VC_RECT_T;
+    dec_update:   DISPMANX_UPDATE_HANDLE_T;
+
+    dec_pointer:integer;
+    decoration_addr:integer;
 
 // prototypes
 
@@ -850,17 +857,22 @@ procedure initmachine(mode:integer);
 
 var i,q:integer;
 
-     mouse_layer:integer;
+
+    mouse_layer:integer;
  //    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
  //    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
-     mouse_alpha:VC_DISPMANX_ALPHA_T;
+ mouse_alpha:VC_DISPMANX_ALPHA_T;        dec_alpha:VC_DISPMANX_ALPHA_T;
 //     mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-     mousetype:VC_IMAGE_TYPE_T;
+mousetype:VC_IMAGE_TYPE_T;
+dectype:VC_IMAGE_TYPE_T;
      mousepitch:integer;
+     decpitch:integer;
      mousealigned_height:integer;
+     decaligned_height:integer;
      mousedata:TSprite;
      image:pointer;
      dummy:integer;
+
  //    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
 
 begin
@@ -938,7 +950,77 @@ display := vc_dispmanx_display_open(0);  // todo: detect lcd
                                            nil,             // clamp
                                                   0 );
      vc_dispmanx_update_submit_sync(mouse_update);
-//sprite7def:=mysz;
+   {
+
+// init the layer for windows decorations
+
+        dec_alpha.flags:=1;    // opaciy from pixels       1-const, 2 nonzero 3 >7
+        dec_alpha.opacity:=0;  //opaque
+        dec_alpha.mask:=0;
+        dectype:=VC_IMAGE_aRGB8888;
+
+        image:=getmem(xres*yres*4);
+        for i:=0 to xres*yres-1 do lpoke(integer(image)+4*i,$FFFFFFFF);
+        lpoke(integer(image),$0063756a);
+        dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 1200, @dummy );
+        vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 1200);
+        vc_dispmanx_resource_write_data(dec_resource,dectype,xres*4,image,@dec_dst_rect);
+
+
+        dec_update:=vc_dispmanx_update_start(10);
+        vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, yres shl 16 );
+        vc_dispmanx_rect_set( @dec_dst_rect, 0,0,xres,yres);
+        dec_element:=vc_dispmanx_element_add(dec_update,
+                                               display,
+                                               255, // the layer under the mouse
+                                               @dec_dst_rect,
+                                               dec_resource,
+                                               @dec_src_rect,
+                                               DISPMANX_PROTECTION_NONE,
+                                               @dec_alpha,
+                                                nil,             // clamp
+                                                       0 );
+          vc_dispmanx_update_submit_sync(dec_update);
+           i:=$3F000000;
+  repeat i:=i-4 until (lpeek(i)=$0063756a) or (i<=$25000000);
+  decoration_addr:=i;
+
+// test
+
+  for j:=0 to 10 do begin
+
+dec_alpha.flags:=1;    // opaciy from pixels
+dec_alpha.opacity:=0;  //opaque
+dec_alpha.mask:=0;
+dectype:=VC_IMAGE_RGB888;
+
+image:=getmem(xres*yres*4);
+for i:=0 to 4*xres*yres-1 do poke(integer(image)+i,j*16);
+lpoke(integer(image),$0063756a);
+dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 600, @dummy );
+vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 600);
+vc_dispmanx_resource_write_data(dec_resource,dectype,xres*3,image,@dec_dst_rect);
+
+
+dec_update:=vc_dispmanx_update_start(10);
+vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, 599 shl 16);
+vc_dispmanx_rect_set( @dec_dst_rect, j,600,xres,599);
+dec_element:=vc_dispmanx_element_add(dec_update,
+                                       display,
+                                       255+j, // the layer under the mouse
+                                       @dec_dst_rect,
+                                       dec_resource,
+                                       @dec_src_rect,
+                                       DISPMANX_PROTECTION_NONE,
+                                       @dec_alpha,
+                                        nil,             // clamp
+                                               0 );
+  vc_dispmanx_update_submit_sync(dec_update);
+end;
+   }
+
+
+     //sprite7def:=mysz;
 setpallette(ataripallette,0);
 //textcursorx:=$FFFF;
 //cls(84);

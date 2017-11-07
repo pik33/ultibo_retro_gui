@@ -15,6 +15,7 @@ procedure fill32(start,len,color:integer);
 procedure fastmove(from,too,len:integer);
 //procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
+procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
 //procedure dma_blit1D(from,too,len:integer);
 
 
@@ -235,6 +236,57 @@ p101:             strb r6,[r1],#1
                   add r1,r5
                   mov r7,r1
                   sub r1,r4
+                  subs r2,#1
+                  bgt p101
+                  pop {r0-r7}
+                  end;
+p999:
+end;
+
+procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
+
+// --- rev 21071004
+
+label p101,p999;
+
+begin
+if length<1 then goto p999;
+if x<0 then
+  begin
+  length:=length+x;
+  x:=0;
+  if length<1 then goto p999;
+  end;
+if y<0 then
+  begin
+  lines:=lines+y;
+  if lines<1 then goto p999;
+  y:=0;
+  end;
+if length<1 then goto p999;
+if lines<1 then goto p999;
+
+                  asm
+                  push {r0-r7}
+                  ldr r1,dest           // r1:=dest;
+                  ldr r2,x              // r2:=x;
+                  add r1,r1,r2,lsl #2   // r1:=r1+r2*4   - pointer to the start
+                  ldr r4,y              // r4:=y;
+                  ldr r5,bpl            // r5=bpl;
+                  ldr r2,lines          // r2:=lines;
+                  mul r6,r5,r4          // r6:=lines*bpl; bpl - bytes per line
+                  add r1,r6             // r1=:r1+y*bpl
+                  ldr r4,length         // r4:=length in pixels
+                  ldr r6,color          // r6:=color
+                  add r7,r1,r4,lsl #2   // r7:=r1+r4*4
+
+p101:             str r6,[r1],#4
+                  cmps r1,r7
+                  blt  p101             // fill the line
+
+                  add r1,r5             // end of the next line
+                  add r7,r5
+                  sub r1,r1,r4,lsl #2
                   subs r2,#1
                   bgt p101
                   pop {r0-r7}

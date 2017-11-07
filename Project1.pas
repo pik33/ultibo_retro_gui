@@ -182,16 +182,11 @@ repeat
   if testicon.dblclicked then
     begin
     testicon.dblclicked:=false;
-    testdxwindow:=Tdispmanwindow.create(300,300,'Test');
+    testdxwindow:=Tdispmanwindow.create(500,500,'Test');
     testdxwindow.move(300,300,300,300,0,0);
-    sleep(5000);
-    for i:=30 to 300 do begin testdxwindow.move(500,500,i,i,0,0); sleep(100); end;
-    sleep(5000);
-    for i:=0 to 99 do begin testdxwindow.move(500,500,200,200,i,i); sleep(100); end;
-    sleep(5000);
-    testdxwindow.move(1800,1100,200,200,0,0);
-    sleep(5000);
-    testdxwindow.destroy;
+    testdxwindow.cls(255);
+    testdxwindow.outtextxy(10,10,'Kwas',$FFFFFF);
+
     end;
 
   if calculator.dblclicked then
