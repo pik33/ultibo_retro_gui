@@ -33,7 +33,7 @@ uses  //Ultibo units
   blitter,
 //  timezone;
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot, notepad;
+  playerunit, captureunit, mandelbrot, notepad, c64;
 
 
 label p101, p102 ,p999, p998, p997;
