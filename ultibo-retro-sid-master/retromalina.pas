@@ -53,7 +53,7 @@
 //    2F06_0034 - current dl position ----TODO
 //    2F06_0040 - 2F06_007C sprite control long 0 31..16 y pos  15..0 x pos
 //                                         long 1 30..16 y zoom 15..0 x zoom
-//    2F06_0080 - 2F06_009C dynamic sprite data pointer
+//    2F06_0080 - 206009C dynamic sprite data pointer
 //    2F06_00A0 - text cursor position
 //    2F06_00A4 - text color
 //    2F06_00A8 - background color
@@ -62,20 +62,10 @@
 //    2F06_00C0 - 2F06_00FF - audio DMA ctrl blocks, 2x32 bytes
 //
 //    2F06_0100 - 2F06_01?? - blitter
-//    2F06_0100 - 2F06_01FF - blitter DMA ctrl blocks
-//    2F06_0200 - 2F06_0207 - blitter fill color area
-//    2F06_0210 - 2F06_02FF - reserved
-
-//    2F06_0300 - system data area
-//    2F06_0300 - CPU clock
-//    2F06_0304 - CPU temperature
-
-//    2F06_0400 - double buffer screen #1 address
-//    2F06_0404 - double buffer screen #2 address
-//    2F06_0408 - native x resolution
-//    2F06_040C - native y resolution
-//    2F06_0410 - initial DL area
-
+//    2F06_0100 - 2F06_011F - blitter DMA ctrl block
+//    2F06_0120 - 2F06_0127 - blitter fill color area
+//    2F06_0100 - 2F06_FFFF - reserved
+//
 //    2F07_0000 - 2F08_FFFF - 2x64k long audio buffer for noise shaper
 //    2F0D_0000  -  2FFF_FFFF - retromachine system area
 //    3000_0000  -  30FF_FFFF - virtual framebuffer area
@@ -85,27 +75,16 @@
 
 
 // TODO planned retromachine graphic modes:
-// 00..15 Propeller retromachine compatible - TODO
+// 00..15 Propeller retromachine compatible
 // 16 - 1792x1120 @ 8bpp
-// 17 - 896x560 @ 16 bpp
-// 18 - 448x280 @ 32 bpp
-// 19 - native borderless @ 8 bpp /xres, yres defined @ 60020,60024
+// 17 - 896x560 @ 8 bpp
+// 18 - 448x280 @ 8 bpp
+// 19 - 224x140 @ 8 bpp
 // 20..23 - 16 bpp modes
 // 24..27 - 32 bpp modes
 // 28 ..31 text modes - ?
-// bit 7 set = double buffered
-
-
-// DL modes
-
-//xxxxDDMM
-// xxxx = 0001 for RPi Retromachine
-// MM: 00: hi, 01 med 10 low 11 native borderless
-// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
-
 
 // ----------------------------   This is still alpha quality code
-
 
 unit retromalina;
 
@@ -114,11 +93,10 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager, vc4, dispmanx;
+     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, HeapManager;
 
-const base=          $23000000;     // retromachine system area base
+const base=          $2F000000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
-      mainscreen=    $24000000;
 
 const _pallette=        $10000;
       _systemfont=      $50000;
@@ -173,17 +151,13 @@ const _pallette=        $10000;
       _sprite6ptr=      $60098;
       _sprite7ptr=      $6009C;
       _textcursor=      $600A0;
-      _tcx=             $600A0;
-      _tcy=             $600A2;
       _textcolor=       $600A4;
       _bkcolor=         $600A8;
       _textsize=        $600AC;
       _audiodma=        $600C0;
-      _dblbufscn1=      $60400;
-      _dblbufscn2=      $60404;
-      _nativex=         $60408;
-      _nativey=         $6040C;
-      _initialdl=       $60410;
+
+
+
 
 
 type
@@ -197,6 +171,40 @@ type
      public
        Constructor Create(CreateSuspended : boolean);
      end;
+
+
+     // File buffer thread
+
+     TFileBuffer= class(TThread)
+     private
+     buf:array[0..131071] of byte;
+     tempbuf:array[0..32767] of byte;
+     outbuf: array[0..8191] of byte;
+     //outbuf: array[0..4095] of smallint;// absolute outbuf;
+     pocz:integer;
+     koniec:integer;
+     il,fh,newfh:integer;
+     newfilename:string;
+     needclear:boolean;
+     seekamount:int64;
+     eof:boolean;
+     mp3:integer;
+     qq:integer;
+     maintenance:boolean;
+     reading:boolean;
+     protected
+       procedure Execute; override;
+     public
+      m:integer;
+      empty,full:boolean;
+      Constructor Create(CreateSuspended : boolean);
+      function getdata(b,ii:integer):integer;
+      procedure setfile(nfh:integer);
+      procedure clear;
+      procedure seek(amount:int64);
+             procedure setmp3(mp3b:integer);
+     end;
+
 
 
      // mouse thread
@@ -279,10 +287,9 @@ var fh,filetype:integer;                // this needs cleaning...
 
     buf2:array[0..1919] of smallint;
     buf2f:array[0..959] of single absolute buf2;
-//    filebuffer:TFileBuffer=nil;
+    filebuffer:TFileBuffer;
     amouse:tmouse ;
     akeyboard:tkeyboard ;
-
     psystem,psystem2:pointer;
 
     vol123:integer=0;
@@ -299,7 +306,6 @@ var fh,filetype:integer;                // this needs cleaning...
 
     mp3time:int64;
 
-    display:  DISPMANX_DISPLAY_HANDLE_T;
 
 // system variables
 
@@ -323,8 +329,8 @@ var fh,filetype:integer;                // this needs cleaning...
     palletteselector:cardinal absolute base+_palletteselector;
     dlstart:         cardinal absolute base+_dlstart;
     hscroll:         cardinal absolute base+_hscroll;
-    xres:            integer  absolute base+_xres;
-    yres:            integer  absolute base+_yres;
+    xres:            cardinal absolute base+_xres;
+    yres:            cardinal absolute base+_yres;
     key_charcode:    byte     absolute base+_keybd;
     key_modifiers:   byte     absolute base+_keybd+1;
     key_scancode:    byte     absolute base+_keybd+2;
@@ -337,50 +343,50 @@ var fh,filetype:integer;                // this needs cleaning...
     mousedblclick:   byte     absolute base+_mousekey+3;
     dlpos:           cardinal absolute base+_dlpos;
     sprite0xy:       cardinal absolute base+_sprite0xy;
-    sprite0x:        smallint absolute base+_sprite0xy;
-    sprite0y:        smallint absolute base+_sprite0xy+2;
+    sprite0x:        word     absolute base+_sprite0xy;
+    sprite0y:        word     absolute base+_sprite0xy+2;
     sprite0zoom:     cardinal absolute base+_sprite0zoom;
     sprite0zoomx:    word     absolute base+_sprite0zoom;
     sprite0zoomy:    word     absolute base+_sprite0zoom+2;
-    sprite1xy:       cardinal absolute base+_sprite1xy;
-    sprite1x:        smallint absolute base+_sprite1xy;
-    sprite1y:        smallint absolute base+_sprite1xy+2;
+    sprite1xy:       cardinal absolute base+_sprite0xy;
+    sprite1x:        word     absolute base+_sprite1xy;
+    sprite1y:        word     absolute base+_sprite1xy+2;
     sprite1zoom:     cardinal absolute base+_sprite1zoom;
     sprite1zoomx:    word     absolute base+_sprite1zoom;
     sprite1zoomy:    word     absolute base+_sprite1zoom+2;
     sprite2xy:       cardinal absolute base+_sprite2xy;
-    sprite2x:        smallint absolute base+_sprite2xy;
-    sprite2y:        smallint absolute base+_sprite2xy+2;
+    sprite2x:        word     absolute base+_sprite2xy;
+    sprite2y:        word     absolute base+_sprite2xy+2;
     sprite2zoom:     cardinal absolute base+_sprite2zoom;
     sprite2zoomx:    word     absolute base+_sprite2zoom;
     sprite2zoomy:    word     absolute base+_sprite2zoom+2;
     sprite3xy:       cardinal absolute base+_sprite3xy;
-    sprite3x:        smallint absolute base+_sprite3xy;
-    sprite3y:        smallint absolute base+_sprite3xy+2;
+    sprite3x:        word     absolute base+_sprite3xy;
+    sprite3y:        word     absolute base+_sprite3xy+2;
     sprite3zoom:     cardinal absolute base+_sprite3zoom;
     sprite3zoomx:    word     absolute base+_sprite3zoom;
     sprite3zoomy:    word     absolute base+_sprite3zoom+2;
     sprite4xy:       cardinal absolute base+_sprite4xy;
-    sprite4x:        smallint absolute base+_sprite4xy;
-    sprite4y:        smallint absolute base+_sprite4xy+2;
+    sprite4x:        word     absolute base+_sprite4xy;
+    sprite4y:        word     absolute base+_sprite4xy+2;
     sprite4zoom:     cardinal absolute base+_sprite4zoom;
     sprite4zoomx:    word     absolute base+_sprite4zoom;
     sprite4zoomy:    word     absolute base+_sprite4zoom+2;
     sprite5xy:       cardinal absolute base+_sprite5xy;
-    sprite5x:        smallint absolute base+_sprite5xy;
-    sprite5y:        smallint absolute base+_sprite5xy+2;
+    sprite5x:        word     absolute base+_sprite5xy;
+    sprite5y:        word     absolute base+_sprite5xy+2;
     sprite5zoom:     cardinal absolute base+_sprite5zoom;
     sprite5zoomx:    word     absolute base+_sprite5zoom;
     sprite5zoomy:    word     absolute base+_sprite5zoom+2;
     sprite6xy:       cardinal absolute base+_sprite6xy;
-    sprite6x:        smallint absolute base+_sprite6xy;
-    sprite6y:        smallint absolute base+_sprite6xy+2;
+    sprite6x:        word     absolute base+_sprite6xy;
+    sprite6y:        word     absolute base+_sprite6xy+2;
     sprite6zoom:     cardinal absolute base+_sprite6zoom;
     sprite6zoomx:    word     absolute base+_sprite6zoom;
     sprite6zoomy:    word     absolute base+_sprite6zoom+2;
     sprite7xy:       cardinal absolute base+_sprite7xy;
-    sprite7x:        smallint  absolute base+_sprite7xy;
-    sprite7y:        smallint absolute base+_sprite7xy+2;
+    sprite7x:        word     absolute base+_sprite7xy;
+    sprite7y:        word     absolute base+_sprite7xy+2;
     sprite7zoom:     cardinal absolute base+_sprite7zoom;
     sprite7zoomx:    word     absolute base+_sprite7zoom;
     sprite7zoomy:    word     absolute base+_sprite7zoom+2;
@@ -396,57 +402,30 @@ var fh,filetype:integer;                // this needs cleaning...
 
     spritepointers:  array[0..7] of cardinal absolute base+_sprite0ptr;
 
-    textcursor:      cardinal absolute base+_textcursor;
-    tcx:             word     absolute base+_textcursor;
-    tcy:             word     absolute base+_textcursor+2;
-    textcolor:       cardinal absolute base+_textcolor;
-    bkcolor:         cardinal absolute base+_bkcolor;
-    textsizex:       byte     absolute base+_textsize;
-    textsizey:       byte     absolute base+_textsize+1;
-    textpitch:       byte     absolute base+_textsize+2;
-    audiodma1:       array[0..7] of cardinal absolute base+_audiodma;
-    audiodma2:       array[0..7] of cardinal absolute base+_audiodma+32;
-    dblbufscn1:      cardinal absolute base+_dblbufscn1;
-    dblbufscn2:      cardinal absolute base+_dblbufscn2;
-    nativex:         cardinal absolute base+_nativex;
-    nativey:         cardinal absolute base+_nativey;
+    textcursorx:     word     absolute _textcursor;
+    textcursory:     word     absolute _textcursor+2;
+    textcolor:       cardinal absolute _textcolor;
+    bkcolor:         cardinal absolute _bkcolor;
+    textsizex:       byte     absolute _textsize;
+    textsizey:       byte     absolute _textsize+1;
+    textpitch:       byte     absolute _textsize+2;
+    audiodma1:       array[0..7] of cardinal absolute _audiodma;
+    audiodma2:       array[0..7] of cardinal absolute _audiodma+32;
 
-
-
+    desired, obtained:TAudioSpec;
     error:integer;
-    mousereports:array[0..31] of TMouseReport;
+    mousereports:array[0..7] of TMouseReport;
 
    mp3bufidx:integer=0;
    outbufidx:integer=0;
    framesize:integer;
-   backgroundaddr:integer=mainscreen;
-   screenaddr:integer=mainscreen+$800000;
-   redrawing:integer=mainscreen+$800000;
-   windowsdone:boolean=false;
-    drive:string;
 
-    mp3frames:integer=0;
-    debug1,debug2,debug3:cardinal;
-
-    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
-    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
-    mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
-
-    dec_element:DISPMANX_ELEMENT_HANDLE_T;
-    dec_resource: DISPMANX_RESOURCE_HANDLE_T;
-    dec_src_rect,dec_dst_rect:VC_RECT_T;
-    dec_update:   DISPMANX_UPDATE_HANDLE_T;
-
-    dec_pointer:integer;
-    decoration_addr:integer;
 
 // prototypes
 
-procedure initmachine(mode:integer);
+procedure initmachine;
 procedure stopmachine;
 
-procedure graphics(mode:integer);
 procedure setpallette(pallette:TPallette;bank:integer);
 procedure cls(c:integer);
 procedure putpixel(x,y,color:integer);
@@ -455,8 +434,6 @@ procedure outtextxy(x,y:integer; t:string;c:integer);
 procedure blit(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure box(x,y,l,h,c:integer);
 procedure box2(x1,y1,x2,y2,color:integer);
-procedure box32(x,y,l,h,c:integer);
-procedure box322(x1,y1,x2,y2,color:integer);
 function gettime:int64;
 procedure poke(addr:integer;b:byte);
 procedure dpoke(addr:integer;w:word);
@@ -477,7 +454,7 @@ procedure outtextxys(x,y:integer; t:string;c,s:integer);
 procedure outtextxyzs(x,y:integer; t:string;c,xz,yz,s:integer);
 procedure scrollup;
 function sid(mode:integer):tsample;
-//procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
+procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
 function getpixel(x,y:integer):integer; inline;
 function getkey:integer; inline;
 function readkey:integer; inline;
@@ -489,28 +466,15 @@ function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 //procedure dma_box(x,y,l,h,c:cardinal);
 //procedure box3(x,y,l,h,c:integer);
-procedure scrconvertnative(src,screen:pointer);
+
 
 implementation
 
-uses blitter, mwindows;
-
-var windows:Twindows;
-procedure scrconvert(src,screen:pointer); forward;
-//procedure scrconvert32(screen:pointer); forward;
+procedure scrconvert(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
-
 
 // ---- TMouse thread methods --------------------------------------------------
 
-operator =(a,b:tmousereport):boolean;
-
-var i:integer;
-
-begin
-result:=true;
-for i:=0 to 7 do if a[i]<>b[i] then result:=false;
-end;
 constructor TMouse.Create(CreateSuspended : boolean);
 
 begin
@@ -520,7 +484,7 @@ end;
 
 procedure TMouse.Execute;
 
-label p101,p102;
+label p101;
 
 var mb:tmousedata;
     i,j:integer;
@@ -531,16 +495,8 @@ var mb:tmousedata;
     const mousecount:integer=0;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
-ThreadSetpriority(ThreadGetCurrent,5);
-sleep(1);
-mousetype:=0;
   repeat
-    p102:
-    repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
-    if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
- //   box(0,0,300,50,0); outtextxy(0,0,inttohex(m[0],2)+' '+inttohex(m[1],2)+' '+inttohex(m[2],2)+' '+inttohex(m[3],2)+' '+inttohex(m[4],2)+' '+inttohex(m[5],2)+' '+inttohex(m[6],2)+' '+inttohex(m[7],2)+' ',15);
-
+    repeat m:=getmousereport; threadsleep(1); until m[0]<>255;
     mousecount+=1;
     j:=0; for i:=0 to 7 do if m[i]<>0 then j+=1;
     if (j>1) or (mousecount<16) then
@@ -549,7 +505,7 @@ mousetype:=0;
       for i:=0 to 6 do mousereports[i]:=mousereports[i+1];
       mousereports[7]:=m;
       end;
-//    mousetype:=0;
+    mousetype:=0;
     j:=0;
     for i:=0 to 6 do if mousereports[i,7]<>m[7]  then j+=1;
     for i:=0 to 6 do if mousereports[i,6]<>m[6]  then j+=1;
@@ -558,8 +514,8 @@ mousetype:=0;
     if j=0 then begin mousetype:=0; goto p101; end;
 
     j:=0;
-    for i:=0 to 6 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
-    for i:=0 to 6 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
+    for i:=0 to 7 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
+    for i:=0 to 7 do if (mousereports[i,3]<>$FF) and (mousereports[i,3]<>0) then j+=1;
     if j=0 then begin mousetype:=3; goto p101; end;
 
     for i:=0 to 6 do if mousereports[i,7]<>m[7] then mousetype:=m[0]; // 1 or 2
@@ -604,11 +560,11 @@ p101:
        end;
     x:=mousex+offsetx;
     if x<0 then x:=0;
-    if x>(xres-1) then x:=xres-1;
+    if x>1791 then x:=1791;
     mousex:=x;
     y:=mousey+offsety;
     if y<0 then y:=0;
-    if y>(yres-1) then y:=yres-1;
+    if y>1119 then y:=1119;
     mousey:=y;
     mousek:=Buttons and 255;
     if wheel<-1 then wheel:=-1;
@@ -637,13 +593,9 @@ procedure TKeyboard.Execute;
 // $60028 - translated code
 // $60029 - modifiers
 // $6002A - raw code
-// This thread also tracks mouse clicks
 
 const rptcnt:integer=0;
       activekey:integer=0;
-      olactivekey:integer=0;
-      oldactivekey:integer=0;
-      lastactivekey:integer=0;
       m:integer=0;
       c:integer=0;
       dblclick:integer=0;
@@ -655,35 +607,16 @@ var ch:TKeyboardReport;
     i:integer;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
-ThreadSetpriority(ThreadGetCurrent,5);
-sleep(1);
 repeat
-//  waitvbl;
-//   sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
-                                        //while mouse is on active screen only
-
-// now use hardware pointer
-
-mouse_update:=vc_dispmanx_update_start(11);
-if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_dst_rect, mousex, mousey, 32, 32-mousey+yres) else vc_dispmanx_rect_set(@mouse_dst_rect, mousex,mousey, 32,32);
-if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, (32-mousey+yres) shl 16 ) else  vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-
-//change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
-vc_dispmanx_element_change_attributes(mouse_update, mouse_element, 12, 0,0,@mouse_dst_rect,@mouse_src_rect,0,0);
-vc_dispmanx_update_submit(mouse_update,nil,nil);
-waitvbl;
-
-
-                                        //so I have to add $28 to y and $40 to x
-//  if textcursoron then
-//    begin
-//    i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var
-//    sprite6y:=68+32*textcursory;
-//    sprite6x:=64+16*textcursorx;
-//    // cursor blink
-//    if i=0 then sprite6x+=$1000 else sprite6x:=sprite6x and $0FFF;
-//    end;
+  waitvbl;
+  if textcursoron then
+    begin
+    i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var
+    sprite6y:=68+32*textcursory;
+    sprite6x:=64+16*textcursorx;
+    // cursor blink
+    if i=0 then sprite6x+=$1000 else sprite6x:=sprite6x and $0FFF;
+    end;
 
   if mousedblclick=2 then begin dblclick:=0; dblcnt:=0; mousedblclick:=0; end;
   if (dblclick=0) and (mousek=1) then begin dblclick:=1; dblcnt:=0; end;
@@ -692,15 +625,13 @@ waitvbl;
   if (dblclick=3) and (mousek=0) then begin dblclick:=4; dblcnt:=0; end;
 
   inc(dblcnt); if dblcnt>10 then begin dblcnt:=10; dblclick:=0; end;
-  if dblclick=4 then mousedblclick:=1 {else mousedblclick:=0};
+  if dblclick=4 then mousedblclick:=1 else mousedblclick:=0;
 
   if peek(base+$60031)=2 then begin click:=2; clickcnt:=10; end;
   if (mousek=1) and (click=0) then begin click:=1; clickcnt:=0; end;
   inc(clickcnt); if clickcnt>10 then  begin clickcnt:=10; click:=2; end;
   if (mousek=0) then click:=0;
-  if click=1 then mouseclick:=1 else mouseclick:=0; //poke (base+$60031,1) else poke (base+$60031,0);
-
-{
+  if click=1 then poke (base+$60031,1) else poke (base+$60031,0);
 
   ch:=getkeyboardreport;
   if ch[0]<>255 then m:=ch[0];
@@ -720,47 +651,203 @@ waitvbl;
     key_modifiers:=m;
     key_scancode:=activekey mod 256;
     end;
- }
-
- ch:=getkeyboardreport;
- if ch[7]<>255 then
-   begin
-//   box(0,100,200,32,0); for i:=0 to 7 do outtextxy(i*24,100,inttohex(ch[i],2),15);
-   olactivekey:=lastactivekey;
-   oldactivekey:=activekey;
-   lastactivekey:=0;
-   activekey:=0;
-   if ch[0]>0 then begin m:=ch[0]; key_modifiers:=m; end;
-   for i:=2 to 7 do if (ch[i]>3) and (ch[i]<255) then lastactivekey:=i;
-   if (lastactivekey>olactivekey) and (lastactivekey>0) then begin rptcnt:=0; activekey:=ch[lastactivekey];  end
-   else if (lastactivekey<olactivekey) then begin rptcnt:=0; activekey:=0; end
-   else if (lastactivekey=olactivekey) and (lastactivekey>0) and (oldactivekey<>ch[lastactivekey]) then begin rptcnt:=0; activekey:=ch[lastactivekey]; end;
-   if lastactivekey<2 then begin rptcnt:=0; activekey:=0; m:=0; end;
-   c:=byte(translatescantochar(activekey,0));
-   if (m and $22)<>0 then c:=byte(translatescantochar(activekey,1));
-   if (m and $42)=$40 then c:=byte(translatescantochar(activekey,2));
-   if (m and $42)=$42 then c:=byte(translatescantochar(activekey,3));
-   end;
-
- if (c>2) then inc(rptcnt);
-
- if rptcnt>26 then rptcnt:=24 ;
-// box(0,0,100,32,0); outtextxy(0,0,inttostr(rptcnt),15);
- if (rptcnt=1) or (rptcnt=24) then
-   begin
-
-   key_charcode:=byte(c);
-//   key_modifiers:=m;
-   key_scancode:=activekey mod 256;
-
-   end;
-
-
-
-
-
-
   until terminated;
+end;
+
+
+// ---- TFileBuffer thread methods --------------------------------------------------
+
+constructor TFileBuffer.Create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+m:=131072;
+pocz:=0;
+koniec:=0;
+fh:=-1;
+newfh:=-1;
+il:=0;
+newfilename:='';
+empty:=true; full:=false;
+needclear:=false;
+seekamount:=0;
+eof:=true;
+mp3:=0;
+qq:=32768;
+end;
+
+procedure TFileBuffer.Execute;
+
+var i,il2,k:integer;
+    ml:int64;
+    const cnt:integer=0;
+ var   outbuf2: PSmallint;
+
+//    info:mp3_info_t;
+//    framesize:integer;
+
+begin
+outbuf2:=@outbuf;
+ThreadSetCPU(ThreadGetCurrent,CPU_ID_2);
+sleep(1);
+repeat
+  if needclear or (seekamount<>0) or (newfh>0) then
+  // now do not do maintenence tasks while other thread is reading the buffer or the conflit may happen
+    begin
+    repeat until not reading;
+    maintenance:=true;
+    if eof and (newfh>0) then
+      begin
+      fh:=newfh;
+      newfh:=-1;
+      eof:=false;
+      qq:=32768;
+      end;
+    if seekamount<>0 then needclear:=true;
+    if needclear then
+      begin
+      koniec:=0;
+      pocz:=0;
+      needclear:=false;
+      empty:=true;
+      m:=131071;
+      for i:=0 to 131071 do buf[i]:=0;
+      qq:=32768;
+      for i:=0 to 32767 do tempbuf[i]:=0;
+      end;
+    if (seekamount<>0) and (fh>0) then
+      begin
+      fileseek(fh,seekamount,fsFromCurrent);
+      seekamount:=0;
+      end;
+    maintenance:=false;
+    end;
+    // end of maintenance processes
+
+  if (fh>0) and not eof then
+    begin
+    if koniec>=pocz then m:=131072-koniec+pocz-1 else m:=pocz-koniec-1;
+    if m>=32768 then // more than 32k free place, do a read
+      begin
+      if mp3=0 then  // no decoding needed, simply read 32k from file
+        begin
+        il:=fileread(fh,tempbuf[0],qq);
+        for i:=0 to il-1 do buf[(i+koniec) and $1FFFF]:=tempbuf[i] ;
+        koniec:=(koniec+il) and $1FFFF;
+        m:=m-il;
+        if m<3*32678 then empty:=false;
+        if (il<qq) and empty then eof:=true;
+        end
+      else // compressed file: read and decompress
+        begin
+        cnt+=1;
+        il:=fileread(fh,tempbuf[32768-qq],qq);
+        if (il<qq) and empty then eof:=true;
+        if il=qq then
+          begin
+
+          ml:=gettime;
+
+
+           mad_stream_buffer(@test_mad_stream,@tempbuf, 32768);
+           mad_frame_decode(@test_mad_frame, @test_mad_stream);
+           mad_synth_frame(@test_mad_synth,@test_mad_frame);
+
+          if test_mad_synth.pcm.channels=2 then for i:=0 to 1151 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[1,i] div 8704;  end;
+          if test_mad_synth.pcm.channels=1 then for i:=0 to 1151 do begin outbuf2[2*i]:= test_mad_synth.pcm.samples[0,i] div 8704;   outbuf2[2*i+1]:= test_mad_synth.pcm.samples[0,i] div 8704;  end;
+           il2:= (PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf));
+
+      // box(100,100,100,100,0); outtextxyz(100,100,inttostr(PtrUInt(test_mad_stream.next_frame)-ptruint(@tempbuf)),15,2,2);     outtextxyz(100,132,inttostr(tempbuf[il2]),15,2,2);
+
+          if head.srate=44100 then head.brate:=8*((130+il2*10) div 261)
+          else head.brate:=8*((120+il2*10) div 240);
+          head.srate:=44100;//info.sample_rate;
+          head.channels:=2;//info.channels;
+          for i:=il2 to 32767 do tempbuf[i-il2]:=tempbuf[i];
+          for i:=0 to 4*1152-1 do buf[(i+koniec) and $1FFFF]:=outbuf[i]; // audio bytes
+          qq:=il2;
+          koniec:=(koniec+4*1152) and $1FFFF;
+          mp3time:=gettime-ml;
+          if koniec>=pocz then m:=131072-koniec+pocz-1 else m:=pocz-koniec-1;
+          if m<131072-32768 then empty:=false;
+          end;
+        end;
+      end
+    else
+      begin
+      full:=true;
+      end;
+    end
+  else
+    begin
+//    if newfh>0 then
+//      begin
+//      fh:=newfh;
+//      newfh:=-1;
+//      eof:=false;
+//      end;
+    end;
+  sleep(1);
+until terminated;
+
+end;
+
+procedure TFileBuffer.setmp3(mp3b:integer);
+
+begin
+mp3:=mp3b;
+qq:=32768;
+needclear:=true;
+end;
+
+procedure TFileBuffer.seek(amount:int64);
+
+begin
+seekamount:=amount;
+end;
+
+function TFileBuffer.getdata(b,ii:integer):integer;
+
+var i,d:integer;
+
+begin
+repeat until not maintenance;
+reading:=true;
+result:=0;
+if not empty then
+  begin
+  if koniec>=pocz then d:=koniec-pocz
+  else d:=131072-pocz+koniec;
+  if d>=ii then
+    begin
+    full:=false;
+    result:=ii;
+    for i:=0 to ii-1 do poke(b+i,buf[(pocz+i) and $1FFFF]);
+    pocz:=(pocz+ii) and $1FFFF;
+    if pocz=koniec then empty:=true;
+    end
+  else
+    begin
+    for i:=0 to ii-1 do poke(b+i,0);
+    result:=0;
+    empty:=true;
+    end;
+  end;
+reading:=false;
+end;
+
+
+procedure TFileBuffer.setfile(nfh:integer);
+
+begin
+self.newfh:=nfh;
+//eof:=false;
+end;
+procedure TFileBuffer.clear;
+
+begin
+self.needclear:=true;
 end;
 
 
@@ -788,33 +875,25 @@ procedure TRetro.Execute;
 // --- rev 21070111
 
 var id:integer;
-    wh:TWindow;
-    screen:integer;
 
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
-ThreadSetPriority(ThreadGetCurrent,6);
 sleep(1);
 
 running:=1;
 repeat
   begin
+
   vblank1:=0;
   t:=gettime;
-
-
-// scrconvert(pointer($30800000),p2);   //8
-  scrconvertnative(pointer(mainscreen+$800000),p2);   //8
-  screenaddr:=mainscreen+$800000;
-
-
+//  InvalidateDataCacheRange(displaystart,$200000);
+  scrconvert(p2);
   tim:=gettime-t;
   t:=gettime;
   sprite(p2);
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2),(xres+64)*yres*4);
+  CleanDataCacheRange(integer(p2),9216000);
   framecnt+=1;
 
   FramebufferDeviceSetOffset(fb,0,0,True);
@@ -822,20 +901,17 @@ repeat
 
   vblank1:=0;
   t:=gettime;
-
-//  scrconvert(pointer($30b00000),p2+2304000);   //a
-  scrconvertnative(pointer(mainscreen+$b00000),p2+(xres+64)*(yres{+32}));   //a
-  screenaddr:=mainscreen+$b00000;
-
+ // InvalidateDataCacheRange(displaystart,$200000);
+  scrconvert(p2+2304000);
   tim:=gettime-t;
   t:=gettime;
-  sprite(p2+(xres+64)*(yres));
+  sprite(p2+2304000);
   ts:=gettime-t;
   vblank1:=1;
-  CleanDataCacheRange(integer(p2)+(xres+64)*(yres{+32})*4,(xres)*yres*4);
+  CleanDataCacheRange(integer(p2)+9216000,9216000);
   framecnt+=1;
 
-  FramebufferDeviceSetOffset(fb,0,yres,True);
+  FramebufferDeviceSetOffset(fb,0,1200,True);
   FramebufferDeviceWaitSync(fb);
 
 
@@ -851,155 +927,53 @@ end;
 // initmachine: start the machine
 // ----------------------------------------------------------------------
 
-procedure initmachine(mode:integer);
+procedure initmachine;
 
-// -- rev 20170606
+// -- rev 20170111
 
-var i,q:integer;
-
-
-    mouse_layer:integer;
- //    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
- //    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
- mouse_alpha:VC_DISPMANX_ALPHA_T;        dec_alpha:VC_DISPMANX_ALPHA_T;
-//     mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-mousetype:VC_IMAGE_TYPE_T;
-dectype:VC_IMAGE_TYPE_T;
-     mousepitch:integer;
-     decpitch:integer;
-     mousealigned_height:integer;
-     decaligned_height:integer;
-     mousedata:TSprite;
-     image:pointer;
-     dummy:integer;
-
- //    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
+var a,i,j,k:integer;
+    l,bb:byte;
+    fh2:integer;
+    Entry:TPageTableEntry ;
+    f: textfile;
 
 begin
 
-for i:=base to base+$FFFFF do poke(i,0); // clean all system area
-repeat fb:=FramebufferDevicegetdefault until fb<>nil;
-// get native resolution
-FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-nativex:=FramebufferProperties.PhysicalWidth;
-nativey:=FramebufferProperties.PhysicalHeight;
+//init the framebuffer
+//TODO: if the screen is 1920x1080 init it to this resolution
+
+fb:=FramebufferDevicegetdefault;
 FramebufferDeviceRelease(fb);
-
-if (nativex>=1024) and (nativey>=768) then
-  begin
-  xres:=nativex;
-  yres:=nativey;
-  end
-else
-  begin
-  xres:=2*nativex;
-  yres:=2*nativey;
-  end;
-
+Sleep(100);
 FramebufferProperties.Depth:=32;
-FramebufferProperties.PhysicalWidth:=xres;
-FramebufferProperties.PhysicalHeight:=yres;
-FramebufferProperties.VirtualWidth:=xres+64;
-FramebufferProperties.VirtualHeight:=yres*2;
-q:=FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(300);
-//i:=0;
-//repeat inc(i); sleep(100); until (fb^.FramebufferState = FRAMEBUFFER_STATE_ENABLED) or (i>20);
-//if i>20 then systemrestart(0);
-
+FramebufferProperties.PhysicalWidth:=1920;
+FramebufferProperties.PhysicalHeight:=1200;
+FramebufferProperties.VirtualWidth:=FramebufferProperties.PhysicalWidth;
+FramebufferProperties.VirtualHeight:=FramebufferProperties.PhysicalHeight * 2;
+FramebufferDeviceAllocate(fb,@FramebufferProperties);
+sleep(100);
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address);//+128*xres);
+p2:=Pointer(FramebufferProperties.Address);
+for i:=0 to (1920*2400)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
 
-//for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-
-
-bordercolor:=0;
-displaystart:=mainscreen;                 // vitual framebuffer address
+for i:=base to base+$FFFFF do poke(i,0); // clean all system area
+displaystart:=$30000000;                 // vitual framebuffer address
 framecnt:=0;                             // frame counter
-//for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
+
 // init pallette, font and mouse cursor
 
 systemfont:=st4font;
-   {
-
-// init the layer for windows decorations
-
-        dec_alpha.flags:=1;    // opaciy from pixels       1-const, 2 nonzero 3 >7
-        dec_alpha.opacity:=0;  //opaque
-        dec_alpha.mask:=0;
-        dectype:=VC_IMAGE_aRGB8888;
-
-        image:=getmem(xres*yres*4);
-        for i:=0 to xres*yres-1 do lpoke(integer(image)+4*i,$FFFFFFFF);
-        lpoke(integer(image),$0063756a);
-        dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 1200, @dummy );
-        vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 1200);
-        vc_dispmanx_resource_write_data(dec_resource,dectype,xres*4,image,@dec_dst_rect);
-
-
-        dec_update:=vc_dispmanx_update_start(10);
-        vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, yres shl 16 );
-        vc_dispmanx_rect_set( @dec_dst_rect, 0,0,xres,yres);
-        dec_element:=vc_dispmanx_element_add(dec_update,
-                                               display,
-                                               255, // the layer under the mouse
-                                               @dec_dst_rect,
-                                               dec_resource,
-                                               @dec_src_rect,
-                                               DISPMANX_PROTECTION_NONE,
-                                               @dec_alpha,
-                                                nil,             // clamp
-                                                       0 );
-          vc_dispmanx_update_submit_sync(dec_update);
-           i:=$3F000000;
-  repeat i:=i-4 until (lpeek(i)=$0063756a) or (i<=$25000000);
-  decoration_addr:=i;
-
-// test
-
-  for j:=0 to 10 do begin
-
-dec_alpha.flags:=1;    // opaciy from pixels
-dec_alpha.opacity:=0;  //opaque
-dec_alpha.mask:=0;
-dectype:=VC_IMAGE_RGB888;
-
-image:=getmem(xres*yres*4);
-for i:=0 to 4*xres*yres-1 do poke(integer(image)+i,j*16);
-lpoke(integer(image),$0063756a);
-dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 600, @dummy );
-vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 600);
-vc_dispmanx_resource_write_data(dec_resource,dectype,xres*3,image,@dec_dst_rect);
-
-
-dec_update:=vc_dispmanx_update_start(10);
-vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, 599 shl 16);
-vc_dispmanx_rect_set( @dec_dst_rect, j,600,xres,599);
-dec_element:=vc_dispmanx_element_add(dec_update,
-                                       display,
-                                       255+j, // the layer under the mouse
-                                       @dec_dst_rect,
-                                       dec_resource,
-                                       @dec_src_rect,
-                                       DISPMANX_PROTECTION_NONE,
-                                       @dec_alpha,
-                                        nil,             // clamp
-                                               0 );
-  vc_dispmanx_update_submit_sync(dec_update);
-end;
-   }
-
-
-     //sprite7def:=mysz;
+sprite7def:=mysz;
 setpallette(ataripallette,0);
-//textcursorx:=$FFFF;
-//cls(84);
+cls(146);
 
 // init sprite data pointers
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
 // start frame refreshing thread
-sleep(300);
+
+thread:=tretro.create(true);
+thread.start;
 
 // init sid variables
 
@@ -1018,72 +992,26 @@ mad_stream_init(@test_mad_stream);
 mad_synth_init(@test_mad_synth);
 mad_frame_init(@test_mad_frame);
 
-removeramlimits(integer(@sprite));
-
-
-
-//filebuffer:=Tfilebuffer.create(true);
-//filebuffer.start;
-
-mousex:=xres div 2;
-mousey:=yres div 2;
-mousewheel:=128;
-
-
-background:=TWindow.create(xres,yres,'');
-//dispmanbackground:=TDispmanwindow.create(xres,yres,'');
-panel:=TPanel.create;
-sleep(100);
-thread:=tretro.create(true);
-thread.start;
-
-
-windows:=twindows.create(true);
-windows.start;
-
-bcmhostinit;
-display := vc_dispmanx_display_open(0);  // todo: detect lcd
-
-// init mouse cursor as dispmanx element
-
-   mouse_alpha.flags:=0;    // opaciy from pixels
-   mouse_alpha.opacity:=0;  //opaque
-   mouse_alpha.mask:=0;
-   mousetype:=VC_IMAGE_ARGB8888;
-   mousedata:=mysz;
-   for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
-   image:=@mousedata;
-   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
-   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
-   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
-   mouse_update:=vc_dispmanx_update_start(10);
-   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
-   mouse_element:=vc_dispmanx_element_add(mouse_update,
-                                          display,
-                                          256, // mouse cursor is on top of all the rest
-                                          @mouse_dst_rect,
-                                          mouse_resource,
-                                          @mouse_src_rect,
-                                          DISPMANX_PROTECTION_NONE,
-                                          @mouse_alpha,
-                                           nil,             // clamp
-                                                  0 );
-     vc_dispmanx_update_submit_sync(mouse_update);
-
-     amouse:=tmouse.create(true);
-     amouse.start;
-
-     akeyboard:=tkeyboard.create(true);
-     akeyboard.start;
 // start audio, mouse, kbd and file buffer threads
 
-//desired.callback:=@AudioCallback;
-//desired.channels:=2;
-//desired.format:=AUDIO_S16;
-//desired.freq:=44100;
-//desired.samples:=384;
-//error:=openaudio(@desired,@obtained);
+desired.callback:=@AudioCallback;
+desired.channels:=2;
+desired.format:=AUDIO_S16;
+desired.freq:=44100;
+desired.samples:=384;
+error:=openaudio(@desired,@obtained);
+
+filebuffer:=Tfilebuffer.create(true);
+filebuffer.start;
+
+amouse:=tmouse.create(true);
+amouse.start;
+mousex:=960;
+mousey:=600;
+mousewheel:=128;
+
+akeyboard:=tkeyboard.create(true);
+akeyboard.start;
 end;
 
 
@@ -1098,579 +1026,137 @@ begin
 thread.terminate;
 repeat until running=0;
 //thread3.terminate;
-//filebuffer.terminate;
+filebuffer.terminate;
 amouse.terminate;
 akeyboard.terminate;
-windows.terminate;
-vc_dispmanx_display_close(display);
-bcmhostdeinit;
 end;
 
 // -----  Screen convert procedures
 
-
-
-procedure scrconvert(src,screen:pointer);
-
-// --- rev 21070111
-
-var a,b,c:integer;
-    e:integer;
-
-label p1,p0,p002,p10,p11,p12,p999;
-
-begin
-a:=displaystart;
-c:=integer(src);//$30800000;  // map start
-e:=bordercolor;
-b:=base+_pallette;
-
-                asm
-
-                stmfd r13!,{r0-r12,r14}   //Push registers
-                ldr r1,c
-                ldr r2,screen
-                ldr r3,b
-                mov r5,r2
-
-                //upper border
-
-                add r5,#307200
-                ldr r4,e
-                mov r6,r4
-                mov r7,r4
-                mov r8,r4
-                mov r9,r4
-                mov r10,r4
-                mov r12,r4
-                mov r14,r4
-
-
-p10:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                cmp r2,r5
-                blt p10
-
-                mov r0,#1120
-
-p11:            add r5,#256
-
-                //left border
-
-p0:             stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-
-                                    //active screen
-                add r5,#7168
-
-p1:
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                cmp r2,r5
-                blt p1
-
-                                  //right border
-                add r5,#256
-                ldr r4,e
-                mov r6,r4
-                mov r7,r4
-                mov r8,r4
-                mov r9,r4
-                mov r10,r4
-                mov r12,r4
-                mov r14,r4
-
-
-p002:           stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                subs r0,#1
-                bne p11
-                                  //lower border
-                add r5,#307200
-
-p12:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                cmp r2,r5
-                blt p12
-p999:           ldmfd r13!,{r0-r12,r14}
-                end;
-
-
-end;
-
-
-procedure scrconvertnative(src,screen:pointer);
-
-// --- rev 21070608
-
-var a,b,c:integer;
-    e:integer;
-    nx,ny:cardinal;
-
-label p1,p0,p002,p10,p11,p12,p999;
-
-begin
-a:=displaystart;
-c:=integer(src);//$30800000;  // map start
-e:=bordercolor;
-b:=base+_pallette;
-ny:=yres;//nativey;
-nx:=xres*4;//nativex*4;
-
-                asm
-
-                stmfd r13!,{r0-r12,r14}   //Push registers
-                ldr r1,c
-                ldr r2,screen
-                ldr r3,b
-                mov r5,r2
-                sub r2,#256
-                sub r5,#256
-
-                //upper border
-
-
-                ldr r0,ny
-
-p11:            ldr r4,nx                                   //active screen
-                add r5,r4 //#7168
-                    add r2,#256
-                    add r5,#256
-
-p1:
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                cmp r2,r5
-                blt p1
-
-                subs r0,#1
-                bne p11
-
-
-p999:           ldmfd r13!,{r0-r12,r14}
-                end;
-
-
-end;
-
-procedure scrconvertdl(screen:pointer);
+procedure scrconvert(screen:pointer);
 
 // --- rev 21070111
 
 var a,b:integer;
     e:integer;
-    c,command, pixels, lines, dl:cardinal;
-
-const scr:cardinal=mainscreen;
-
-label p001;
+label p1,p0,p002,p10,p11,p12,p999;
 
 begin
 a:=displaystart;
 e:=bordercolor;
-c:=scr;
 b:=base+_pallette;
-dl:=lpeek(base+$60034);
 
- // rev 20170607
-
-// DL graphic mode
-
-//xxxxDDMM
-// xxxx = 0001 for RPi Retromachine
-// MM: 00: hi, 01 med 10 low 11 native borderless
-// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
-
-//    2F06_0018 - display list start addr  ----TODO
-//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
-//                            xx: 00 - do nothing
-//                                01 - raster interrupt
-//                                10 - set pallette bank YY
-//                                11 - set horizontal scroll at YY
-//                          01xx_AAAAAAA - wait for vsync, then start DL @xxAAAAAA
-//                          10xx_AAAAAAA - set display address to xxAAAAAAA
-//                          11xx_AAAAAAA - goto address xxAAAAAAA
-
-//    2F06_0034 - current dl position ----TODO
-
-//    2F06_0008 - current graphics mode   ----TODO
-//      2F06_0009 - bytes per pixel
-//    2F06_000C - border color
-//    2F06_0010 - pallette bank           ----TODO
-//    2F06_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
-//    2F06_0018 - display list start addr  ----TODO
-//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
-//                            xx: 00 - do nothing
-//                                01 - raster interrupt
-//                                10 - set pallette bank YY
-//                                11 - set horizontal scroll at YY
-//                          10xx_AAAAAAA - set display address to xxAAAAAAA
-//                          11xx_AAAAAAA - goto address xxAAAAAAA
-//    2F06_001C - horizontal scroll right register ----TODO
-//    2F06_0020 - x res
-//    2F06_0024 - y res
-
-
-command:=lpeek(dl);
-if (command and $C0000000) = 0 then // display
-  begin
-  if command and $FF=$1C then       // border
-    begin
-    lines:=(command and $000FFF00) shr 8;
-    pixels:=lines*1920*4;    // border modes are always signalling 1920x1200
                 asm
-                push {r0-r9}
-                ldr r1,e
-                ldr r0,c
-                mov r2,r1
-                mov r3,r1
-                mov r4,r1
-                mov r5,r1
+                stmfd r13!,{r0-r12}   //Push registers
+                ldr r1,a
                 mov r6,r1
-                mov r7,r1
-                mov r8,r1
-                mov r8,r1
-                ldr r9,pixels
-                add r9,r0
-p001:           stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                stm r0!,{r1,r2,r3,r4,r5,r6,r7,r8}
-                cmp r0,r9
-                blt p001
-                pop {r0-r9}
-                end;
-    end
-  else if command and $FF=$10 then       // hi res bordered 8bpp
-    begin
-    end
-  else if command and $FF=$13 then       // native bordreless 8bpp
-    begin
-    end
-  end;
-{
-                asm
-
-                stmfd r13!,{r0-r12,r14}   //Push registers
-                ldr r1,c
+                add r6,#1
                 ldr r2,screen
+                mov r12,r2
+                add r12,#4
                 ldr r3,b
                 mov r5,r2
-
-                //upper border
-
+                                    //upper border
                 add r5,#307200
-                ldr r4,e
-                mov r6,r4
-                mov r7,r4
-                mov r8,r4
-                mov r9,r4
-                mov r10,r4
-                mov r12,r4
-                mov r14,r4
-
-
-p10:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
+                ldr r9,e
+                mov r10,r9
+p10:            str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
                 cmp r2,r5
                 blt p10
-
                 mov r0,#1120
-
+                                    //left border
 p11:            add r5,#256
-
-                //left border
-
-p0:             stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-
+                ldr r9,e
+                mov r10,r9
+p0:             str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p0
                                     //active screen
                 add r5,#7168
-
-p1:
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
-                ldm r1!,{r4,r9}
-
-                mov r6,r4,lsr #8
-                mov r7,r4,lsr #16
-                mov r8,r4,lsr #24
-                mov r10,r9,lsr #8
-                mov r12,r9,lsr #16
-                mov r14,r9,lsr #24
-
-                and r4,#0xFF
-                and r6,#0xFF
-                and r7,#0xFF
-                and r9,#0xFF
-                and r10,#0xFF
-                and r12,#0xFF
-
-                ldr r4,[r3,r4,lsl #2]
-                ldr r6,[r3,r6,lsl #2]
-                ldr r7,[r3,r7,lsl #2]
-                ldr r8,[r3,r8,lsl #2]
-                ldr r9,[r3,r9,lsl #2]
-                ldr r10,[r3,r10,lsl #2]
-                ldr r12,[r3,r12,lsl #2]
-                ldr r14,[r3,r14,lsl #2]
-
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
+p1:             ldrb r7,[r1],#2
+                ldrb r8,[r6],#2
+                ldr r9,[r3,r7,lsl #2]
+                ldr r10,[r3,r8,lsl #2]
+                str r9,[r2],#8
+                str r10,[r12],#8
+                ldrb r7,[r1],#2
+                ldrb r8,[r6],#2
+                ldr r9,[r3,r7,lsl #2]
+                ldr r10,[r3,r8,lsl #2]
+                str r9,[r2],#8
+                str r10,[r12],#8
+                ldrb r7,[r1],#2
+                ldrb r8,[r6],#2
+                ldr r9,[r3,r7,lsl #2]
+                ldr r10,[r3,r8,lsl #2]
+                str r9,[r2],#8
+                str r10,[r12],#8
+                ldrb r7,[r1],#2
+                ldrb r8,[r6],#2
+                ldr r9,[r3,r7,lsl #2]
+                ldr r10,[r3,r8,lsl #2]
+                str r9,[r2],#8
+                str r10,[r12],#8
                 cmp r2,r5
                 blt p1
-
                                   //right border
                 add r5,#256
-                ldr r4,e
-                mov r6,r4
-                mov r7,r4
-                mov r8,r4
-                mov r9,r4
-                mov r10,r4
-                mov r12,r4
-                mov r14,r4
-
-
-p002:           stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
+                ldr r9,e
+                mov r10,r9
+p002:           str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
+                cmp r2,r5
+                blt p002
                 subs r0,#1
                 bne p11
                                   //lower border
                 add r5,#307200
-
-p12:            stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-                stm r2!,{r4,r6,r7,r8,r9,r10,r12,r14}
-
+                ldr r9,e
+                mov r10,r9
+p12:            str r9,[r2],#8
+                str r10,[r12],#8
+                str r9,[r2],#8
+                str r10,[r12],#8
                 cmp r2,r5
                 blt p12
-p999:           ldmfd r13!,{r0-r12,r14}
+p999:           ldmfd r13!,{r0-r12}
                 end;
-}
+
+
 end;
+
 
 procedure sprite(screen:pointer);
 
 // A sprite procedure
 // --- rev 21070111
 
-label p101,p102,p103,p104,p105,p106,p107,p108,p109,p999,a7680,affff,affff0000,spritedata;
+label p101,p102,p103,p104,p105,p106,p999,a7680,affff,affff0000,spritedata;
 var spritebase:integer;
-    nx:cardinal;
-    yr:cardinal;
-    scrl:cardinal;
 
 begin
-yr:=yres;
 spritebase:=base+_spritebase;
-nx:=xres*4+256;
-scrl:=integer(screen)+(xres+64)*yres*4;
 
                asm
-               stmfd r13!,{r0-r12,r14}     //Push registers
-               ldr r12,nx
-               str r12,a7680
+               stmfd r13!,{r0-r12}     //Push registers
                mov r12,#0
                                        //sprite
                ldr r0,spritebase
  p103:         ldr r1,[r0],#4
                mov r2,r1, lsl #16      // sprite 0 position
-               mov r3,r1, asr #16
-               asr r2,#14              // x pos*4
-
-               ldr r14,yr
-               cmp r3,r14
-               bge p107
-
-               cmp r2,#8192            // switch off the sprite if x>2048
+               mov r3,r1, lsr #16
+               lsr r2,#14              // x pos*4
+               cmp r2,#8192            // switch off the sprite if y>8192
                blt p104
-p107:          add r12,#1
+               add r12,#1
                add r0,#4
                cmp r12,#8
                bge p999
@@ -1679,8 +1165,6 @@ p107:          add r12,#1
 p104:          ldr r4,a7680
                mul r3,r3,r4
                add r3,r2              // sprite pos
-
-
                ldr r4,screen
                add r3,r4              // pointer to upper left sprite pixel in r3
                ldr r4,spritedata
@@ -1707,14 +1191,7 @@ p104:          ldr r4,a7680
 
                push {r0}
 
-p101:
-                   ldr r14,screen
-                   cmp r3,r14
-                   bge p109
-                   add r3,r8
-                   b p106
-
-p109:          ldr r5,[r4],#4
+p101:          ldr r5,[r4],#4
                cmp r5,#0
                bne p102
                add r3,r3,r8,lsr #5
@@ -1732,16 +1209,10 @@ p102:          ldr r0,[r3]
 
 p105:          mov r7,r2
                subs r6,#1
-               bne p109
+               bne p101
 
-p106:          ldr r0,a7680
-               add r3,r0
+p106:          add r3,#7680
                sub r3,r8
-
-                   ldr r14,scrl
-                   cmp r3,r14
-                   bge p108
-
                subs r10,#1
                subne r4,#128
                addeq r10,r1
@@ -1749,7 +1220,7 @@ p106:          ldr r0,a7680
                subs r9,#1
                bne p101
 
-p108:          pop {r0}
+               pop {r0}
 
 
                add r12,#1
@@ -1762,7 +1233,7 @@ affff0000:     .long 0xFFFF0000
 a7680:         .long 7680
 spritedata:    .long base+0x60080
 
-p999:          ldmfd r13!,{r0-r12,r14}
+p999:          ldmfd r13!,{r0-r12}
                end;
 end;
 
@@ -1774,9 +1245,6 @@ var Entry:TPageTableEntry;
 
 begin
 Entry:=PageTableGetEntry(addr);
-Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
-PageTableSetEntry(Entry);
-Entry:=PageTableGetEntry(addr+4096);
 Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
 end;
@@ -1794,12 +1262,6 @@ procedure waitvbl;
 
 begin
 repeat sleep(1) until vblank1=0;
-repeat sleep(1) until vblank1=1;
-end;
-
-function waitscreen:integer;
-
-begin
 repeat sleep(1) until vblank1=1;
 end;
 
@@ -1894,132 +1356,8 @@ result:=mousewheel-128;
 mousewheel:=128
 end;
 
-//------------------------------------------------------------------------------
-// ----- Graphics mode setting ------------
-//------------------------------------------------------------------------------
 
-procedure graphics(mode:integer);
-
-// rev 20170607
-
-// Graphics mode set:
-// 16 - HiRes 8bpp
-// 17 - MedRes 16 bpp
-// 18 - LoRes 32 bpp
-// 19 - native, borderless, 8 bpp
-
-// DL graphic mode
-
-//xxxxDDMM
-// xxxx = 0001 for RPi Retromachine
-// MM: 00: hi, 01 med 10 low 11 native borderless
-// DD: 00 8bpp 01 16 bpp 10 32 bpp 11 border
-
-//    2F06_0018 - display list start addr  ----TODO
-//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
-//                            xx: 00 - do nothing
-//                                01 - raster interrupt
-//                                10 - set pallette bank YY
-//                                11 - set horizontal scroll at YY
-//                          01xx_AAAAAAA - wait for vsync, then start DL @xxAAAAAA
-//                          10xx_AAAAAAA - set display address to xxAAAAAAA
-//                          11xx_AAAAAAA - goto address xxAAAAAAA
-
-//    2F06_0034 - current dl position ----TODO
-
-//    2F06_0008 - current graphics mode   ----TODO
-//      2F06_0009 - bytes per pixel
-//    2F06_000C - border color
-//    2F06_0010 - pallette bank           ----TODO
-//    2F06_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
-//    2F06_0018 - display list start addr  ----TODO
-//                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
-//                            xx: 00 - do nothing
-//                                01 - raster interrupt
-//                                10 - set pallette bank YY
-//                                11 - set horizontal scroll at YY
-//                          10xx_AAAAAAA - set display address to xxAAAAAAA
-//                          11xx_AAAAAAA - goto address xxAAAAAAA
-//    2F06_001C - horizontal scroll right register ----TODO
-//    2F06_0020 - x res
-//    2F06_0024 - y res
-begin
-if mode=16 then
-  begin
-  poke(base+$60008,16);
-  poke(base+$60009,8);
-  lpoke(base+$60010,0);
-  lpoke(base+$60014,0);
-  lpoke(base+$60020,1792);
-  lpoke(base+$60024,1120);
-  lpoke (base+$60018,base+$60410);
-  lpoke (base+$60034,base+$60410);
-  lpoke (base+$60410,$0000281C);  // upper border 40 lines
-  lpoke (base+$60414,$00046000);  // main display 1120 lines @ hi/8bpp
-  lpoke (base+$60418,$0000281C);  // lower border 40 lines
-  lpoke (base+$6041C,base+$60410+$40000000);  // wait vsync and restart DL
-  end
-else if mode=17 then
-  begin
-  end
-else if mode=18 then
-  begin
-  end
-else if mode=19 then
-  begin
-  poke(base+$60008,16);
-  poke(base+$60009,8);
-  lpoke(base+$60010,0);
-  lpoke(base+$60014,0);
-  lpoke(base+$60020,nativex);
-  lpoke(base+$60024,nativey);
-  lpoke (base+$60018,base+$60410);
-  lpoke (base+$60034,base+$60410);
-  lpoke (base+$60414,(nativey shl 8)+3);      // main display nativey lines @ hi/8bpp
-  lpoke (base+$6041C,base+$60410+$40000000);  // wait vsync and restart DL
-  end
-else if mode=144 then        // double buffered high 8 bit
-  begin
-  poke(base+$60008,144);
-  poke(base+$60009,8);
-  lpoke(base+$60010,0);
-  lpoke(base+$60014,0);
-  lpoke(base+$60020,1792);
-  lpoke(base+$60024,1120);
-
-  lpoke (base+$60018,base+$60410);
-  lpoke (base+$60034,base+$60410);
-  lpoke (base+$60410,$B0800000);  // display start @ 30800000
-  lpoke (base+$60414,$0000281C);  // upper border 40 lines
-  lpoke (base+$60418,$00046000);  // main display 1120 lines @ hi/8bpp
-  lpoke (base+$6041c,$0000281C);  // lower border 40 lines
-  lpoke (base+$60420,$B0b00000);  // display start @ 30b00000
-  lpoke (base+$60424,base+$60428+$40000000);  // wait vsync and restart DL @ 60428
-  lpoke (base+$60428,$0000281C);  // upper border
-  lpoke (base+$6042c,$00046000);  // main display 1120 lines @ hi/8bpp
-  lpoke (base+$60430,$0000281C);  // lower border 40 lines
-  lpoke (base+$60434,$B0800000);  // display start @ 30800000
-  lpoke (base+$60438,base+$60414+$40000000);  // wait vsync and restart DL @ 60414
-  end
-else if mode=147 then          // double buffered native 8bit
-  begin
-  poke(base+$60008,147);
-  poke(base+$60009,8);
-  lpoke(base+$60010,0);
-  lpoke(base+$60014,0);
-  lpoke(base+$60020,nativex);
-  lpoke(base+$60024,nativey);
-  lpoke (base+$60018,base+$60410);
-  lpoke (base+$60034,base+$60410);
-  lpoke (base+$60410,$B0800000);  // display start @ 30800000
-  lpoke (base+$60414,(nativey shl 8)+3);  // display the screen
-  lpoke (base+$60418,$B0b00000);  // display start @ 30a00000
-  lpoke (base+$6041c,base+$60420+$40000000);  // wait vsync and restart DL @ 60420
-  lpoke (base+$60420,(nativey shl 8)+3);
-  lpoke (base+$60424,$B0800000);  // display start @ 30b00000
-  lpoke (base+$60428,base+$60414+$40000000);  // wait vsync and restart DL @ 60414
-  end
-end;
+// ----- Graphics ------------
 
 procedure blit(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 
@@ -2030,7 +1368,7 @@ var i,j:integer;
     b1,b2:integer;
 
 begin
-//if lpeek(base+$60008)<16 then
+if lpeek(base+$60008)<16 then
   begin
   from:=from+x;
   too:=too+x2;
@@ -2188,12 +1526,10 @@ procedure box(x,y,l,h,c:integer);
 label p101,p102,p999;
 
 var screenptr:cardinal;
-    xr:integer;
 
 begin
 
 screenptr:=displaystart;
-xr:=xres;
 if x<0 then begin l:=l+x; x:=0; if l<1 then goto p999; end;
 if x>=xres then goto p999;
 if y<0 then begin h:=h+y; y:=0; if h<1 then goto p999; end;
@@ -2203,10 +1539,9 @@ if y+h>=yres then h:=yres-y;
 
 
              asm
-             push {r0-r7}
+             push {r0-r6}
              ldr r2,y
-             ldr r7,xr
-             mov r3,r7
+             mov r3,#1792
              ldr r1,x
              mul r3,r3,r2
              ldr r4,l
@@ -2220,54 +1555,7 @@ p102:        mov r5,r4
 p101:        strb r3,[r0],#1  // inner loop
              subs r5,#1
              bne p101
-             add r0,r7
-             sub r0,r4
-             subs r6,#1
-             bne p102
-
-             pop {r0-r7}
-             end;
-
-p999:
-end;
-
-procedure box32(x,y,l,h,c:integer);
-
-label p101,p102,p999;
-
-var screenptr:cardinal;
-
-begin
- if c<256 then c:=ataripallette[c];
-screenptr:=displaystart;
-if x<0 then begin l:=l+x; x:=0; if l<1 then goto p999; end;
-if x>=xres then goto p999;
-if y<0 then begin h:=h+y; y:=0; if h<1 then goto p999; end;
-if y>=yres then goto p999;
-if x+l>=xres then l:=xres-x;
-if y+h>=yres then h:=yres-y;
-
-
-             asm
-             push {r0-r6}
-             ldr r2,y
-             mov r3,#1792*4
-             ldr r1,x
-             mul r3,r3,r2
-             lsl r1,#2
-             ldr r4,l
-             lsl r4,#2
-             add r3,r1
-             ldr r0,screenptr
-             add r0,r3
-             ldr r3,c
-             ldr r6,h
-
-p102:        mov r5,r4
-p101:        str r3,[r0],#4  // inner loop
-             subs r5,#4
-             bne p101
-             add r0,#1792*4
+             add r0,#1792
              sub r0,r4
              subs r6,#1
              bne p102
@@ -2293,14 +1581,6 @@ begin
 if x1>x2 then begin i:=x2; x2:=x1; x1:=i; end;
 if y1>y2 then begin i:=y2; y2:=y1; y1:=i; end;
 if (x1<>x2) and (y1<>y2) then  box(x1,y1,x2-x1+1, y2-y1+1,color);
-end;
-
-procedure box322(x1,y1,x2,y2,color:integer);
-
-begin
-if x1>x2 then begin i:=x2; x2:=x1; x1:=i; end;
-if y1>y2 then begin i:=y2; y2:=y1; y1:=i; end;
-if (x1<>x2) and (y1<>y2) then  box32(x1,y1,x2-x1+1, y2-y1+1,color);
 end;
 
 
@@ -3618,7 +2898,139 @@ sid[0]:= siddata[$6b]; //  2048+ (siddata[$6c] div (16*16384));//16384;//32768;
 sid[1]:= siddata[$6c];//2048+ (siddata[$6b] div (16*16384));//16384;//32768;
 
 
+
+//sid[0]:=sid1;
+//sid[1]:=sid1l;
 end;
+
+
+
+procedure oscilloscope(sample:integer);
+
+begin
+oldsc:=sc;
+sc:=sample+(sample div 2);
+scope[scj]:=sc;
+inc(scj);
+if scj>959 then if (oldsc<0) and (sc>0) then scj:=0 else scj:=959;
+end;
+
+
+procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
+
+label p999;
+
+var audio2:psmallint;
+    audio3:psingle;
+    s:tsample;
+    ttt:int64;
+    i,il:integer;
+    buf:array[0..25] of byte;
+
+const aa:integer=0;
+
+
+begin
+
+audio2:=psmallint(stream);
+audio3:=psingle(stream);
+
+ttt:=clockgettotal;
+
+
+if (filetype=3) or (filetype=4) or (filetype=5) then
+  begin
+  if sfh>0 then
+    begin
+    if filebuffer.eof then // il<>1536 then
+      begin
+      fileclose(sfh);
+      sfh:=-1;
+      songtime:=0;
+      pauseaudio(1);
+      nextsong:=1;
+      timer1:=-1;
+      end
+    else
+      begin
+      il:=filebuffer.getdata(integer(stream),len);
+      timer1+=siddelay;
+      songtime+=siddelay;
+      if ((head.pcm=1) or (filetype>=4)) and (len=1536) then for i:=0 to 383 do oscilloscope(audio2[2*i]+audio2[2*i+1])
+                         else if ((head.pcm=1) or (filetype>=4)) and (len=768) then for i:=0 to 383 do oscilloscope(audio2[i])
+                         else for i:=0 to 95 do oscilloscope(round(16384*(audio3[4*i]+audio3[4*i+1]+audio3[4*i+2]+audio3[4*i+3])));
+      end;
+    end;
+  end
+else
+  begin
+  aa+=2500;
+  if (aa>=siddelay) then
+    begin
+    aa-=siddelay;
+    if sfh>-1 then
+      begin
+      if filetype=0 then
+
+        begin
+        il:=fileread(sfh,buf,25);
+        if il=25 then
+          begin
+          for i:=0 to 24 do poke(base+$d400+i,buf[i]);
+          timer1+=siddelay;
+          songtime+=siddelay;
+          end
+        else
+          begin
+          fileclose(sfh);
+          sfh:=-1;
+          pause1:=true;
+          songtime:=0;
+          timer1:=-1;
+          for i:=0 to 6 do lpoke(base+$d400+4*i,0);
+          end;
+        end
+      else if filetype=1 then
+        begin
+        for i:=0 to 15 do times6502[i]:=times6502[i+1];
+        t6:=clockgettotal;
+        jsr6502(256,play);
+        times6502[15]:=clockgettotal-t6;
+        t6:=0; for i:=0 to 15 do t6+=times6502[i];
+        time6502:=t6-15;
+        //CleanDataCacheRange($d400,32);
+        timer1+=siddelay;
+        songtime+=siddelay;
+        end;
+
+
+      end;
+    end;
+    s:=sid(1);
+    audio2[0]:=(s[0]);
+    audio2[1]:=(s[1]);
+    oscilloscope(s[0]+s[1]);
+    for i:=1 to 1199 do
+      begin
+      s:=sid(0);
+      audio2[2*i]:=(s[0]);
+      audio2[2*i+1]:=(s[1]);
+      if (i mod 10) = 0 then oscilloscope(s[0]+s[1]);
+      end;
+  end;
+inc(sidcount);
+//sidtime+=gettime-t;
+p999:
+sidtime:=clockgettotal-ttt;
+end;
+
+
+
+
+
+
+
+
 
 end.
 

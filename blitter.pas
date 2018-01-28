@@ -7,16 +7,14 @@ interface
 uses
   Classes, SysUtils, Platform, HeapManager;
 
-//procedure box8(x,y,l,h,c:cardinal);
 procedure dma_blit(chn,from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 procedure blit8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill(start,len,color:integer);
 procedure fill32(start,len,color:integer);
 procedure fastmove(from,too,len:integer);
-//procedure blitaligned8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
 procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
-//procedure dma_blit1D(from,too,len:integer);
+
 
 
 implementation

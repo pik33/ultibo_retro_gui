@@ -4,7 +4,7 @@ unit mwindows;
 
 //------------------------------------------------------------------------------
 // The window manager unit for use with the retromachine
-// v.0.02 - 20170524
+// v.0.03 - 20180127
 // Piotr Kardasz pik33@o2.pl
 // gpl v. 2.0 or higher
 // alpha code quality
@@ -37,86 +37,6 @@ type TWindow=class;
      public
       Constructor Create(CreateSuspended : boolean);
      end;
-
-//------------------------------------------------------------------------------
-// DispmanX window
-//------------------------------------------------------------------------------
-
-type TDispmanWindow=class(TObject)
-
-     handle:TDispmanWindow;
-                                            // dispmanx related fields
-     layer:integer;
-     element:DISPMANX_ELEMENT_HANDLE_T;
-     resource: DISPMANX_RESOURCE_HANDLE_T;
-     alpha:VC_DISPMANX_ALPHA_T;
-     src_rect,dst_rect:VC_RECT_T;
-     type_:VC_IMAGE_TYPE_T;
-     pitch:integer;
-     aligned_height:integer;
-     tag:cardinal;
-     prev,next:TDispmanWindow;                     // 2-way list
-     decup,decdown,decleft,decright:integer; // decoration
-
-     x,y:integer;                           // position on screen
-     l,h:integer;                           // dmensions on screen
-     clx,cly:integer;                         // client position on screen
-     cll,clh:integer;                          // client area on screen
-     vx,vy:integer;                         // visible upper left
-     vcl,vch:integer;                       // virtual canvas dimensions
-     vcx,vcy:integer;                       // virtual canvas x,y
-     mx,my,mk:integer;                      // mouse events
-     wl,wh:integer;                         // windows l,h
-     bg:integer;                            // background color
-     canvas:pointer;                        // graphic memory
-     decoration:TDecoration;                // the decoration or nil if none
-     visible:boolean;                       // visible or hidden
-     resizable:boolean;                     // if true windows not resizable
-     movable:boolean;                       // if true windows not movable by mouse
-     redraw:boolean;                        // set true by redrawing process after redraw
-     active:boolean;                        // if false, window doesn't need redrawing
-     title:string;                          // window title
-     buttons:TWidget;                       // widget chain start
-     icons:TIcon;
-     menu:TMenu;
-     statusbar:TStatusbar;
-     mstate:integer;                        // mouse position state
-     dclick:boolean;
-     needclose:boolean;
-     activey:integer;
-     selected:boolean;
-     virtualcanvas:boolean;
-     // The constructor. al, ah - graphic canvas dimensions
-     // atitle - title to set, if '' then windows will have no decoration
-
-     constructor create (al,ah:integer; atitle:string);
-     destructor destroy; override;
-
-//     procedure draw(dest:integer);                                      // redraw a window
-     procedure move(ax,ay,al,ah,avx,avy:integer);                       // move and resize. ax,ay - position on screen
-                                                                        // al, ah - visible dimensions without decoration
-                                                                        // avy, avy - upper left visible canvas pixel
-     function checkmouse:TDispmanWindow;                                       // check and react to mouse events
-//     procedure resize(nwl,nwh:integer);                                 // resize the canvas
-//     procedure select;                                                  // select the window and place it on top
-
-     // graphic methods
-
-     procedure cls(c:cardinal);                                         // clear window and fill with color
-     procedure putpixel(ax,ay:integer;color:cardinal); inline;                   // put a pixel to window
-     function getpixel(ax,ay:integer):cardinal; inline;                  // get a pixel from window
-     procedure putchar(ax,ay:integer;ch:char;col:cardinal);              // put a 8x16 char on window
-     procedure putchar8(ax,ay:integer;ch:char;col:cardinal);              // put a 8x16 char on window
-     procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:cardinal);       // put a zoomed char, xz,yz - zoom
-     procedure outtextxy8(ax,ay:integer; t:string;c:cardinal);            // output a string from x,y position
-     procedure outtextxy(ax,ay:integer; t:string;c:cardinal);            // output a string from x,y position
-     procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:cardinal);     // output a zoomed string
-     procedure box(ax,ay,al,ah:integer;c:cardinal);                              // draw a filled box
-
-     // TODO: add the rest of graphic procedures from retromalina unit
-
-     end;
-
 
 //------------------------------------------------------------------------------
 // Basic window class
@@ -226,8 +146,9 @@ type Tfileselector=class(Twindow)
 
 
 type TDecoration=class(TObject)
+
      title:pointer;
-     parent:TDispmanWindow;
+     parent:TWindow;
      hscroll,vscroll,menu,status,up,down,close:boolean;
      leftc,rightc,upc,downc:pointer;
      ll,lh,rl,rh,ul,uh,dl,dh:integer;
@@ -268,8 +189,6 @@ type TButton=class(TWidget)
      visible,highlighted,selected,radiobutton,selectable,down:boolean;
      radiogroup:integer;
 
-
-
      constructor create(ax,ay,al,ah,ac1,ac2:integer;aname:string;g:TWindow);
      destructor destroy; override;
      function append(ax,ay,al,ah,ac1,ac2:integer;aname:string):TButton;
@@ -281,16 +200,11 @@ type TButton=class(TWidget)
      procedure select;
      procedure unselect;
      procedure draw;
-
-//     procedure setparent(parent:TButton);
-//     procedure setdesc(desc:TButton);
-//     function gofirst:TButton;
      function findselected:TButton;
      procedure setvalue(v:integer);
      procedure checkall;
      procedure box(ax,ay,al,ah,c:integer);
      end;
-
 
 
 type TIcon=class(TObject)
@@ -306,10 +220,8 @@ type TIcon=class(TObject)
      icon48:TIcon48;
      highlighted:boolean;
      bg:array[0..12287] of byte;
-//     bg2:array[0..2047] of byte;
      next,prev:TIcon;
      clicked,dblclicked:boolean;
- //    ondblclick:procedure;
      constructor create(atitle:string;g:TWindow);
      procedure draw;
      procedure move(ax,ay:integer);
@@ -366,7 +278,7 @@ type PRectangle=^TRectangle;
      end;
 
 var background:TWindow=nil;  // A mother of all windows except the panel
-    dispmanbackground:TDispmanWindow=nil;
+
     panel:TPanel=nil;        // The panel
     vertex:array[0..1023,0..2] of integer;  // x, y, handle
     rectangles:array[0..4096,0..4] of integer; //x, y, l, h, handle
@@ -405,15 +317,12 @@ procedure gputpixel(g:pointer; x,y,color:integer); inline;
 procedure gpouttextxy(g:pointer;x,y:integer; t:string;c,pitch:integer);
 procedure gpputpixel(g:pointer; x,y,color,pitch:integer); inline;
 procedure makeicon;
-
+procedure getrectanglelist;
 
 
 implementation
 
 uses blitter;
-
-
-
 
 
 //------------------------------------------------------------------------------
@@ -439,15 +348,18 @@ var scr:integer;
 const dblinvalid=0;
 
 begin
+Arectangle.handle:=-1;
 q:=0;
 scr:=mainscreen+$a00000;
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
+
 repeat
   inc(q);
-//  box(100,0,40,20,0); outtextxy(100,0,inttostr(q),15);
+ // getrectanglelist;
   t:=gettime;
   lastchecked:=background.checkmouse;
+  getrectanglelist;
   windowsdone:=false;
   wh:=background;
   repeat
@@ -461,428 +373,6 @@ repeat
   scr:=screenaddr;
 until terminated;
 end;
-
-
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-// Dispmanx Window methods
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-
-constructor TDispmanWindow.create (al,ah:integer; atitle:string);
-
-var who:TDispmanWindow;
-    i,j:integer;
-    dummy:integer;
-    image:pointer;
-    update:   DISPMANX_UPDATE_HANDLE_T;
-
-
-begin
-inherited create;
-//semaphore:=true;
-mstate:=0;
-dclick:=false;
-needclose:=false;
-//retromalina.box(0,0,200,200,0);
-//retromalina.outtextxy(0,0,'creator started',15);
-//sleep(2000);
-
-//borderwidth:integer=6;
-//scrollwidth:integer=16;
-//borderdelta:integer=2;
-//scrollcolor:integer=12;
-//activescrollcolor:integer=124;
-//titleheight:integer=24;
-//menuheight:integer=24;
-//menucolor:integer=142;
-
-
-
-if dispmanbackground<>nil then   // there ia s background so create a normal window
-  begin
-  i:=0;
-    if atitle<>'' then     // create a decoration
-    begin
-    decoration:=TDecoration.create;
-    decoration.title:=getmem(wl*titleheight);
-    decoration.hscroll:=true;
-    decoration.vscroll:=true;
-    decoration.menu:=false;
-    decoration.up:=true;
-    decoration.down:=true;
-    decoration.close:=true;
-    decoration.parent:=self;
-    activey:=0;
-    decup:=borderwidth+titleheight;
-    decdown:=scrollwidth+borderwidth;
-    decleft:=borderwidth;
-    decright:=scrollwidth+borderwidth;
-    end
-  else
-    begin decoration:=nil; activey:=24; end;
-  who:=dispmanbackground;
-  while who.next<>nil do begin i+=1; who:=who.next; end;
-  layer:=i;
-  tag:=$6a756863+i;
-  makeicon;               // Temporary icon, todo: icon class
-  handle:=self;
-  x:=100;                   // initialize the fields
-  y:=100;
-  mx:=-1;
-  my:=-1;
-  mk:=0;
-  vx:=0;
-  vy:=0;
-  vcx:=0;
-  vcy:=0;
-  l:=al;
-  h:=ah;
-  bg:=0;
-  wl:=al;
-  wh:=ah;
-  vcl:=0;
-  vch:=0;
-  virtualcanvas:=false;
-  buttons:=nil;
-  icons:=nil;
-  next:=nil;
-  visible:=false;
-  resizable:=true;
-  prev:=who;
-
-     alpha.flags:=1;       // fixed all pixels
-     alpha.opacity:=255;  //opaque
-     alpha.mask:=0;
-     type_:=VC_IMAGE_ARGB8888;
-     pitch:=((wl*4)+31) and $FFFFFFE0;
-     aligned_height:=(wh+15) and $FFFFFFF0;
-
-     image:=@tag;
-     resource:=vc_dispmanx_resource_create(type_, wl, wh, @dummy );
-     vc_dispmanx_rect_set(@dst_rect, 0, 0, wl, wh);
-     vc_dispmanx_resource_write_data(resource,type_,pitch,image,@dst_rect);
-     update:=vc_dispmanx_update_start(10);
-     vc_dispmanx_rect_set( @src_rect, 0, 0, wl shl 16, wh shl 16 );
-     vc_dispmanx_rect_set( @dst_rect, 100, 100, wl, wh);
-     element:=vc_dispmanx_element_add(update,
-                                                  display,
-                                                  layer,
-                                                  @dst_rect,
-                                                  resource,
-                                                  @src_rect,
-                                                  DISPMANX_PROTECTION_NONE,
-                                                  @alpha,
-                                                  nil,             // clamp
-                                                  0 );
-     vc_dispmanx_update_submit_sync(update);
-
-
-
-  i:=$3F000000;
-  repeat i:=i-4 until (lpeek(i)=tag) or (i<=$25000000);
-
-  canvas:=pointer(i);
-
-  title:=atitle;
-  if decoration<>nil then decoration.draw;
-  who.next:=self;
-  end
-else                    // no background, create one
-  begin
-  handle:=self;
-  prev:=nil;
-  next:=nil;
-  x:=0;
-  y:=0;                       // position on screen
-  l:=al;
-  h:=ah;                      // dimensions on screen
-  vx:=0;
-  vy:=0;                      // visible upper left
-  vcx:=0;
-  vcy:=0;
-  wl:=al;
-  wh:=ah;                     // windows l,h
-  vcl:=0;
-  vch:=0;
-  virtualcanvas:=false;
-  bg:=132;                    // todo: get color from a theme
-  buttons:=nil;
-  icons:=nil;
-  canvas:=pointer(backgroundaddr);  // graphic memory address
-                                   // The window manager works at the top
-                                   // of the retromachine. The background window
-                                   // replaces the retromachine background with
-                                   // graphic memory a the same address, so
-                                   // non-windowed retromachine programs will not
-                                   // notice any difference when running on
-                                   // the window manager
-
-  decoration:=nil;            //+48
-  visible:=true;
-  redraw:=true;
-  mx:=-1;
-  my:=-1;
-  decoration:=nil;
-  title:='';
-  end;
-
-  selected:=true;
- semaphore:=false;
-  moved:=0;
-end;
-
-
-destructor TDispmanWindow.destroy;
-
-var i,j:integer;
-        update:   DISPMANX_UPDATE_HANDLE_T;
-
-
-begin
-visible:=false;
-prev.next:=next;
-if next<>nil then next.prev:=prev;
-if canvas<>nil then freemem(canvas);
-if decoration<>nil then
-  begin
-  decoration.destroy
-  end;
-update := vc_dispmanx_update_start(10);
-vc_dispmanx_element_remove(update,element);
-vc_dispmanx_update_submit_sync(update);
-vc_dispmanx_resource_delete(resource );
-moved:=0;
-end;
-
-
-procedure TDispmanWindow.move(ax,ay,al,ah,avx,avy:integer);
-
-var q:integer;
-           update:   DISPMANX_UPDATE_HANDLE_T;
-begin
-if ay>yres-25 then ay:=yres-25;
-if al>0 then begin l:=al; {moved:=0;} end;        // now set new window parameters
-if ah>0 then begin h:=ah; {moved:=0;} end;
-
-q:=8*length(title)+96;
-if (decoration<>nil) and (al>0) and (al<q) then l:=q;
-if (ah>0) and (ah<64) then h:=64;
-if al>wl then l:=wl;
-if ah>wh then h:=wh;
-
-if ax>-2048 then begin x:=ax;{ moved:=0; }end;
-if ay>-2048 then begin y:=ay;{ moved:=0;} end;
-if avx>-1 then vx:=avx;
-if avy>-1 then vy:=avy;
-
-update:=vc_dispmanx_update_start(10);
-if y+h>yres then vc_dispmanx_rect_set(@dst_rect, x, y, l, yres-y) else vc_dispmanx_rect_set(@dst_rect, x, y, l, h);
-if y+h>yres then vc_dispmanx_rect_set(@src_rect, vx shl 16, vy shl 16, l shl 16, (yres-y) shl 16 ) else  vc_dispmanx_rect_set(@src_rect, vx shl 16, vy shl 16, l shl 16, h shl 16 );
-
-  //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
-vc_dispmanx_element_change_attributes(update, element, 12, 0,0,@dst_rect,@src_rect,0,0);
-vc_dispmanx_update_submit(update,nil,nil);
-decoration.draw;
-end;
-
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-// TDispmanWindow graphic methods
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-
-// cls - clear window and fill with color
-
-procedure TDispmanWindow.cls(c:cardinal);
-
-var i,al:integer;
-
-begin
-box(0,0,wl,wh,c);
-end;
-
-
-//putpixel - put a pixel to window at ay, ay position in color color
-
-procedure TDispmanWindow.putpixel(ax,ay:integer;color:cardinal); inline;
-
-label p999;
-
-var adr:integer;
-
-begin
-if (ax<0) or (ax>=wl-decright-decleft) or (ay<0) or (ay>wh-decdown-decup) then goto p999;
-adr:=cardinal(canvas)+4*(ax+decleft)+pitch*(ay+decup);
-lpoke(adr,color);
-p999:
-end;
-
-
-// getpixel - get a pixel color at position ax, ay
-
-function TDispmanWindow.getpixel(ax,ay:integer):cardinal; inline;
-
-label p999;
-
-var adr:integer;
-
-begin
-if (ax<decleft) or (ax>=wl-decright) or (ay<decup) or (ay>wh-decdown) then goto p999;
-adr:=cardinal(canvas)+4*(ax+decleft)+pitch*(ay+decup);
-result:=lpeek(adr);
-p999:
-end;
-
-
-// putchar - put a 8x16 char ch on the window at ax,ay with color col
-// The char definitions are in SystemFont array
-
-procedure TDispmanWindow.putchar(ax,ay:integer;ch:char;col:cardinal);
-
-
-var i,j,start:integer;
-  b:byte;
-
-begin
-for i:=0 to 15 do
-  begin
-  b:=systemfont[ord(ch),i];
-  for j:=0 to 7 do
-    begin
-    if (b and (1 shl j))<>0 then
-      putpixel(ax+j,ay+i,col);
-    end;
-  end;
-end;
-
-procedure TDispmanWindow.putchar8(ax,ay:integer;ch:char;col:cardinal);
-
-
-var i,j,start:integer;
-  b:byte;
-
-begin
-for i:=0 to 7 do
-  begin
-  b:=atari8font[ord(ch),i];
-  for j:=0 to 7 do
-    begin
-    if (b and (128 shr j))<>0 then
-      putpixel(ax+j,ay+i,col);
-    end;
-  end;
-end;
-
-// putcharz - put a zoomed char, xz,yz - zoom
-
-procedure TDispmanWindow.putcharz(ax,ay:integer;ch:char;col,xz,yz:cardinal);
-
-
-var i,j,k,ll:integer;
-  b:byte;
-
-begin
-for i:=0 to 15 do
-  begin
-  b:=systemfont[ord(ch),i];
-  for j:=0 to 7 do
-    begin
-    if (b and (1 shl j))<>0 then
-      for k:=0 to yz-1 do
-        for ll:=0 to xz-1 do
-           putpixel(ax+j*xz+ll,ay+i*yz+k,col);
-    end;
-  end;
-end;
-
-
-// outtextxy - output a string from x,y position; c-color
-
-procedure TDispmanWindow.outtextxy(ax,ay:integer; t:string;c:cardinal);
-
-var i:integer;
-
-begin
-for i:=1 to length(t) do putchar(ax+8*i-8,ay,t[i],c);
-end;
-
-procedure TDispmanWindow.outtextxy8(ax,ay:integer; t:string;c:cardinal);
-
-var i:integer;
-
-begin
-for i:=1 to length(t) do putchar8(ax+8*i-8,ay,t[i],c);
-end;
-
-
-
-// outtextxyz - output a zoomed string
-
-procedure TDispmanWindow.outtextxyz(ax,ay:integer; t:string;c,xz,yz:cardinal);
-
-var i:integer;
-
-begin
-for i:=0 to length(t)-1 do putcharz(ax+8*xz*i,ay,t[i+1],c,xz,yz);
-end;
-
-
-
-// box - draw a filled box
-
-procedure TDispmanWindow.box(ax,ay,al,ah:integer;c:cardinal);
-
-label p101,p102,p999;
-
-var screenptr:cardinal;
-    xres,yres:integer;
-
-begin
-
-screenptr:=cardinal(canvas);
-xres:=wl;
-yres:=wh;
-if ax<0 then begin al:=al+ax; ax:=0; if al<1 then goto p999; end;
-if ax>=xres-decleft-decright then goto p999;
-if ay<0 then begin ah:=ah+ay; ay:=0; if ah<1 then goto p999; end;
-if ay>=yres-decup-decdown then goto p999;
-if ax+al>=xres-decright-decleft then al:=xres-ax-decright-decleft;
-if ay+ah>=yres-decdown-decup then ah:=yres-ay-decdown-decup;
-xres:=pitch;
-ax:=ax+decleft;
-ay:=ay+decup;
-
-             asm
-             push {r0-r6}
-             ldr r2,ay
-             ldr r3,xres
-             ldr r1,ax
-             mul r3,r3,r2
-             ldr r4,al
-             add r3,r3,r1,lsl #2
-             ldr r0,screenptr
-             add r0,r3
-             ldr r3,c
-             ldr r6,ah
-
-p102:        mov r5,r4
-p101:        str r3,[r0],#4  // inner loop
-             subs r5,#1
-             bne p101
-             ldr r1,xres
-             add r0,r1
-             sub r0,r0,r4,lsl #2
-             subs r6,#1
-             bne p102
-
-             pop {r0-r6}
-             end;
-
-p999:
-end;
-
-
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -1018,7 +508,6 @@ if decoration<>nil then
   begin
   decoration.destroy
   end;
-//moved:=0;
 end;
 
 //------------------------------------------------------------------------------
@@ -1030,9 +519,11 @@ end;
 procedure TWindow.draw(dest:integer);
 
 var dt,dg,dh,dx,dy,dx2,dy2,dl,dsh,dsv,i,j,c,ct,a,dm:integer;
+   dxr,dyr:integer;
    wt1:int64;
    q1,q2,q3:integer;
    hsw,vsh,hsp,vsp:integer;
+   rectangle:PRectangle;
 
 begin
 redraw:=false; // tell the other procedures that the drawing is on its way
@@ -1073,16 +564,29 @@ else
     vsp:=round((vcy/(vch-h))*(h-vsh));
     end;
   end;
-// If the window is the background, move it as fast as it is possible to the canvas
-// Todo: check if DMA can be better here; fastmove function uses CPU
+
 wt1:=gettime;
-//moved+=1;    if moved>10 then moved:=10;
-if self=background then begin fastmove(mainscreen,dest,xres*yres); end
-else
+
+//if self=background then begin fastmove(mainscreen,dest,xres*yres); end
+//else
   begin
 
   if buttons<>nil then buttons.draw;                      // update the wigdets
-  dma_blit(6,integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
+
+  // instead of full window, draw rectangles
+  if self is tpanel then blit8(integer(canvas),vx,vy,dest,x,y,l,h,wl,xres)
+  else begin
+  rectangle:=@arectangle;
+  repeat
+    repeat rectangle:=rectangle^.next until (rectangle^.handle=integer(self.handle)) or (rectangle^.next=nil);
+    if rectangle^.handle=integer(self.handle) then
+      begin
+      dxr:=rectangle^.x1-x;   // todo if dxr<0, correct the rectangle
+      dyr:=rectangle^.y1-y;
+      blit8(integer(canvas),vx+dxr,vy+dyr,dest,rectangle^.x1,rectangle^.y1, rectangle^.x2-rectangle^.x1+1,rectangle^.y2-rectangle^.y1+1,wl,xres);
+      end;
+  until rectangle^.next=nil;
+  end;
 //  blit8(integer(canvas),vx,vy,dest,x,y,l,h,wl,xres); // then blit the window to the canvas
   if next<>nil then                                       // and draw the decoration
     begin
@@ -1105,14 +609,11 @@ else
     if (mousex>(x+l+dsv-20)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4-dm)) then begin q3:=32; a:=32; end else q3:=0;
     if selected and (mx>(l+dsv-20)) and (my>(-titleheight-dm+4)) and (mx<(l+dsv-4)) and (my<(-4-dm)) and (mousek=1) then needclose:=true;
 
- //   if moved<=7 then begin
+
       fill2d(dest,x-dl,y-dt-dm-dl,l+dl+dsv,dl,xres,c+borderdelta);         //upper border
 
       fill2d(dest,x-dl,y-dt-dm,l+dl+dsv,dt,xres,c);                        //title bar
       fill2d(dest,x-dl,y-dm,l+dl+dsv,dm,xres,menucolor);                        //menu
-  //    if decoration.menu then fill2d(dest,x-dl,y-2,l+dl+dsv,2,xres,0);     // menu underline. Todo: parametrize it!
-
-                                                                                       //  if decoration.menu then gouttextxy(pointer(dest),x+8,y-dm+4,'File  Edit  View  Options ',0); // look and feel test
 
       if (decoration.menu) and (menu<>nil) then menu.checkall(dest);
       fill2d(dest,x-dl,y-dt-dl-dm,dl,h+dt+dl+dsh+dh+dm,xres,c+borderdelta);   //left border
@@ -1129,7 +630,6 @@ else
       fill2d(dest,x+l,y+h,dsv,dsh,xres,c);                  //down right corner
       gouttextxy(pointer(dest),x+32,y-titleheight-dm+4,title,ct);
 
-//    end;
 
     for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,down_icon[i+16*j]);
     if q1<>0 then
@@ -1166,8 +666,8 @@ var q:integer;
 
 begin
 if ay>yres-25 then ay:=yres-25;
-if al>0 then begin l:=al; {moved:=0;} end;        // now set new window parameters
-if ah>0 then begin h:=ah; {moved:=0;} end;
+if al>0 then begin l:=al; end;        // now set new window parameters
+if ah>0 then begin h:=ah; end;
 
 q:=8*length(title)+96;
 if (decoration<>nil) and (al>0) and (al<q) then l:=q;
@@ -1175,267 +675,11 @@ if (ah>0) and (ah<64) then h:=64;
 if al>wl then l:=wl;
 if ah>wh then h:=wh;
 
-if ax>-2048 then begin x:=ax;{ moved:=0; }end;
-if ay>-2048 then begin y:=ay;{ moved:=0;} end;
+if ax>-2048 then begin x:=ax; end;
+if ay>-2048 then begin y:=ay; end;
 if avx>-1 then vx:=avx;
 if avy>-1 then vy:=avy;
 
-end;
-
-
-
-//------------------------------------------------------------------------------
-// Twindow checkmouse function
-// This function should be called every vblank for the background window
-// Called for any window returns the window handler for the window on which
-// there is the mouse cursor and reacts to events:
-// by selecting, resizing or moving the clicked window
-//------------------------------------------------------------------------------
-
-function TDispmanWindow.checkmouse:TDispmanWindow;
-
-label p999;
-
-var window:TDispmanWindow;
-    mmx,mmy,mmk,mmw,dt,dg,dh,dl,dsh,dsv,dm:integer;
-    i,j,x1,y1,x2,y2,q,q2,sy2,vcount,rcount:integer;
-
-    ttttt:int64;
-    rect,r2:PRectangle;
-
-const state:integer=0;
-      deltax:integer=0;
-      deltay:integer=0;
-      sx:integer=0;
-      sy:integer=0;
-      hsw:integer=0;
-      vsp:integer=0;
-      vsh:integer=0;
-      hsp:integer=0;
-      oldhsp:integer=0;
-      oldvsp:integer=0;
-
-      qqqqq:integer=0;
-begin
-
-Arectangle.next:=nil;
-Arectangle.prev:=nil;
-Arectangle.x1:=0;
-Arectangle.x2:=0;
-Arectangle.y1:=0;
-Arectangle.y2:=0;
-Arectangle.handle:=0;
-
-result:=dispmanbackground;
-
-mmx:=mousex;
-mmy:=mousey;
-mmk:=mousek;
-mmw:=mousewheel;
-
-if mmk=0 then
-  begin
-  state:=6;
-  window:=dispmanbackground;
-  while (window.next<>nil) do begin window.mk:=0; window:=window.next; end;
-  end;
-
-// if mouse key pressed and there is a window set to move, move it
-
-if mmk=1 then // find a window with mk=1  - this windows was selected in the previous pass
-  begin
-  window:=dispmanbackground;
-  while (window.next<>nil) and (window.mk<>1) do window:=window.next;
-  if window.mk=1 then //found
-    begin
-    if state=0 then window.move(mmx-window.mx,mmy-window.my,0,0,-1,-1)
-    else if state=1 then
-      begin
-      q:=mmx-window.x+deltax;
-      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;
-      window.move(window.x,window.y, q ,window.h,-1,-1)
-      end
-    else if state=2 then
-      begin
-       q:=mmy-window.y+deltay;
-       if q+window.vy>window.wh then begin window.vy:=window.wh-q; if window.vy<0 then begin window.vy:=0; q:=window.wh; end; end;
-       window.move(window.x,window.y, window.l, q,-1,-1)
-       end
-
-    else if state=3 then
-      begin
-      q:=mmx-window.x+deltax;
-      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;//q:=window.wl-window.vx;
-      q2:=mmy-window.y+deltay;
-      if q2+window.vy>window.wh then begin window.vy:=window.wh-q2; if window.vy<0 then begin window.vy:=0; q2:=window.wh; end; end;//q:=window.wl-window.vx;
-
-
-      window.move(window.x,window.y, q ,q2, -1, -1)
-      end
-    else if state=4 then
-      begin
-      if not window.virtualcanvas then
-        begin
-        q:=round((mmy-window.y-sy)*(window.wh-window.h)/(window.h-vsh));
-        if q<0 then q:=0;
-        if q>window.wh-window.h then q:=window.wh-window.h;
-        window.move(window.x,window.y,0,0,-1,q);
-        end
-      else
-        begin
-        q:=round((mmy-window.y-sy)*(window.vch-window.h)/(window.h-vsh));
-        if q<0 then q:=0;
-        if q>window.vch-window.h then q:=window.vch-window.h;
-        window.vcy:=q;
-        //window.virtualmove(window.x,window.y,0,0,-1,q);
-        end;
-      end
-    else if state=5 then
-      begin
-      if not window.virtualcanvas then
-        begin
-        q:=round((mmx-window.x-sx)*(window.wl-window.l)/(window.l-hsw));
-        if q<0 then q:=0;
-        if q>window.wl-window.l then q:=window.wl-window.l;
-        window.move(window.x,window.y,0,0,q,-1);
-        end
-      else
-        begin
-        q:=round((mmx-window.x-sx)*(window.vcl-window.l)/(window.l-hsw));
-        if q<0 then q:=0;
-        if q>window.vcl-window.l then q:=window.vcl-window.l;
-        window.vcx:=q;
-        //window.move(window.x,window.y,0,0,q,-1); todo: virtualmove
-        end;
-      end;
-    result:=window;
-    goto p999;
-    end;
-  end;
-
-// we are here if mousekey=0 or there is no windows to move
-
-
-
-window:=dispmanbackground;
-while window.next<>nil do  window:=window.next;
-
-
-if window.decoration=nil then
-  begin
-  dg:=0;
-  dh:=0;
-  dt:=0;
-  dl:=0;
-  dsh:=0;
-  dsv:=0;
-  dm:=0;
-  end
-else
-  begin
-  dt:=titleheight;
-  dl:=borderwidth;
-  dg:=borderwidth;
-  dh:=borderwidth;
-  if window.decoration.menu then dm:=menuheight else dm:=0;
-  if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
-  if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
-  end;
-
-// go back with windows chain until you found the window on which there is the mouse cursor
-
-while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-dg-dm) or (mmy>window.y+window.h+dh+dsh)) and (window.prev<>nil) do
-  begin
-  window.mx:=-1;
-  window.my:=-1;
-  window.mk:=-1;
-  window:=window.prev;
-
-  if window.decoration=nil then
-    begin
-    dg:=0;
-    dh:=0;
-    dt:=0;
-    dl:=0;
-    dsh:=0;
-    dsv:=0;
-    dm:=0;
-    end
-  else
-    begin
-    dt:= titleheight;
-    dl:=borderwidth;
-    dg:=borderwidth;
-    dh:=borderwidth;
-    if window.decoration.menu then dm:=menuheight else dm:=0;
-    if window.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
-    if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
-    end
-  end;
-result:=window;
-//retromalina.box(1000,800,200,32,0);
-//retromalina.outtextxy(1000,800,window.title,15);
-// todo: HERE::::: check all widgets on this window !!!
-if window.buttons<> nil then window.buttons.checkall;
-// now, here no windows to move and window=window to select
-// if the window is not selected, select it
-
-if (mmk=1) and (window.mk=0) then
-
- // if semaphore=false then window.select;
-
-//and set mouse correction amount
-window.mx:=mmx-window.x;
-window.my:=mmy-window.y;
-window.mk:=mmk;
-if not window.virtualcanvas then
-  begin
-  hsw:=round((window.l/window.wl)*window.l); if hsw<11 then hsw:=10;
-  vsh:=round((window.h/window.wh)*window.h); if vsh<11 then vsh:=10;
-  hsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw));
-  vsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh));
-  end
-else
-  begin
-  hsw:=round((window.l/window.vcl)*window.l); if hsw<11 then hsw:=10;
-  vsh:=round((window.h/window.vch)*window.h); if vsh<11 then vsh:=10;
-  hsp:=round((window.vcx/(window.vcl-window.l))*(window.l-hsw));
-  vsp:=round((window.vcy/(window.vch-window.h))*(window.h-vsh));
-  end;
-
-// now set the state according to clicked area
-if (not(window.resizable)) and (mmy>window.y+window.activey) then begin state:=6; goto p999; end;
-
-if not(window.resizable) or ((mmx<(window.x+window.l)) and (mmy<(window.y-dm{window.h}))) then begin state:=0; deltax:=0; deltay:=0 end      // window
-
-else if (mmx<(window.x+window.l)) and (mmy<(window.y)) then begin state:=7; deltax:=0; deltay:=0 end      // window
-
-else if (mmx<(window.x+window.l)) and (mmy<(window.y + window.h )) then begin state:=6; deltax:=0; deltay:=0 end      // window
-else if (mmx>=(window.x+window.l)) and (mmx<(window.x+window.l+scrollwidth-1)) and (mmy<(window.y+vsp+vsh-3)) and (mmy>(window.y+vsp+3)) then
-  begin
-  state:=4;
-  if not window.virtualcanvas then oldvsp:=round((window.vy/(window.wh-window.h))*(window.h-vsh))
-  else oldvsp:=round((window.vcy/(window.vch-window.h))*(window.h-vsh));
-  sy:=mmy-window.y-vsp;
-  end                                   // vertical scroll bar
-
-
-else if (mmx>=(window.x+window.l)) and (mmy<(window.y+window.h)) then begin state:=1; deltax:=window.x+window.l-mmx; deltay:=0; end      // right border
-else if (mmx<(window.x+hsp+hsw-3)) and (mmx>(window.x+hsp+3)) and (mmy>=(window.y+window.h)) and (mmy<(window.y+window.h+scrollwidth-1)) then
-  begin
-  state:=5;
-  if not window.virtualcanvas then oldhsp:=round((window.vx/(window.wl-window.l))*(window.l-hsw))
-  else oldhsp:=round((window.vcx/(window.vcl-window.l))*(window.l-hsw));
-  sx:=mmx-window.x-hsp;
-  end                               // horizontal scroll bar
-
-else if (mmx<(window.x+window.l)) and (mmy>=(window.y+window.h)) then begin state:=2; deltax:=0; deltay:=window.y+window.h-mmy; end      // down border
-else begin state:=3; deltax:=window.x+window.l-mmx; deltay:=window.y+window.h-mmy; end ;                                                 // corner
-window.mstate:=state;
-if mmw=129 then begin mousewheel:=128; q:=window.vy-16; if q<0 then q:=0; window.vy:=q; end;
-if mmw=127 then begin mousewheel:=128; q:=window.vy+16; if q+window.h>window.wh then q:=window.wh-window.h; window.vy:=q; end;
-//if window is TFileselector then TFileselector(window).checkselected;
-p999:
 end;
 
 
@@ -1473,14 +717,6 @@ const state:integer=0;
       qqqqq:integer=0;
 begin
 
-Arectangle.next:=nil;
-Arectangle.prev:=nil;
-Arectangle.x1:=0;
-Arectangle.x2:=0;
-Arectangle.y1:=0;
-Arectangle.y2:=0;
-Arectangle.handle:=0;
-
 result:=background;
 
 mmx:=mousex;
@@ -1495,7 +731,7 @@ if mmk=0 then
   while (window.next<>nil) do begin window.mk:=0; window:=window.next; end;
   end;
 
-// if mouse key pressed ans there is a window set to move, move it
+// if mouse key pressed and there is a window set to move, move it
 
 if mmk=1 then // find a window with mk=1
   begin
@@ -1523,9 +759,9 @@ if mmk=1 then // find a window with mk=1
     else if state=3 then
       begin
       q:=mmx-window.x+deltax;
-      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;//q:=window.wl-window.vx;
+      if q+window.vx>window.wl then begin window.vx:=window.wl-q; if window.vx<0 then begin window.vx:=0; q:=window.wl; end; end;
       q2:=mmy-window.y+deltay;
-      if q2+window.vy>window.wh then begin window.vy:=window.wh-q2; if window.vy<0 then begin window.vy:=0; q2:=window.wh; end; end;//q:=window.wl-window.vx;
+      if q2+window.vy>window.wh then begin window.vy:=window.wh-q2; if window.vy<0 then begin window.vy:=0; q2:=window.wh; end; end;
 
 
       window.move(window.x,window.y, q ,q2, -1, -1)
@@ -1545,7 +781,6 @@ if mmk=1 then // find a window with mk=1
         if q<0 then q:=0;
         if q>window.vch-window.h then q:=window.vch-window.h;
         window.vcy:=q;
-        //window.virtualmove(window.x,window.y,0,0,-1,q);
         end;
       end
     else if state=5 then
@@ -1563,10 +798,10 @@ if mmk=1 then // find a window with mk=1
         if q<0 then q:=0;
         if q>window.vcl-window.l then q:=window.vcl-window.l;
         window.vcx:=q;
-        //window.move(window.x,window.y,0,0,q,-1); todo: virtualmove
         end;
       end;
     result:=window;
+ //   getrectanglelist;
     goto p999;
     end;
   end;
@@ -1631,8 +866,7 @@ while ((mmx<window.x-dg) or (mmx>window.x+window.l+dg+dsv) or (mmy<window.y-dt-d
     end
   end;
 result:=window;
-//retromalina.box(1000,800,200,32,0);
-//retromalina.outtextxy(1000,800,window.title,15);
+
 // todo: HERE::::: check all widgets on this window !!!
 if window.buttons<> nil then window.buttons.checkall;
 // now, here no windows to move and window=window to select
@@ -1755,7 +989,6 @@ if (who.next<>nil) and (who<>background) then
   whh.next:=who;
   end;
 selected:=true;
-//moved:=0;
 end;
 
 //------------------------------------------------------------------------------
@@ -2052,7 +1285,7 @@ end;
 
 
 //------------------------------------------------------------------------------
-// TPanel dirlist method
+// TFileselector dirlist method
 // Lists a directory in the file selector
 // To be called when there is a need to change directory
 //------------------------------------------------------------------------------
@@ -2288,110 +1521,7 @@ var c,ct,a,q1,q2,q3,dest,dsv,dsh,dm:cardinal;
     hsp,vsh,vsp,hsw:integer;
 
 begin
-
-if parent.next<>nil then  // inactive window
-  begin
-  c:=inactivecolor;
-  ct:=inactivetextcolor;
-  a:=0;
-  end
-else
-  begin
-  c:=activecolor;
-  ct:=activetextcolor;
-  a:=32
-  end;
-x:=parent.x;
-l:=parent.l;
-y:=parent.y;
-h:=parent.h;
-
-
-if not parent.virtualcanvas then
-  begin
-  hsw:=round((l/parent.wl)*l); if hsw<11 then hsw:=10;
-  vsh:=round((h/parent.wh)*h); if vsh<11 then vsh:=10;
-  hsp:=round((parent.vx/(parent.wl-l))*(l-hsw));
-  vsp:=round((parent.vy/(parent.wh-h))*(h-vsh));
-  end
-else
-  begin
-  hsw:=round((l/parent.vcl)*l); if hsw<11 then hsw:=10;
-  vsh:=round((h/parent.vch)*h); if vsh<11 then vsh:=10;
-  hsp:=round((parent.vcx/(parent.vcl-l))*(l-hsw));
-  vsp:=round((parent.vcy/(parent.vch-h))*(h-vsh));
-  end;
-
-  retromalina.box(0,0,100,200,0);
-  retromalina.outtextxy(0,0,'hsw= ' +inttostr(hsw),15);
-  retromalina.outtextxy(0,20,'vsh= ' + inttostr(vsh),15);
-  retromalina.outtextxy(0,40,'hsp= '+ inttostr(hsp),15);
-  retromalina.outtextxy(0,60,'vsp= '+ inttostr(vsp),15);
-  retromalina.outtextxy(0,80,'l= '+ inttostr(l),15);
-  retromalina.outtextxy(0,100,'h= '+ inttostr(h),15);
-  retromalina.outtextxy(0,120,'parent.wl= '+ inttostr(parent.wl),15);
-  retromalina.outtextxy(0,140,'parent.wh= '+ inttostr(parent.wh),15);
-  retromalina.outtextxy(0,160,'parent.vx= '+ inttostr(parent.vx),15);
-  retromalina.outtextxy(0,180,'parent.vy= '+ inttostr(parent.vy),15);
-
-dt:=titleheight;
-dl2:=borderwidth;
-dg:=borderwidth;
-dh2:=borderwidth;
-
-if parent.decoration.hscroll then dsh:=scrollwidth else dsh:=0;
-if parent.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
-if parent.decoration.menu then dm:=menuheight else dm:=0;
-
-if (mousex>(x+l+dsv-60)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-44)) and (mousey<(y-4)-dm) then q1:=122 else q1:=0;
-if (mousex>(x+l+dsv-40)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-24)) and (mousey<(y-4-dm)) then q2:=122 else q2:=0;
-if (mousex>(x+l+dsv-20)) and (mousey>(y-titleheight-dm+4)) and (mousex<(x+l+dsv-4)) and (mousey<(y-4-dm)) then begin q3:=32; a:=32; end else q3:=0;
-if parent.selected and (parent.mx>(l+dsv-20)) and (parent.my>(-titleheight-dm+4)) and (parent.mx<(l+dsv-4)) and (parent.my<(-4-dm)) and (mousek=1) then parent.needclose:=true;
-
-dest:=cardinal(parent.canvas);
-
-//fill2d32(dest,0,0,l,borderwidth,parent.pitch,systempallette[0,c+borderdelta]);                           // upper border
-lpoke(dest,parent.tag);                                                                                  // preserve tag
-//fill2d32(dest,borderwidth,borderwidth,l-2*borderwidth,dt,parent.pitch,systempallette[0,c]);              // title bar
-//if menu then fill2d32(dest,x-dl2,y-dm,l+dl2+dsv,dm,xres,systempallette[0,menucolor]);                        //menu
-//if menu then fill2d32(dest,x-dl,y-2,l+dl+dsv,2,xres,0);     // menu underline. Todo: parametrize it!
-
-
-
-//fill2d32(dest,0,borderwidth,borderwidth,h-borderwidth,parent.pitch,systempallette[0,c+borderdelta]);   //left border
-//fill2d32(dest,0,h-borderwidth,l,borderwidth,parent.pitch,systempallette[0,c+borderdelta]);             //lower border
-//fill2d32(dest,l-borderwidth,0,borderwidth,h,parent.pitch,systempallette[0,c+borderdelta]);             //right border
-
-//fill2d32(dest,borderwidth,h-borderwidth-scrollwidth,l-2*borderwidth-scrollwidth,scrollwidth,parent.pitch,systempallette[0,scrollcolor]);                        //horizontal scroll bar
-//fill2d32(dest,3+hsp,h-borderwidth-scrollwidth+3,hsw-6,borderwidth-6,parent.pitch,systempallette[0,activescrollcolor]);    //horizontal scroll bar active part
-
-//fill2d32(dest,l-borderwidth-scrollwidth,borderwidth+dt,scrollwidth,h-dt-2*borderwidth-scrollwidth,parent.pitch,systempallette[0,scrollcolor]);                        //vertical scroll bar
-//fill2d32(dest,x+l+3,y+3+vsp,dsv-6,vsh-6,xres,systempallette[0,activescrollcolor]);    //vertical scroll bar active part
-
-
-//fill2d32(dest,x+l,y+parent.h,dsv,dsh,xres,systempallette[0,c]);                  //down right corner
-//gpouttextxy(pointer(decoration_addr),x+32,y+borderwidth+4,parent.title,$FF000000+systempallette[0,ct],xres*4);
-
-//    end;
- {
-for i:=0 to 15 do for j:=0 to 15 do if down_icon[i+16*j]>0 then gpputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,systempallette[0,down_icon[i+16*j]],parent.pitch);
-if q1<>0 then
-  for i:=0 to 15 do
-    for j:=0 to 15 do
-      if down_icon[i+16*j]>0 then gpputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,systempallette[0,down_icon[i+16*j]],parent.pitch)
-                                else gpputpixel(pointer(dest),x+l+dsv-60+i,y-titleheight-dm+4+j,systempallette[0,q1],parent.pitch);
-if q2<>0 then
-  for i:=0 to 15 do
-    for j:=0 to 15 do
-      if up_icon[i+16*j]>0 then gpputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,systempallette[0,up_icon[i+16*j]],parent.pitch)
-                              else gpputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,systempallette[0,q2],parent.pitch)
-  else for i:=0 to 15 do for j:=0 to 15 do if up_icon[i+16*j]>0 then gpputpixel(pointer(dest),x+l+dsv-40+i,y-titleheight-dm+4+j,systempallette[0,up_icon[i+16*j]],parent.pitch);
-  for i:=0 to 15 do for j:=0 to 15 do if close_icon[i+16*j]>0 then gpputpixel(pointer(dest),x+l+dsv-20+i,y-titleheight-dm+4+j,systempallette[0,a+q3+close_icon[i+16*j]],parent.pitch);
-  for i:=0 to 15 do for j:=0 to 15 do if icon[i,j]>0 then gpputpixel(pointer(dest),x+4+i,y-titleheight-dm+4+j,systempallette[0,icon[i,j]],parent.pitch);
-  }
 end;
-
-
 
 
 //------------------------------------------------------------------------------
@@ -2736,12 +1866,6 @@ while temp<>nil do
   if cm and (mousek=1) then begin temp.down:=true; temp.unhighlight;  end;
   if not cm then begin temp.down:=false; temp.unhighlight; end;
   if cm then dblclick;
-//  if cm and  {(peek(base+$60030)=1)} then
-//    begin
- //   if (temp.selectable) and (temp.selected) and not temp.radiobutton then temp.unselect else temp.select;
-//    temp.clicked:=1;
- //   dblclick; //todo: add field
- //   end;
   temp:=tbutton(temp.next);
   end;
 p999:
@@ -2892,7 +2016,6 @@ begin
 if not highlighted then
   begin
   highlighted:=true;
-//  moved:=0;
   blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 95 do
     begin
@@ -2924,7 +2047,6 @@ begin
 if highlighted then
   begin
   highlighted:=false;
-//  moved:=0;
   blit8(integer(@bg),0,0,integer(granny.canvas),x,y,128,96,128,granny.wl);
   for i:=0 to 47 do
     for j:=0 to 47 do
@@ -2975,8 +2097,6 @@ begin
 temp:=self;
 mk:=mousek;
 while temp.prev<>nil do temp:=temp.prev;
-//while temp.next<>nil do begin temp.unhighlight; temp:=temp.next; end;
-//while temp.prev<>nil do temp:=temp.prev;
 if mk=0 then state:=0;
 if (state=0) then arrange;
 if (state=1) and (mk=1) then
@@ -3314,10 +2434,6 @@ var i:integer;
 begin
 for i:=1 to length(t) do gpputchar(g,x+8*i-8,y,t[i],c,pitch);
 end;
-// Output a string on a non assigned canvas given by the pointer
-
-
-
 
 
 // Make a temporary icon for a window from the red ball sprite
@@ -3341,10 +2457,11 @@ end;
 // Call this when windows moved, created or destroyed
 //------------------------------------------------------------------------------
 
+
 procedure getrectanglelist;
 
 var rect,r2:PRectangle ;
-    ARectangle:TRectangle;
+
     window:TWindow;
     dg,dh,dt,dl,dsh,dsv,dm:integer;
     x1,x2,y1,y2:integer;
@@ -3354,8 +2471,14 @@ var rect,r2:PRectangle ;
 
 begin
 
+if arectangle.handle=0 then
+  begin
+  rect:=Arectangle.next;
+  while rect^.next<>nil do rect:=rect^.next;
+  while rect^.prev<>nil do begin rect:=rect^.prev; dispose(rect^.next); end;
+  end;
+
 window:=background;
-vcount:=0;
 Arectangle.next:=nil;
 Arectangle.prev:=nil;
 Arectangle.x1:=0;
@@ -3363,8 +2486,13 @@ Arectangle.x2:=0;
 Arectangle.y1:=0;
 Arectangle.y2:=0;
 Arectangle.handle:=0;
+
+
+vcount:=0;
 ttttt:=gettime;
-while window<>nil do   // go to the top window and count vertices
+// go to the top window and count vertices
+
+while window<>nil do
   begin
 
   if window.decoration=nil then
@@ -3388,8 +2516,8 @@ while window<>nil do   // go to the top window and count vertices
     if window.decoration.vscroll then dsv:=scrollwidth else dsv:=0;
     end ;
 
-  x1:=window.x-dg; x2:=window.x+window.l+dg+dsv;
-  y1:=window.y-dg-dm-dt; y2:=window.y+window.h+dg+dsh;
+  x1:=window.x-dg; x2:=window.x+window.l+dg+dsv; if x2>=xres then x2:=xres; if x1<0 then x1:=0;
+  y1:=window.y-dg-dm-dt; y2:=window.y+window.h+dg+dsh; if y2>=yres then y2:=yres; if y1<0 then y1:=0;
   if vcount=0 then begin xtable[vcount]:=x1; ytable[vcount]:=y1; inc(vcount); end
   else
     begin
@@ -3418,31 +2546,56 @@ while window<>nil do   // go to the top window and count vertices
   window:=window.next;        // go to the top window
   end;
 
+// delete duplicate vertices
+
+i:=0;
+repeat
+  if (xtable[i]=xtable[i+1]) and (ytable[i]=ytable[i+1]) then
+    begin
+    for j:=i+1 to vcount-1 do
+      begin
+      xtable[j]:=xtable[j+1];
+      ytable[j]:=ytable[j+1];
+      end;
+    xtable[vcount-1]:=0;
+    ytable[vcount-1]:=0;
+    vcount-=1;
+    end;
+  i:=i+1;
+until i>=vcount-1;
+
+
+
+// make a rectangle list
 
 rect:=@Arectangle;
-// now sort x and y coordinates
 for i:=0 to vcount-2 do
   for j:=0 to vcount-2 do
-
     begin
-     rect^.next:= new(PRectangle);
-     rect^.next^.prev:=rect;
-     rect^.next^.next:=nil;
-     rect:=rect^.next;
-     rect^.x1:=xtable[j];
-     rect^.y1:=ytable[i];
-     rect^.x2:=xtable[j+1];
-     rect^.y2:=ytable[i+1];
-     rect^.handle:=0;
-{    rectangles[i+(vcount-1)*j,0]:=xtable[i];
-    rectangles[i+(vcount-1)*j,1]:=ytable[j];
-    rectangles[i+(vcount-1)*j,2]:=xtable[i+1];
-    rectangles[i+(vcount-1)*j,3]:=ytable[j+1];
-    rectangles[i+(vcount-1)*j,4]:=0;
-}    end;
+    if (xtable[j+1]>xtable[j]) and (ytable[i+1]>ytable[i]) then
+      begin
+      rect^.next:= new(PRectangle);
+      rect^.next^.prev:=rect;
+      rect^.next^.next:=nil;
+      rect:=rect^.next;
+      rect^.x1:=xtable[j];
+      rect^.y1:=ytable[i];
+      rect^.x2:=xtable[j+1]-1;
+      rect^.y2:=ytable[i+1]-1;
+      rect^.handle:=0;
+      end;
+    end;
+
+
+// assign rectangles to windows
 
 window:=background;
+
+// go to the top window
+
 while window.next<>nil do  window:=window.next;
+
+// find rectangles in the window
 
 while window<>nil do
   begin
@@ -3470,44 +2623,43 @@ while window<>nil do
   rect:=Arectangle.next;
   x1:=window.x-dg; x2:=window.x+window.l+dg+dsv;
   y1:=window.y-dg-dm-dt; y2:=window.y+window.h+dg+dsh;
-  while rect<>nil do begin
 
-  //  for i:=0 to (vcount-1)*(vcount-1)-1 do
-    //    if (rectangles[i,0]>=x1) and (rectangles[i,1]>=y1)and (rectangles[i,2]<=x2) and (rectangles[i,3]<=y2) and (rectangles[i,4]=0) then rectangles[i,4]:=integer(window);
-    if (rect^.x1>=x1) and (rect^.y1>=y1)and (rect^.x2<=x2) and (rect^.y2<=y2) and (rect^.handle=0) then rect^.handle:=integer(window);
+
+
+  while rect<>nil do begin
+    if (rect^.x1>=x1) and (rect^.y1>=y1)and (rect^.x2<x2) and (rect^.y2<y2) and (rect^.handle=0) then rect^.handle:=integer(window);
     rect:=rect^.next;
     end;
+
   window:=window.prev;
   end ;
 
+// merge adjacent rectangles
 
   rect:=Arectangle.next;
-  rcount:=(vcount-1)*(vcount-1);
-//  i:=0;
-//  while i<rcount-1 do
   while rect^.next<>nil do
     begin
-//     if (rectangles[i,2]=rectangles[i+1,0]) and (rectangles[i,4]=rectangles[i+1,4]) then
-    if (rect^.x2=rect^.next^.x1) and (rect^.handle=rect^.next^.handle) then
+    if (rect^.x2+1=rect^.next^.x1) and (rect^.handle=rect^.next^.handle) then
       begin
-//      rectangles[i,2]:=rectangles[i+1,2];
-//      for j:=i+1 to rcount-2 do rectangles[j]:=rectangles[j+1];
       r2:=rect^.next;
       rect^.x2:=rect^.next^.x2;
       rect^.next:=rect^.next^.next;
       dispose(r2);
       if rect^.next<>nil then rect^.next^.prev:=rect;
-      rcount-=1;
       end
     else
       rect:=rect^.next;
     end;
 
-// top window here
-ttttt:=gettime-ttttt;
-retromalina.box(500,0,100,50,0); retromalina.outtextxy(500,0,inttostr(ttttt),15);
 
-retromalina.box(0,0,280,1000,0);
+ttttt:=gettime-ttttt;
+
+//-------debug
+
+{
+retromalina.box(500,0,100,50,0); retromalina.outtextxy(500,0,inttostr(ttttt),15);
+retromalina.box(0,0,380,1000,0);
+for i:=0 to vcount-1 do background.outtextxy8(280,8*i,inttostr(xtable[i])+' '+inttostr(ytable[i]),15);
 rect:=Arectangle.next;
 i:=0;
 while rect<>nil do begin
@@ -3516,18 +2668,10 @@ while rect<>nil do begin
                                               retromalina.outtextxy(100,i*16,inttostr(rect^.x2),15);
                                               retromalina.outtextxy(150,i*16,inttostr(rect^.y2),15);
                                               retromalina.outtextxy(200,i*16,inttostr(rect^.handle),15);
-  rect:=rect^.next;  i:=i+1;
-//for i:=0 to rcount-1 do begin  retromalina.outtextxy(0,i*16,inttostr(rectangles[i,0]),15);
-//                                              retromalina.outtextxy(50,i*16,inttostr(rectangles[i,1]),15);
-//                                              retromalina.outtextxy(100,i*16,inttostr(rectangles[i,2]),15);
-//                                              retromalina.outtextxy(150,i*16,inttostr(rectangles[i,3]),15);
-//                                              retromalina.outtextxy(200,i*16,inttostr(rectangles[i,4]),15);
+rect:=rect^.next;  i:=i+1;
+end;}
 
-end;
 
-rect:=Arectangle.next;
-while rect^.next<>nil do rect:=rect^.next;
-while rect^.prev<>nil do begin rect:=rect^.prev; dispose(rect^.next); end;
 end;
 
 

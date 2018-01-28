@@ -62,7 +62,7 @@ var
     message:TWindow;
     scr:cardinal;
 
-    testdxwindow:TDispmanWindow=nil;
+//    testdxwindow:TDispmanWindow=nil;
 
 // ---- procedures
 
@@ -181,11 +181,11 @@ repeat
   background.icons.checkall;
   if testicon.dblclicked then
     begin
-    testicon.dblclicked:=false;
-    testdxwindow:=Tdispmanwindow.create(500,500,'Test');
-    testdxwindow.move(300,300,300,300,0,0);
-    testdxwindow.cls(255);
-    testdxwindow.outtextxy(10,10,'Kwas',$FFFFFF);
+//    testicon.dblclicked:=false;
+//    testdxwindow:=Tdispmanwindow.create(500,500,'Test');
+//    testdxwindow.move(300,300,300,300,0,0);
+//    testdxwindow.cls(255);
+//    testdxwindow.outtextxy(10,10,'Kwas',$FFFFFF);
 
     end;
 
@@ -242,7 +242,7 @@ repeat
       end;
     end;
 
-  if raspbian.dblclicked then
+  if (raspbian.dblclicked) or (key=ord('r')) then
     begin
     raspbian.dblclicked:=false;
     if fileexists(drive+'\ultibo\Raspbian.u') then
