@@ -18,7 +18,7 @@ uses  //Ultibo units
   MMC,
   FileSystem,
   FATFS,
-  ntfs,
+//  ntfs,
   BCM2710,
   ds1307,
   rtc,
@@ -33,7 +33,8 @@ uses  //Ultibo units
   blitter,
 //  timezone;
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot, notepad, c64,vc4;
+  playerunit, captureunit, mandelbrot, notepad, c64;
+  //,vc4;
 
 
 label p101, p102 ,p999, p998, p997;
@@ -62,6 +63,10 @@ var
     message:TWindow;
     scr:cardinal;
 
+    testtime:int64;
+    testbuf:array[0..$FFFFFF] of byte;
+    testfh:integer;
+
 //    testdxwindow:TDispmanWindow=nil;
 
 // ---- procedures
@@ -87,9 +92,11 @@ end;
 
 begin
 
+
+
 initmachine(144);     // 16+128=hi, double buffered TODO init @19
 initscreen;
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
+//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
 sleep(1);
 while not DirectoryExists('C:\') do
   begin
@@ -106,6 +113,21 @@ else
   repeat until readkey=$141;
   systemrestart(0);
   end;
+
+  ///-------------speed test
+//   while not DirectoryExists('D:\') do
+//   begin
+//   Sleep(100);
+ //  end;
+//   sleep(1000);
+//   testfh:=fileopen('D:\016.wav',$40);
+//   testtime:=gettime;
+//   fileread(testfh, testbuf,  $1000000);
+ //  testtime:=gettime-testtime;
+ //  fileclose(testfh);
+
+  //speed test end
+
 
 t:=SysRTCGetTime;
 if t=0 then
@@ -174,7 +196,11 @@ filetype:=-1;
 //desired.samples:=1200;
 //error:=openaudio(@desired,@obtained);
 
+box(600,600,100,50,0);
+outtextxy(600,600,inttostr(testtime),15);
 //------------------- The main loop
+
+
 
 repeat
 
@@ -259,7 +285,7 @@ repeat
       RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
 //      CopyFile2(drive+'\ultibo\Raspbian.u',drive+'kernel7.img');
 //      stopmachine;
-       bcmhostdeinit;
+  //     bcmhostdeinit;
       systemrestart(0);
       end;
     end;
@@ -278,7 +304,7 @@ repeat
 
   until {(mousek=3) or }(key=key_escape) ;
 pauseaudio(1);
-bcmhostdeinit;
+//bcmhostdeinit;
 if sfh>0 then fileclose(sfh);
 setcurrentdir(workdir);
 stopmachine;

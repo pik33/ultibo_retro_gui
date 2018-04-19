@@ -212,6 +212,9 @@ var pl:TWindow=nil;
         sliders:boolean=true;
    volume_pos,balance_pos:integer;
 
+   speedtest:int64;
+   speedbuf:array[0..$FFFFFF] of byte;
+
 procedure hide_sprites;
 procedure start_sprites;
 procedure vis_sprites;
@@ -318,6 +321,15 @@ var
     currentdatasize:int64;
 
 begin
+
+//ThreadSetpriority(ThreadGetCurrent,7);
+//sleep(2000);
+//fileseek(fh,0,0);
+//speedtest:=gettime;
+//fileread(fh,speedbuf,$1000000);
+//speedtest:=gettime-speedtest;
+//box(300,300,100,100,0);
+//outtextxy(300,300,inttostr(speedtest), 15);
 fileseek(fh,0,0);
 fileread(fh,head,44);
 if head.data<>1635017060 then
@@ -785,20 +797,33 @@ else if playfilename<>'' then //  key=key_enter then
     filebuffer.setfile(sfh);
 
 
-    sleep(300);
+    sleep(100);
     songs:=0;
 
-    if head.srate=44100 then siddelay:=8707 else siddelay:=2000;
+    if head.srate=44100 then siddelay:=8707
+    else if head.srate=96000  then siddelay:=2000
+    else siddelay:=1000;
 
 //    box(100,100,100,100,120);
+    if head.pcm=3 then i:=32
+    else i:=16;
 
-    if head.srate=44100 then if a1base=432 then error:=SA_changeparams(43298,16,head.channels,384)
-                                           else error:=SA_changeparams(44100,16,head.channels,384);
-    if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,32,2,192)
-                                           else error:=SA_changeparams(96000,32,2,192);
+    error:=SA_changeparams(head.srate,i,head.channels,384);
+                                {
 
+    if head.srate=44100 then if a1base=432 then error:=SA_changeparams(43298,i,head.channels,384)
+                                           else error:=SA_changeparams(192000,i,head.channels,384);
+    if head.srate=96000 then if a1base=432 then error:=SA_changeparams(94254,i,2,192)
+                                           else error:=SA_changeparams(96000,i,2,192);
+    if head.srate=48000 then if a1base=432 then error:=SA_changeparams(94254 div 2,i,2,192)
+                                           else error:=SA_changeparams(96000 div 2,i,2,192);
 
-//    box(100,100,100,100,250);
+    if head.srate=192000 then if a1base=432 then error:=SA_changeparams(2*94254,i,2,192)
+                                            else error:=SA_changeparams(192000,i,2,192);
+
+                                 }
+   // box(100,100,100,100,250);
+  //  outtextxy(100,100,inttostr(error),15);
     pauseaudio(0);
 
 

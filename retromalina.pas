@@ -114,7 +114,7 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager, vc4, dispmanx;
+     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;//, vc4, dispmanx;
 
 const base=          $23000000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
@@ -299,7 +299,7 @@ var fh,filetype:integer;                // this needs cleaning...
 
     mp3time:int64;
 
-    display:  DISPMANX_DISPLAY_HANDLE_T;
+ //   display:  DISPMANX_DISPLAY_HANDLE_T;
 
 // system variables
 
@@ -428,18 +428,18 @@ var fh,filetype:integer;                // this needs cleaning...
     mp3frames:integer=0;
     debug1,debug2,debug3:cardinal;
 
-    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
-    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
-    mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
+  //  mouse_element:DISPMANX_ELEMENT_HANDLE_T;
+ //   mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
+  //  mouse_src_rect,mouse_dst_rect:VC_RECT_T;
+  //  mouse_update:   DISPMANX_UPDATE_HANDLE_T;
 
-    dec_element:DISPMANX_ELEMENT_HANDLE_T;
-    dec_resource: DISPMANX_RESOURCE_HANDLE_T;
-    dec_src_rect,dec_dst_rect:VC_RECT_T;
-    dec_update:   DISPMANX_UPDATE_HANDLE_T;
+   // dec_element:DISPMANX_ELEMENT_HANDLE_T;
+   // dec_resource: DISPMANX_RESOURCE_HANDLE_T;
+   // dec_src_rect,dec_dst_rect:VC_RECT_T;
+   // dec_update:   DISPMANX_UPDATE_HANDLE_T;
 
-    dec_pointer:integer;
-    decoration_addr:integer;
+   // dec_pointer:integer;
+   // decoration_addr:integer;
 
 // prototypes
 
@@ -531,8 +531,8 @@ var mb:tmousedata;
     const mousecount:integer=0;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
-ThreadSetpriority(ThreadGetCurrent,5);
+//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+ThreadSetpriority(ThreadGetCurrent,6);
 sleep(1);
 mousetype:=0;
   repeat
@@ -655,24 +655,24 @@ var ch:TKeyboardReport;
     i:integer;
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
+//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
 ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 repeat
-//  waitvbl;
-//   sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
+  waitvbl;
+ sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
                                         //while mouse is on active screen only
 
 // now use hardware pointer
 
-mouse_update:=vc_dispmanx_update_start(11);
-if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_dst_rect, mousex, mousey, 32, 32-mousey+yres) else vc_dispmanx_rect_set(@mouse_dst_rect, mousex,mousey, 32,32);
-if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, (32-mousey+yres) shl 16 ) else  vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
+//mouse_update:=vc_dispmanx_update_start(11);
+//if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_dst_rect, mousex, mousey, 32, 32-mousey+yres) else vc_dispmanx_rect_set(@mouse_dst_rect, mousex,mousey, 32,32);
+//if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, (32-mousey+yres) shl 16 ) else  vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
 
 //change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
-vc_dispmanx_element_change_attributes(mouse_update, mouse_element, 12, 0,0,@mouse_dst_rect,@mouse_src_rect,0,0);
-vc_dispmanx_update_submit(mouse_update,nil,nil);
-waitvbl;
+//vc_dispmanx_element_change_attributes(mouse_update, mouse_element, 12, 0,0,@mouse_dst_rect,@mouse_src_rect,0,0);
+//vc_dispmanx_update_submit(mouse_update,nil,nil);
+//waitvbl;
 
 
                                         //so I have to add $28 to y and $40 to x
@@ -794,7 +794,7 @@ var id:integer;
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
-ThreadSetPriority(ThreadGetCurrent,6);
+ThreadSetPriority(ThreadGetCurrent,5);
 sleep(1);
 
 running:=1;
@@ -861,10 +861,10 @@ var i,q:integer;
     mouse_layer:integer;
  //    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
  //    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
- mouse_alpha:VC_DISPMANX_ALPHA_T;        dec_alpha:VC_DISPMANX_ALPHA_T;
+ //mouse_alpha:VC_DISPMANX_ALPHA_T;        dec_alpha:VC_DISPMANX_ALPHA_T;
 //     mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-mousetype:VC_IMAGE_TYPE_T;
-dectype:VC_IMAGE_TYPE_T;
+//mousetype:VC_IMAGE_TYPE_T;
+//dectype:VC_IMAGE_TYPE_T;
      mousepitch:integer;
      decpitch:integer;
      mousealigned_height:integer;
@@ -990,7 +990,7 @@ end;
    }
 
 
-     //sprite7def:=mysz;
+sprite7def:=mysz;
 setpallette(ataripallette,0);
 //textcursorx:=$FFFF;
 //cls(84);
@@ -1041,35 +1041,35 @@ thread.start;
 windows:=twindows.create(true);
 windows.start;
 
-bcmhostinit;
-display := vc_dispmanx_display_open(0);  // todo: detect lcd
+//bcmhostinit;
+//display := vc_dispmanx_display_open(0);  // todo: detect lcd
 
 // init mouse cursor as dispmanx element
 
-   mouse_alpha.flags:=0;    // opaciy from pixels
-   mouse_alpha.opacity:=0;  //opaque
-   mouse_alpha.mask:=0;
-   mousetype:=VC_IMAGE_ARGB8888;
+//   mouse_alpha.flags:=0;    // opaciy from pixels
+//   mouse_alpha.opacity:=0;  //opaque
+//   mouse_alpha.mask:=0;
+//   mousetype:=VC_IMAGE_ARGB8888;
    mousedata:=mysz;
    for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
    image:=@mousedata;
-   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
-   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
-   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
-   mouse_update:=vc_dispmanx_update_start(10);
-   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
-   mouse_element:=vc_dispmanx_element_add(mouse_update,
-                                          display,
-                                          256, // mouse cursor is on top of all the rest
-                                          @mouse_dst_rect,
-                                          mouse_resource,
-                                          @mouse_src_rect,
-                                          DISPMANX_PROTECTION_NONE,
-                                          @mouse_alpha,
-                                           nil,             // clamp
-                                                  0 );
-     vc_dispmanx_update_submit_sync(mouse_update);
+//   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
+//   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
+//   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
+//   mouse_update:=vc_dispmanx_update_start(10);
+//   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
+//   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
+//   mouse_element:=vc_dispmanx_element_add(mouse_update,
+//                                          display,
+//                                          256, // mouse cursor is on top of all the rest
+//                                          @mouse_dst_rect,
+//                                          mouse_resource,
+//                                          @mouse_src_rect,
+//                                          DISPMANX_PROTECTION_NONE,
+//                                          @mouse_alpha,
+//                                           nil,             // clamp
+ //                                                 0 );
+ //    vc_dispmanx_update_submit_sync(mouse_update);
 
      amouse:=tmouse.create(true);
      amouse.start;
@@ -1102,8 +1102,8 @@ repeat until running=0;
 amouse.terminate;
 akeyboard.terminate;
 windows.terminate;
-vc_dispmanx_display_close(display);
-bcmhostdeinit;
+//vc_dispmanx_display_close(display);
+//bcmhostdeinit;
 end;
 
 // -----  Screen convert procedures
