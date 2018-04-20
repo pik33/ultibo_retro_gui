@@ -353,6 +353,7 @@ q:=0;
 scr:=mainscreen+$a00000;
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
+cls(100);
 
 repeat
   inc(q);

@@ -991,6 +991,7 @@ end;
 
 
 sprite7def:=mysz;
+sprite7zoom:=$00010001;
 setpallette(ataripallette,0);
 //textcursorx:=$FFFF;
 //cls(84);

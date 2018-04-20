@@ -18,7 +18,7 @@ uses  //Ultibo units
   MMC,
   FileSystem,
   FATFS,
-//  ntfs,
+  ntfs,
   BCM2710,
   ds1307,
   rtc,
@@ -28,16 +28,13 @@ uses  //Ultibo units
   DWCOTG,
   retromalina,
   Unit6502,
-  screen,
+  //screen,
   mp3,
   blitter,
-//  timezone;
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64;
-  //,vc4;
 
-
-label p101, p102 ,p999, p998, p997;
+const ver='Colors v. 0.30 --- 2017.04.26';
 
 var
     hh,mm,ss:integer;
@@ -62,41 +59,16 @@ var
     fh,i,j:integer;
     message:TWindow;
     scr:cardinal;
+    testbutton:TButton;
+    clock:string;
 
-    testtime:int64;
-    testbuf:array[0..$FFFFFF] of byte;
-    testfh:integer;
-
-//    testdxwindow:TDispmanWindow=nil;
-
-// ---- procedures
-
-procedure copyfile2(src,dest:string);
-
-var fh1,fh2,il:integer;
-    buf:pbyte;
-
-begin
-// todo --- get rid of unallocated mem at hardcoded constant !!!!
-
-buf:=Pbyte($21000000);
-fh1:=fileopen(src,$40);
-fh2:=filecreate(dest);
-il:=fileread(fh1,buf^,16000000);
-filewrite(fh2,buf^,il);
-fileclose(fh1);
-fileclose(fh2);
-end;
 
 //------------------- The main program
 
 begin
 
-
-
 initmachine(144);     // 16+128=hi, double buffered TODO init @19
-initscreen;
-//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_0);
+//initscreen;
 sleep(1);
 while not DirectoryExists('C:\') do
   begin
@@ -114,21 +86,6 @@ else
   systemrestart(0);
   end;
 
-  ///-------------speed test
-//   while not DirectoryExists('D:\') do
-//   begin
-//   Sleep(100);
- //  end;
-//   sleep(1000);
-//   testfh:=fileopen('D:\016.wav',$40);
-//   testtime:=gettime;
-//   fileread(testfh, testbuf,  $1000000);
- //  testtime:=gettime-testtime;
- //  fileclose(testfh);
-
-  //speed test end
-
-
 t:=SysRTCGetTime;
 if t=0 then
   if fileexists(drive+'now.txt') then
@@ -140,11 +97,6 @@ if t=0 then
     settime(hh,mm,ss,0);
     end;
 
-//if fileexists(drive+'kernel7_l.img') then
-//  begin
-//  DeleteFile(pchar(drive+'kernel7.img'));
-//  RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
-//  end;
 scr:=mainscreen+$300000;
 fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
 fileread(fh,pointer(scr)^,235*300);
@@ -187,32 +139,20 @@ textedit.x:=896; textedit.y:=0; textedit.size:=48; textedit.l:=128; textedit.h:=
 raspbian:=Testicon.append('Raspbian');
 raspbian.icon48:=i48_raspi;
 raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:=96; raspbian.draw;
-//sleep(1000);
 filetype:=-1;
-//desired.callback:=@AudioCallback;
-//desired.channels:=2;
-//desired.format:=AUDIO_S16;
-//desired.freq:=480000;
-//desired.samples:=1200;
-//error:=openaudio(@desired,@obtained);
+testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 
-box(600,600,100,50,0);
-outtextxy(600,600,inttostr(testtime),15);
 //------------------- The main loop
 
-
+// todo:
+// icons from ini file
+// thread assigned to icon
+//key:=0;
 
 repeat
-
   background.icons.checkall;
   if testicon.dblclicked then
     begin
-//    testicon.dblclicked:=false;
-//    testdxwindow:=Tdispmanwindow.create(500,500,'Test');
-//    testdxwindow.move(300,300,300,300,0,0);
-//    testdxwindow.cls(255);
-//    testdxwindow.outtextxy(10,10,'Kwas',$FFFFFF);
-
     end;
 
   if calculator.dblclicked then
@@ -226,6 +166,7 @@ repeat
     end;
   if cw<>nil then
     if cw.needclose then begin calculatorthread.terminate; end;
+
   if status.dblclicked then
      begin
      status.dblclicked:=false;
@@ -280,31 +221,27 @@ repeat
       message.outtextxyz(16,64,'Please wait...',250,2,2);
       message.move(xres div 2 - 250, yres div 2 - 56, 600,200,0,0);
       message.select;
- //     DeleteFile(pchar(drive+'kernel7_l.img'));
       if not fileexists(drive+'kernel7_c.img') then RenameFile(drive+'kernel7.img',drive+'kernel7_c.img') else deletefile(pchar(drive+'kernel7.img'));
       RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
-//      CopyFile2(drive+'\ultibo\Raspbian.u',drive+'kernel7.img');
-//      stopmachine;
-  //     bcmhostdeinit;
       systemrestart(0);
       end;
     end;
 
-  refreshscreen;
+  waitvbl;
+  panel.box(panel.l-68,4,64,16,11);
+  clock:=timetostr(now);
+  panel.outtextxy(panel.l-68,4,clock,0);
   key:=getkey and $FF;
-//  panel.checkmouse;
-//  background.checkmouse;
 
-//  if key=ord('s') then   // script test
-//    begin
-//    script1;
-//    readkey;
-//    end
+// if key=ord('s') then   // script test
+//  begin
+//  script1;
+//  readkey;
+//  end;
 
 
-  until {(mousek=3) or }(key=key_escape) ;
+  until key=key_escape;
 pauseaudio(1);
-//bcmhostdeinit;
 if sfh>0 then fileclose(sfh);
 setcurrentdir(workdir);
 stopmachine;

@@ -18,6 +18,13 @@ type TSysinfoThread=class (TThread)
 
 
 var si:TWindow=nil;
+       tbb:array[0..15] of integer;
+       c6:int64=1;
+       avsct1,avspt1,sidtime1,av65021:array[0..59] of integer;
+       avsct:int64=0;
+       avspt:int64=0;
+       avall:int64=0;
+       avsid:int64=0;
 
 implementation
 
@@ -44,6 +51,7 @@ const cpuclock:integer=0;
 begin
 ThreadSetAffinity(ThreadGetCurrent,4);
 sleep(1);
+for i:=0 to 15 do tbb[i]:=0;
 si:=Twindow.create(300,290,'System status');
 si.bg:=147;
 si.cls(147);
