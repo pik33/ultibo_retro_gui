@@ -279,7 +279,6 @@ var fh,filetype:integer;                // this needs cleaning...
 
     buf2:array[0..1919] of smallint;
     buf2f:array[0..959] of single absolute buf2;
-//    filebuffer:TFileBuffer=nil;
     amouse:tmouse ;
     akeyboard:tkeyboard ;
 
@@ -298,8 +297,6 @@ var fh,filetype:integer;                // this needs cleaning...
     channel3on:byte=1;
 
     mp3time:int64;
-
- //   display:  DISPMANX_DISPLAY_HANDLE_T;
 
 // system variables
 
@@ -416,30 +413,17 @@ var fh,filetype:integer;                // this needs cleaning...
     error:integer;
     mousereports:array[0..31] of TMouseReport;
 
-   mp3bufidx:integer=0;
-   outbufidx:integer=0;
-   framesize:integer;
-   backgroundaddr:integer=mainscreen;
-   screenaddr:integer=mainscreen+$800000;
-   redrawing:integer=mainscreen+$800000;
-   windowsdone:boolean=false;
+    mp3bufidx:integer=0;
+    outbufidx:integer=0;
+    framesize:integer;
+    backgroundaddr:integer=mainscreen;
+    screenaddr:integer=mainscreen+$800000;
+    redrawing:integer=mainscreen+$800000;
+    windowsdone:boolean=false;
     drive:string;
 
     mp3frames:integer=0;
     debug1,debug2,debug3:cardinal;
-
-  //  mouse_element:DISPMANX_ELEMENT_HANDLE_T;
- //   mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
-  //  mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-  //  mouse_update:   DISPMANX_UPDATE_HANDLE_T;
-
-   // dec_element:DISPMANX_ELEMENT_HANDLE_T;
-   // dec_resource: DISPMANX_RESOURCE_HANDLE_T;
-   // dec_src_rect,dec_dst_rect:VC_RECT_T;
-   // dec_update:   DISPMANX_UPDATE_HANDLE_T;
-
-   // dec_pointer:integer;
-   // decoration_addr:integer;
 
 // prototypes
 
@@ -477,7 +461,6 @@ procedure outtextxys(x,y:integer; t:string;c,s:integer);
 procedure outtextxyzs(x,y:integer; t:string;c,xz,yz,s:integer);
 procedure scrollup;
 function sid(mode:integer):tsample;
-//procedure AudioCallback(userdata: Pointer; stream: PUInt8; len:Integer );
 function getpixel(x,y:integer):integer; inline;
 function getkey:integer; inline;
 function readkey:integer; inline;
@@ -487,8 +470,6 @@ procedure waitvbl;
 procedure removeramlimits(addr:integer);
 function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
-//procedure dma_box(x,y,l,h,c:cardinal);
-//procedure box3(x,y,l,h,c:integer);
 procedure scrconvertnative(src,screen:pointer);
 
 implementation
@@ -497,7 +478,6 @@ uses blitter, mwindows;
 
 var windows:Twindows;
 procedure scrconvert(src,screen:pointer); forward;
-//procedure scrconvert32(screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
 
 
@@ -531,15 +511,13 @@ var mb:tmousedata;
     const mousecount:integer=0;
 
 begin
-//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
-ThreadSetpriority(ThreadGetCurrent,6);
+ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 mousetype:=0;
   repeat
     p102:
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
     if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
- //   box(0,0,300,50,0); outtextxy(0,0,inttohex(m[0],2)+' '+inttohex(m[1],2)+' '+inttohex(m[2],2)+' '+inttohex(m[3],2)+' '+inttohex(m[4],2)+' '+inttohex(m[5],2)+' '+inttohex(m[6],2)+' '+inttohex(m[7],2)+' ',15);
 
     mousecount+=1;
     j:=0; for i:=0 to 7 do if m[i]<>0 then j+=1;
@@ -549,7 +527,7 @@ mousetype:=0;
       for i:=0 to 6 do mousereports[i]:=mousereports[i+1];
       mousereports[7]:=m;
       end;
-//    mousetype:=0;
+
     j:=0;
     for i:=0 to 6 do if mousereports[i,7]<>m[7]  then j+=1;
     for i:=0 to 6 do if mousereports[i,6]<>m[6]  then j+=1;
@@ -616,7 +594,7 @@ p101:
     w:=mousewheel+Wheel;
     if w<127 then w:=127;
     if w>129 then w:=129;
-    mousewheel:=w;//poke(base+$60032,w);
+    mousewheel:=w;
   until terminated;
 end;
 
@@ -655,35 +633,12 @@ var ch:TKeyboardReport;
     i:integer;
 
 begin
-//ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
 ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
 repeat
   waitvbl;
  sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
-                                        //while mouse is on active screen only
-
-// now use hardware pointer
-
-//mouse_update:=vc_dispmanx_update_start(11);
-//if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_dst_rect, mousex, mousey, 32, 32-mousey+yres) else vc_dispmanx_rect_set(@mouse_dst_rect, mousex,mousey, 32,32);
-//if mousey>yres-32 then vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, (32-mousey+yres) shl 16 ) else  vc_dispmanx_rect_set(@mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-
-//change flags: bit 0 layer, bit 1 opacity, bit 2 dest rect, bit 3 src rect, bit 4 mask, bit 5 transform
-//vc_dispmanx_element_change_attributes(mouse_update, mouse_element, 12, 0,0,@mouse_dst_rect,@mouse_src_rect,0,0);
-//vc_dispmanx_update_submit(mouse_update,nil,nil);
-//waitvbl;
-
-
-                                        //so I have to add $28 to y and $40 to x
-//  if textcursoron then
-//    begin
-//    i:=(framecnt div 15) mod 2 ; // todo - replace constant with sys var
-//    sprite6y:=68+32*textcursory;
-//    sprite6x:=64+16*textcursorx;
-//    // cursor blink
-//    if i=0 then sprite6x+=$1000 else sprite6x:=sprite6x and $0FFF;
-//    end;
+                                            //while mouse is on active screen only
 
   if mousedblclick=2 then begin dblclick:=0; dblcnt:=0; mousedblclick:=0; end;
   if (dblclick=0) and (mousek=1) then begin dblclick:=1; dblcnt:=0; end;
@@ -698,34 +653,12 @@ repeat
   if (mousek=1) and (click=0) then begin click:=1; clickcnt:=0; end;
   inc(clickcnt); if clickcnt>10 then  begin clickcnt:=10; click:=2; end;
   if (mousek=0) then click:=0;
-  if click=1 then mouseclick:=1 else mouseclick:=0; //poke (base+$60031,1) else poke (base+$60031,0);
-
-{
-
-  ch:=getkeyboardreport;
-  if ch[0]<>255 then m:=ch[0];
-  if (ch[2]<>0) and (ch[2]<>255) then activekey:=ch[2]
-  else if (ch[0]<>0) and (ch[0]<>255) then activekey:=256+ch[0];
-  if (ch[2]<>0) and (activekey>0) then inc(rptcnt)
-  else if (ch[0]<>0) and (activekey>0) then inc(rptcnt);
-  if (ch[2]=0) and (ch[0]=0) then begin rptcnt:=0; activekey:=0; end;
-  if rptcnt>26 then rptcnt:=24 ;
-  if (rptcnt=1) or (rptcnt=24) then
-    begin
-    if (activekey<256) and ((m and $22)<>0) then c:=byte(translatescantochar(activekey,1))
-    else if (activekey<256) and ((m and $42)=$40) then c:=byte(translatescantochar(activekey,2))
-    else if (activekey<256) and ((m and $42)=$42) then c:=byte(translatescantochar(activekey,3))
-    else if (activekey<256) and (m=0) then c:=byte(translatescantochar(activekey,0));
-    key_charcode:=c;
-    key_modifiers:=m;
-    key_scancode:=activekey mod 256;
-    end;
- }
+  if click=1 then mouseclick:=1 else mouseclick:=0;
 
  ch:=getkeyboardreport;
  if ch[7]<>255 then
    begin
-//   box(0,100,200,32,0); for i:=0 to 7 do outtextxy(i*24,100,inttohex(ch[i],2),15);
+
    olactivekey:=lastactivekey;
    oldactivekey:=activekey;
    lastactivekey:=0;
@@ -745,22 +678,12 @@ repeat
  if (c>2) then inc(rptcnt);
 
  if rptcnt>26 then rptcnt:=24 ;
-// box(0,0,100,32,0); outtextxy(0,0,inttostr(rptcnt),15);
  if (rptcnt=1) or (rptcnt=24) then
    begin
-
    key_charcode:=byte(c);
-//   key_modifiers:=m;
    key_scancode:=activekey mod 256;
-
    end;
-
-
-
-
-
-
-  until terminated;
+ until terminated;
 end;
 
 
@@ -803,11 +726,8 @@ repeat
   vblank1:=0;
   t:=gettime;
 
-
-// scrconvert(pointer($30800000),p2);   //8
   scrconvertnative(pointer(mainscreen+$800000),p2);   //8
   screenaddr:=mainscreen+$800000;
-
 
   tim:=gettime-t;
   t:=gettime;
@@ -823,7 +743,6 @@ repeat
   vblank1:=0;
   t:=gettime;
 
-//  scrconvert(pointer($30b00000),p2+2304000);   //a
   scrconvertnative(pointer(mainscreen+$b00000),p2+(xres+64)*(yres{+32}));   //a
   screenaddr:=mainscreen+$b00000;
 
@@ -837,7 +756,6 @@ repeat
 
   FramebufferDeviceSetOffset(fb,0,yres,True);
   FramebufferDeviceWaitSync(fb);
-
 
   end;
 until terminated;
@@ -855,25 +773,19 @@ procedure initmachine(mode:integer);
 
 // -- rev 20170606
 
-var i,q:integer;
+var i:integer;
 
 
-    mouse_layer:integer;
- //    mouse_element:DISPMANX_ELEMENT_HANDLE_T;
- //    mouse_resource: DISPMANX_RESOURCE_HANDLE_T;
- //mouse_alpha:VC_DISPMANX_ALPHA_T;        dec_alpha:VC_DISPMANX_ALPHA_T;
-//     mouse_src_rect,mouse_dst_rect:VC_RECT_T;
-//mousetype:VC_IMAGE_TYPE_T;
-//dectype:VC_IMAGE_TYPE_T;
-     mousepitch:integer;
-     decpitch:integer;
-     mousealigned_height:integer;
-     decaligned_height:integer;
-     mousedata:TSprite;
-     image:pointer;
-     dummy:integer;
+ //   mouse_layer:integer;
+  //  mousepitch:integer;
+ //   decpitch:integer;
+ //   mousealigned_height:integer;
+ //   decaligned_height:integer;
+    mousedata:TSprite;
+//    image:pointer;
+//    dummy:integer;
 
- //    mouse_update:   DISPMANX_UPDATE_HANDLE_T;
+
 
 begin
 
@@ -901,7 +813,7 @@ FramebufferProperties.PhysicalWidth:=xres;
 FramebufferProperties.PhysicalHeight:=yres;
 FramebufferProperties.VirtualWidth:=xres+64;
 FramebufferProperties.VirtualHeight:=yres*2;
-q:=FramebufferDeviceAllocate(fb,@FramebufferProperties);
+FramebufferDeviceAllocate(fb,@FramebufferProperties);
 sleep(300);
 //i:=0;
 //repeat inc(i); sleep(100); until (fb^.FramebufferState = FRAMEBUFFER_STATE_ENABLED) or (i>20);
@@ -1041,50 +953,13 @@ thread.start;
 
 windows:=twindows.create(true);
 windows.start;
+mousedata:=mysz;
+for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
+amouse:=tmouse.create(true);
+amouse.start;
 
-//bcmhostinit;
-//display := vc_dispmanx_display_open(0);  // todo: detect lcd
-
-// init mouse cursor as dispmanx element
-
-//   mouse_alpha.flags:=0;    // opaciy from pixels
-//   mouse_alpha.opacity:=0;  //opaque
-//   mouse_alpha.mask:=0;
-//   mousetype:=VC_IMAGE_ARGB8888;
-   mousedata:=mysz;
-   for i:=0 to 1023 do if mousedata[i]<>0 then mousedata[i]:=mousedata[i] or $FF000000;
-   image:=@mousedata;
-//   mouse_resource:=vc_dispmanx_resource_create(mousetype, 32, 32, @dummy );
-//   vc_dispmanx_rect_set(@mouse_dst_rect, 0, 0, 32, 32);
-//   vc_dispmanx_resource_write_data(mouse_resource,mousetype,128,image,@mouse_dst_rect);
-//   mouse_update:=vc_dispmanx_update_start(10);
-//   vc_dispmanx_rect_set( @mouse_src_rect, 0, 0, 32 shl 16, 32 shl 16 );
-//   vc_dispmanx_rect_set( @mouse_dst_rect, xres div 2, yres div 2, 32,32);
-//   mouse_element:=vc_dispmanx_element_add(mouse_update,
-//                                          display,
-//                                          256, // mouse cursor is on top of all the rest
-//                                          @mouse_dst_rect,
-//                                          mouse_resource,
-//                                          @mouse_src_rect,
-//                                          DISPMANX_PROTECTION_NONE,
-//                                          @mouse_alpha,
-//                                           nil,             // clamp
- //                                                 0 );
- //    vc_dispmanx_update_submit_sync(mouse_update);
-
-     amouse:=tmouse.create(true);
-     amouse.start;
-
-     akeyboard:=tkeyboard.create(true);
-     akeyboard.start;
-// start audio, mouse, kbd and file buffer threads
-
-//desired.callback:=@AudioCallback;
-//desired.channels:=2;
-//desired.format:=AUDIO_S16;
-//desired.freq:=44100;
-//desired.samples:=384;
-//error:=openaudio(@desired,@obtained);
+akeyboard:=tkeyboard.create(true);
+akeyboard.start;
 end;
 
 
@@ -1098,18 +973,12 @@ procedure stopmachine;
 begin
 thread.terminate;
 repeat until running=0;
-//thread3.terminate;
-//filebuffer.terminate;
 amouse.terminate;
 akeyboard.terminate;
 windows.terminate;
-//vc_dispmanx_display_close(display);
-//bcmhostdeinit;
 end;
 
 // -----  Screen convert procedures
-
-
 
 procedure scrconvert(src,screen:pointer);
 
@@ -1709,11 +1578,11 @@ p104:          ldr r4,a7680
                push {r0}
 
 p101:
-                   ldr r14,screen
-                   cmp r3,r14
-                   bge p109
-                   add r3,r8
-                   b p106
+               ldr r14,screen
+               cmp r3,r14
+               bge p109
+               add r3,r8
+               b p106
 
 p109:          ldr r5,[r4],#4
                cmp r5,#0
@@ -1739,9 +1608,9 @@ p106:          ldr r0,a7680
                add r3,r0
                sub r3,r8
 
-                   ldr r14,scrl
-                   cmp r3,r14
-                   bge p108
+               ldr r14,scrl
+               cmp r3,r14
+               bge p108
 
                subs r10,#1
                subne r4,#128
@@ -1786,7 +1655,6 @@ end;
 function gettime:int64; inline;
 
 begin
-//result:=clockgettotal;
 result:=PLongWord($3F003004)^;
 end;
 

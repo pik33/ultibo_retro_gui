@@ -584,11 +584,6 @@ if obtained^.channels=2 then obtained^.oversampled_size:=obtained^.size*4*obtain
 if obtained^.format=AUDIO_S16 then obtained^.size:=obtained^.size * 2;
 if obtained^.format=AUDIO_F32 then obtained^.size:=obtained^.size * 4;
 
-
-  retromalina.box(0,0,100,100,0);
-  retromalina.outtextxy (0,0,inttostr(obtained^.oversample),15);
-  retromalina.outtextxy (0,20,inttostr(obtained^.range),15);
-
 // Here the common part ends.
 //
 // Now we cannot "InitAudio" as it is already init and running

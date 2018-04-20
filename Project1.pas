@@ -34,12 +34,10 @@ uses  //Ultibo units
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64;
 
-const ver='Colors v. 0.30 --- 2017.04.26';
+const ver='Colors v. 0.30 --- 2018.04.30';
 
 var
     hh,mm,ss:integer;
-
-    //longbuf:array[0..4095] of byte;
 
     workdir:string;
 
@@ -68,17 +66,16 @@ var
 begin
 
 initmachine(144);     // 16+128=hi, double buffered TODO init @19
-//initscreen;
 sleep(1);
 while not DirectoryExists('C:\') do
   begin
   Sleep(100);
   end;
 
-if fileexists('C:\kernel7.img') then begin workdir:='C:\ultibo\'; drive:='C:\'; end
-else if fileexists('D:\kernel7.img') then begin workdir:='D:\ultibo\' ; drive:='D:\'; end
-else if fileexists('E:\kernel7.img') then begin workdir:='E:\ultibo\' ; drive:='E:\'; end
-else if fileexists('F:\kernel7.img') then begin workdir:='F:\ultibo\' ; drive:='F:\'; end
+if fileexists('C:\kernel7.img') then begin workdir:='C:\colors\'; drive:='C:\'; end
+else if fileexists('D:\kernel7.img') then begin workdir:='D:\colors\' ; drive:='D:\'; end
+else if fileexists('E:\kernel7.img') then begin workdir:='E:\colors\' ; drive:='E:\'; end
+else if fileexists('F:\kernel7.img') then begin workdir:='F:\colors\' ; drive:='F:\'; end
 else
   begin
   outtextxyz(440,1060,'Error. No Ultibo folder found. Press Enter to reboot',157,2,2);
@@ -107,7 +104,6 @@ for c:='C' to 'F' do drivetable[c]:=directoryexists(c+':\');
 
 songtime:=0;
 siddelay:=20000;
-setcurrentdir(workdir);
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
 threadsleep(1);
 startreportbuffer;
@@ -243,7 +239,6 @@ repeat
   until key=key_escape;
 pauseaudio(1);
 if sfh>0 then fileclose(sfh);
-setcurrentdir(workdir);
 stopmachine;
 systemrestart(0);
 end.

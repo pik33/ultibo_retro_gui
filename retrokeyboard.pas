@@ -247,7 +247,7 @@ const
  {Entries not filled in are left 0 and are interpreted as unrecognized input and ignored (Section 10 of the Universal Serial Bus HID Usage Tables v1.12)}
  {Note: These are no longer used, see the Keymap unit for scan code to key code translation tables}
 
- // ----- the table uncommented and modified by pik33 @21061123 ----------------
+ // ----- the table uncommented and modified by pik33 @20161123 ----------------
 
  USB_HID_BOOT_USAGE_ID:array[0..255] of array[0..3] of Char = (
      {0}   (#0, #0, #0, #0),       {Reserved (no event indicated)}
