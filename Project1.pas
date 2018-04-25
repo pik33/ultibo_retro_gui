@@ -149,6 +149,11 @@ repeat
   background.icons.checkall;
   if testicon.dblclicked then
     begin
+    testicon.dblclicked:=false;
+    i:=integer(getmem(4));
+    box(100,100,100,100,0);
+    outtextxy(100,100,inttohex(i,8),15);
+    freemem(pointer(i));
     end;
 
   if calculator.dblclicked then

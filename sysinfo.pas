@@ -5,7 +5,7 @@ unit sysinfo;
 interface
 
 uses
-  Classes, SysUtils, math, threads, retromalina, mwindows, screen, simpleaudio, retromouse, platform, playerunit;
+  Classes, SysUtils, math, threads, retromalina, mwindows, simpleaudio, retromouse, platform, playerunit;
 
 type TSysinfoThread=class (TThread)
 

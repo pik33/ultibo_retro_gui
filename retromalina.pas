@@ -1,6 +1,6 @@
 // *****************************************************************************
 // The retromachine unit for Raspberry Pi/Ultibo
-// Ultibo v. 0.18 - 2017.01.22
+// Ultibo v. 0.30 - 2018.04.23
 // Piotr Kardasz
 // pik33@o2.pl
 // www.eksperymenty.edu.pl
@@ -15,28 +15,27 @@
 // 0000_0000  -  heap_start (about 0190_0000) - Ultibo area
 // Heap start -  2EFF_FFFF retromachine program area, about 720 MB
 //
-// BASE=$2F00_0000 - this can change or become dynamic
+// BASE=$2FF0_0000 - this can change or become dynamic
 //
-// 2F00_0000  -  2F00_FFFF - 6502 area
-//    2F00_D400  -  2F00_D418 SID
+// 2FF0_0000  -  2FF0_FFFF - 6502 area
+//    2FF0_D400  -  2FF0_D418 SID
+//    2FF0_D420  -  POKEY --- TODO
 //
-// 2F01_0000  -  2F05_FFFF - system data area
-//    2F01_0000  -  2F04_FFFF pallette banks; 65536 entries
-//    2F05_0000  -  2F05_1FFF font definition; 256 char @8x16 px
-//    2F05_2000  -  2F05_9FFF static sprite defs 8x4k
-//    2F05_A000  -  2F05_BFFF 8kB area for 16-bit audio buffer
-//    2F05_C000  -  2F05_C03F audio DMA ctrl block
-//    2F05_C040  -  2F05_FFFF reserved
+// 2FF1_0000  -  2FF5_FFFF - system data area
+//    2FF1_0000  -  2FF4_FFFF pallette banks; 65536 entries
+//    2FF5_0000  -  2FF5_1FFF font definition; 256 char @8x16 px
+//    2FF5_2000  -  2FF5_9FFF static sprite defs 8x4k
+//    2FF5_A000  -  2FF5_FFFF reserved for future OS/BASIC
 //
-// 2F06_0000  -  2F06_FFFF virtual hardware regs area
-//    2F06_0000 - frame counter
-//    2F06_0004 - display start
-//    2F06_0008 - current graphics mode   ----TODO
-//      2F06_0009 - bytes per pixel
-//    2F06_000C - border color
-//    2F06_0010 - pallette bank           ----TODO
-//    2F06_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
-//    2F06_0018 - display list start addr  ----TODO
+// 2FF6_0000  -  2FF6_FFFF --- copper
+//    2FF6_0000 - frame counter
+//    2FF6_0004 - display start
+//    2FF6_0008 - current graphics mode   ----TODO
+//      2FF6_0009 - bytes per pixel
+//    2FF6_000C - border color
+//    2FF6_0010 - pallette bank           ----TODO
+//    2FF6_0014 - horizontal pallette selector: bit 31 on, 30..20 add to $60010, 11:0 pixel num. ----TODO
+//    2FF6_0018 - display list start addr  ----TODO
 //                DL entry: 00xx_YYLLL_MM - display LLL lines in mode MM
 //                            xx: 00 - do nothing
 //                                01 - raster interrupt
@@ -44,40 +43,38 @@
 //                                11 - set horizontal scroll at YY
 //                          10xx_AAAAAAA - set display address to xxAAAAAAA
 //                          11xx_AAAAAAA - goto address xxAAAAAAA
-//    2F06_001C - horizontal scroll right register ----TODO
-//    2F06_0020 - x res
-//    2F06_0024 - y res
-//    2F06_0028 - KBD. 28 - ASCII 29 modifiers, 2A raw code 2B reserved
-//    2F06_002C - mouse. 6002c,d x 6002e,f y
-//    2F06_0030 - mouse keys, 2F06_0032 - mouse wheel; 127 up 129 down
-//    2F06_0034 - current dl position ----TODO
-//    2F06_0040 - 2F06_007C sprite control long 0 31..16 y pos  15..0 x pos
+//    2FF6_001C - horizontal scroll right register ----TODO
+//    2FF6_0020 - x res
+//    2FF6_0024 - y res
+//    2FF6_0028 - KBD. 28 - ASCII 29 modifiers, 2A raw code 2B reserved
+//    2FF6_002C - mouse. 6002c,d x 6002e,f y
+//    2FF6_0030 - mouse keys, 2FF6_0032 - mouse wheel; 127 up 129 down
+//    2FF6_0034 - current dl position ----TODO
+//    2FF6_0040 - 2FF6_007C sprite control long 0 31..16 y pos  15..0 x pos
 //                                         long 1 30..16 y zoom 15..0 x zoom
-//    2F06_0080 - 2F06_009C dynamic sprite data pointer
-//    2F06_00A0 - text cursor position
-//    2F06_00A4 - text color
-//    2F06_00A8 - background color
-//    2F06_00AC - text size and pitch
-//    2F06_00B0 - 2F06_00C0 - reserved
-//    2F06_00C0 - 2F06_00FF - audio DMA ctrl blocks, 2x32 bytes
+//    2FF6_0080 - 2FF6_009C dynamic sprite data pointer
+//    2FF6_00A0 - text cursor position
+//    2FF6_00A4 - text color
+//    2FF6_00A8 - background color
+//    2FF6_00AC - text size and pitch
+//    2FF6_00B0 - double buffer screen #1 address
+//    2FF6_00B4 - double buffer screen #2 address
+//    2FF6_00B8 - native x resolution
+//    2FF6_00BC - native y resolution
+//    2FF6_00C0 - initial DL area
+
+
 //
-//    2F06_0100 - 2F06_01?? - blitter
-//    2F06_0100 - 2F06_01FF - blitter DMA ctrl blocks
-//    2F06_0200 - 2F06_0207 - blitter fill color area
-//    2F06_0210 - 2F06_02FF - reserved
+//    2FF6_0100 - 2FF6_01FF - blitter
+//    2FF6_0200 - 2FF6_02FF - paula
+//    2FF6_0300 - 2FF6_0?FF - FM synth
 
-//    2F06_0300 - system data area
-//    2F06_0300 - CPU clock
-//    2F06_0304 - CPU temperature
 
-//    2F06_0400 - double buffer screen #1 address
-//    2F06_0404 - double buffer screen #2 address
-//    2F06_0408 - native x resolution
-//    2F06_040C - native y resolution
-//    2F06_0410 - initial DL area
+//    2FF6_0F00 - system data area
+//    2FF6_0F00 - CPU clock
+//    2FF6_0F04 - CPU temperature
 
-//    2F07_0000 - 2F08_FFFF - 2x64k long audio buffer for noise shaper
-//    2F0D_0000  -  2FFF_FFFF - retromachine system area
+//    2FF7_0000  -  2FFF_FFFF - retromachine system area
 //    3000_0000  -  30FF_FFFF - virtual framebuffer area
 //    3100_0000  -  3AFF_FFFF - Ultibo system memory area
 //    3B00_0000  -  3EFF_FFFF - GPU memory
@@ -116,9 +113,9 @@ interface
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
      threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;//, vc4, dispmanx;
 
-const base=          $23000000;     // retromachine system area base
+const base=          $2FF00000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
-      mainscreen=    $24000000;
+      mainscreen=    $30000000;
 
 const _pallette=        $10000;
       _systemfont=      $50000;
@@ -771,30 +768,24 @@ end;
 
 procedure initmachine(mode:integer);
 
-// -- rev 20170606
+// -- rev 20180423
 
 var i:integer;
-
-
- //   mouse_layer:integer;
-  //  mousepitch:integer;
- //   decpitch:integer;
- //   mousealigned_height:integer;
- //   decaligned_height:integer;
     mousedata:TSprite;
-//    image:pointer;
-//    dummy:integer;
-
 
 
 begin
 
-for i:=base to base+$FFFFF do poke(i,0); // clean all system area
+// clean all system area
+for i:=base to base+$FFFFF do poke(i,0);
+
 repeat fb:=FramebufferDevicegetdefault until fb<>nil;
+
 // get native resolution
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
+
 FramebufferDeviceRelease(fb);
 
 if (nativex>=1024) and (nativey>=768) then
@@ -804,8 +795,8 @@ if (nativex>=1024) and (nativey>=768) then
   end
 else
   begin
-  xres:=2*nativex;
-  yres:=2*nativey;
+  xres:=round(1.5*nativex);
+  yres:=round(1.5*nativey);
   end;
 
 FramebufferProperties.Depth:=32;
@@ -815,110 +806,29 @@ FramebufferProperties.VirtualWidth:=xres+64;
 FramebufferProperties.VirtualHeight:=yres*2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
 sleep(300);
-//i:=0;
-//repeat inc(i); sleep(100); until (fb^.FramebufferState = FRAMEBUFFER_STATE_ENABLED) or (i>20);
-//if i>20 then systemrestart(0);
 
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
-p2:=Pointer(FramebufferProperties.Address);//+128*xres);
-
-//for i:=0 to (nativex*nativey)-1 do lpoke(PtrUint(p2)+4*i,ataripallette[146]);
-
+p2:=Pointer(FramebufferProperties.Address);
 
 bordercolor:=0;
 displaystart:=mainscreen;                 // vitual framebuffer address
-framecnt:=0;                             // frame counter
-//for i:=0 to 1792*1120 do lpoke($30800000+4*i,$30000000+i);
+framecnt:=0;                              // frame counter
+
 // init pallette, font and mouse cursor
 
 systemfont:=st4font;
-   {
-
-// init the layer for windows decorations
-
-        dec_alpha.flags:=1;    // opaciy from pixels       1-const, 2 nonzero 3 >7
-        dec_alpha.opacity:=0;  //opaque
-        dec_alpha.mask:=0;
-        dectype:=VC_IMAGE_aRGB8888;
-
-        image:=getmem(xres*yres*4);
-        for i:=0 to xres*yres-1 do lpoke(integer(image)+4*i,$FFFFFFFF);
-        lpoke(integer(image),$0063756a);
-        dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 1200, @dummy );
-        vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 1200);
-        vc_dispmanx_resource_write_data(dec_resource,dectype,xres*4,image,@dec_dst_rect);
-
-
-        dec_update:=vc_dispmanx_update_start(10);
-        vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, yres shl 16 );
-        vc_dispmanx_rect_set( @dec_dst_rect, 0,0,xres,yres);
-        dec_element:=vc_dispmanx_element_add(dec_update,
-                                               display,
-                                               255, // the layer under the mouse
-                                               @dec_dst_rect,
-                                               dec_resource,
-                                               @dec_src_rect,
-                                               DISPMANX_PROTECTION_NONE,
-                                               @dec_alpha,
-                                                nil,             // clamp
-                                                       0 );
-          vc_dispmanx_update_submit_sync(dec_update);
-           i:=$3F000000;
-  repeat i:=i-4 until (lpeek(i)=$0063756a) or (i<=$25000000);
-  decoration_addr:=i;
-
-// test
-
-  for j:=0 to 10 do begin
-
-dec_alpha.flags:=1;    // opaciy from pixels
-dec_alpha.opacity:=0;  //opaque
-dec_alpha.mask:=0;
-dectype:=VC_IMAGE_RGB888;
-
-image:=getmem(xres*yres*4);
-for i:=0 to 4*xres*yres-1 do poke(integer(image)+i,j*16);
-lpoke(integer(image),$0063756a);
-dec_resource:=vc_dispmanx_resource_create(dectype, 1920, 600, @dummy );
-vc_dispmanx_rect_set(@dec_dst_rect, 0, 0, 1920, 600);
-vc_dispmanx_resource_write_data(dec_resource,dectype,xres*3,image,@dec_dst_rect);
-
-
-dec_update:=vc_dispmanx_update_start(10);
-vc_dispmanx_rect_set( @dec_src_rect, 0, 0, xres shl 16, 599 shl 16);
-vc_dispmanx_rect_set( @dec_dst_rect, j,600,xres,599);
-dec_element:=vc_dispmanx_element_add(dec_update,
-                                       display,
-                                       255+j, // the layer under the mouse
-                                       @dec_dst_rect,
-                                       dec_resource,
-                                       @dec_src_rect,
-                                       DISPMANX_PROTECTION_NONE,
-                                       @dec_alpha,
-                                        nil,             // clamp
-                                               0 );
-  vc_dispmanx_update_submit_sync(dec_update);
-end;
-   }
-
-
 sprite7def:=mysz;
 sprite7zoom:=$00010001;
 setpallette(ataripallette,0);
-//textcursorx:=$FFFF;
-//cls(84);
 
 // init sprite data pointers
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
-// start frame refreshing thread
-sleep(300);
-
 // init sid variables
 
 for i:=0 to 127 do siddata[i]:=0;
-for i:=0 to 15 do siddata[$30+i]:=round(1073741824*(1-2*attacktable[i]));       //20*
-for i:=0 to 15 do siddata[$40+i]:=2*round(1073741824*attacktable[i]);
+for i:=0 to 15 do siddata[$30+i]:=round(1073741824*(1-attacktable[i]));
+for i:=0 to 15 do siddata[$40+i]:=round(1073741824*attacktable[i]);
 for i:=0 to 1023 do siddata[128+i]:=combined[i];
 for i:=0 to 1023 do siddata[128+i]:=(siddata[128+i]-128) shl 16;
 siddata[$0e]:=$7FFFF8;
@@ -933,24 +843,20 @@ mad_frame_init(@test_mad_frame);
 
 removeramlimits(integer(@sprite));
 
-
-
-//filebuffer:=Tfilebuffer.create(true);
-//filebuffer.start;
-
 mousex:=xres div 2;
 mousey:=yres div 2;
 mousewheel:=128;
 
 
 background:=TWindow.create(xres,yres,'');
-//dispmanbackground:=TDispmanwindow.create(xres,yres,'');
 panel:=TPanel.create;
 sleep(100);
+
+// start frame refreshing thread
 thread:=tretro.create(true);
 thread.start;
 
-
+// start windows --- TODO - remove this from here!!!
 windows:=twindows.create(true);
 windows.start;
 mousedata:=mysz;
@@ -2011,46 +1917,7 @@ end;
 //   length l, height h
 //   rev. 20170111
 //  ---------------------------------------------------------------------
-         (*
-procedure box(x,y,l,h,c:integer);
 
-label p1,p999;
-
-var adr,i,j,screenptr,xr:integer;
-
-begin
-
-screenptr:=displaystart;
-xr:=xres;
-if x<0 then begin l:=l+x; x:=0; if l<1 then goto p999; end;
-if x>=xres then goto p999;
-if y<0 then begin h:=h+y; y:=0; if h<1 then goto p999; end;
-if y>=yres then goto p999;
-if x+l>=xres then l:=xres-x;
-if y+h>=yres then h:=yres-y;
-for j:=y to y+h-1 do begin
-
-    asm
-    stmfd r13!,{r0-r2}
-    ldr r0,xr
-    ldr r1,j
-    mul r0,r0,r1
-    ldr r1,screenptr
-    add r0,r1
-    ldr r1,c
-    ldr r2,x
-    add r0,r2
-    ldr r2,l
-p1: strb r1,[r0]
-    add r0,#1
-    subs r2,#1
-    bne p1
-    ldmfd r13!,{r0-r2}
-    end;
-
-  end;
-p999:
-end;       *)
 
 procedure box(x,y,l,h,c:integer);
 
@@ -2411,7 +2278,6 @@ var i:integer;
 
 begin
   blit(displaystart,0,32,displaystart,0,0,xres,yres-32,xres,xres);
-  //else  blit(lpeek($2060004),0,960,lpeek($2060004),0,928,1792,160,1792,1792);
   box(0,yres-32,xres,32,147);
 end;
 
@@ -2526,9 +2392,9 @@ if mode=1 then  // get regs
   siddata[$56]:=channel1on;
   siddata[$57]:=channel2on;
   siddata[$58]:=channel3on;
-  siddata[0]:=round(1.0263*(16*peek(base+$D400)+4096*peek(base+$d401))); //freq1
-  siddata[$10]:=round(1.0263*(16*peek(base+$d407)+4096*peek(base+$d408)));
-  siddata[$20]:=round(1.0263*(16*peek(base+$d40e)+4096*peek(base+$d40f)));
+  siddata[0]:=round(1.0246*(16*peek(base+$D400)+4096*peek(base+$d401))); //freq1
+  siddata[$10]:=round(1.0246*(16*peek(base+$d407)+4096*peek(base+$d408)));
+  siddata[$20]:=round(1.0246*(16*peek(base+$d40e)+4096*peek(base+$d40f)));
   siddata[1]:=peek(base+$d404) and 1;  // gate1
   siddata[2]:=peek(base+$d404) and 4;  // ring1
   siddata[3]:=peek(base+$d404) and 8;  // test1
@@ -2814,7 +2680,7 @@ p123:          mov   r0,#1 // 10
 
              ldr   r0,[r4,#0x20]
                ldr   r3,[r4,#0x00]
-               adds  r0,r0,r3,lsl #5//8    // PA @ 24 higher bits
+               adds  r0,r0,r3,lsl #4//8    // PA @ 24 higher bits
                ldrcs r1,[r4,#0x60]
                ldrcs r2,[r4,#0x50]
                andcs r1,r2
@@ -2825,7 +2691,7 @@ p123:          mov   r0,#1 // 10
                str r0,[r4,#0x20]
 
                ldr r2,[r4,#0x24]
-               adds r2,r2,r3,lsl #9//12
+               adds r2,r2,r3,lsl #8//12
                movcs r1,#1
                movcc r1,#0
                str   r2,[r4,#0x24]
@@ -2943,7 +2809,7 @@ p209:          cmp r1,#8                // noise
 
 p204:          ldr   r0,[r4,#0x60]
                ldr   r3,[r4,#0x40]
-               adds  r0,r0,r3,lsl #5//8    // PA @ 24 higher bits
+               adds  r0,r0,r3,lsl #4//8    // PA @ 24 higher bits
                ldrcs r1,[r4,#0xa0]
                ldrcs r2,[r4,#0x90]
                andcs r1,r2
@@ -2954,7 +2820,7 @@ p204:          ldr   r0,[r4,#0x60]
                str r0,[r4,#0x60]
 
                ldr r2, [r4,#0x64]
-               adds r2,r2,r3,lsl #9//12
+               adds r2,r2,r3,lsl #8//12
                movcs r1,#1
                movcc r1,#0
                str  r2,[r4,#0x64]
@@ -3074,7 +2940,7 @@ p212:          ldr r7,[r4,#0x7C]
 
 p214:          ldr   r0,[r4,#0xa0]
                ldr   r3,[r4,#0x80]
-               adds  r0,r0,r3,lsl #5//8    // PA @ 24 higher bits
+               adds  r0,r0,r3,lsl #4//8    // PA @ 24 higher bits
                ldrcs r1,[r4,#0x20]
                ldrcs r2,[r4,#0x10]
                andcs r1,r2
@@ -3085,7 +2951,7 @@ p214:          ldr   r0,[r4,#0xa0]
                str r0,[r4,#0xa0]
 
                ldr r2,[r4,#0xa4]
-               adds r2,r2,r3,lsl #9//12
+               adds r2,r2,r3,lsl #8//12
                movcs r1,#1
                movcc r1,#0
                str   r2,[r4,#0xa4]
@@ -3382,81 +3248,43 @@ p224:          ldr r0,[r4,#0x30]
 
                //  antialias r
 
-//               mov r1,#0x6000
-//               ldr r2,[r7,#0x198]
-//               sub r0,r2
-//               ldr r4,[r7,#0x19c]
-//               sub r0,r4
-//               smull r5,r12,r0,r1
-//               lsr r5,#18
-//               orr r5,r5,r12,lsl #14
-//               add r2,r5
-//               str r2,[r7,#0x198]
-//               smull r5,r12,r1,r2
-//               lsr r5,#18
-//               orr r5,r5,r12,lsl #14
-//               add r4,r5
-//               str r4,[r7,#0x19c]
 
-//               ldr r0,[r7,#0x1a8]
                ldr r8,[r7,#0x1b0]
-      //         cmp r0,#5//20
+
                add r8,r0  // r4
                str r8,[r7,#0x1b0]
 
                //  antialias l
 
- //              mov r0,r6
- //              ldr r2,[r7,#0x1a0]
- //              sub r0,r2
- //              ldr r4,[r7,#0x1a4]
- //              sub r0,r4
- //              smull r5,r12,r0,r1
- //              lsr r5,#18
- //              orr r5,r5,r12,lsl #14
- //              add r2,r5
- //              str r2,[r7,#0x1a0]
- //              smull r5,r12,r1,r2
- //              lsr r5,#18
- //              orr r5,r5,r12,lsl #14
- //              add r4,r5
- //              str r4,[r7,#0x1a4]
 
-//               ldr r0,[r7,#0x1a8]
                ldr r8,[r7,#0x1ac]
-        //       cmps r0,#10//20
+
                add r8,r6 //r4       //lt
                str r8,[r7,#0x1ac]
-//               add r0,#1
- //              str r0,[r7,#0x1a8]
 
-              // mov r1,#0x7000000
+
+
                ldr r0,[r7,#0x1fc]
                sub r0,#1
                str r0,[r7,#0x1fc]
-             //  ldr r0,[r1]
+
                cmp r0,#0
                bne p297
 
                      // for 12 bit pwm shift and unsign
 ldr r8,[r7,#0x1b0]
-//mov r9,r8
-//asr r9,#4
-//add r8,r9
+
 asr r8,#11
 
-//add r8,#2592
 str r8,[r7,#0x1b0]
 
 ldr r8,[r7,#0x1ac]
 
-//mov r9,r8
-//asr r9,#4
-//add r8,r9
+
 
 asr r8,#11  //#18
 
-//add r8,#2592
+
 str r8,[r7,#0x1ac]
 
 
@@ -3466,25 +3294,8 @@ str r8,[r7,#0x1ac]
 
 
 
-// i:=i-1;
-// if i<>0 then goto p297;
-//      asm
-//      mov r1,#0x60000000
-//      ldr r0,[r1]
-//      sub r0,#1
-//      str r0,[r1]
-//      cmp r0,#0
-//      bne p297
-
-//p299:
-//       end;
-
-//sidclock+=2000;//1000;
-//until sidclock>=20000;//20526;
-//sidtime:=clockgettotal-ttt;
-//sidclock-=20000;//20526;
-sid[0]:= siddata[$6b]; //  2048+ (siddata[$6c] div (16*16384));//16384;//32768;
-sid[1]:= siddata[$6c];//2048+ (siddata[$6b] div (16*16384));//16384;//32768;
+sid[0]:= siddata[$6b];
+sid[1]:= siddata[$6c];
 
 
 end;

@@ -54,8 +54,6 @@ var  ixmax  :Word;
 
 
 begin
-ThreadSetAffinity(ThreadGetCurrent,4);
-sleep(1);
 if man=nil then
   begin
   man:=TWindow.create(1024,600,'Mandelbrot');

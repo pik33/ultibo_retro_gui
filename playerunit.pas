@@ -585,7 +585,7 @@ else if key=ord('f') then  // set 432 Hz
   a1base:=432;
   if abs(SA_GetCurrentFreq-44100)<200 then SA_ChangeParams(43298,0,0,0);
   if abs(SA_GetCurrentFreq-48000)<200 then SA_ChangeParams(47127,0,0,0);
-  if abs(SA_GetCurrentFreq-480000)<2000 then SA_ChangeParams(471270,0,0,0);
+  if abs(SA_GetCurrentFreq-961538)<2000 then SA_ChangeParams(944056,0,0,0);
   if abs(SA_GetCurrentFreq-96000)<400 then SA_ChangeParams(94254,0,0,0);
   if abs(SA_GetCurrentFreq-49152)<200 then SA_ChangeParams(48258,0,0,0);
   end
@@ -595,7 +595,7 @@ else if key=ord('g') then   // set 440 Hz
    a1base:=440;
    if abs(SA_GetCurrentFreq-43298)<200 then SA_ChangeParams(44100,0,0,0);
    if abs(SA_GetCurrentFreq-47127)<200 then SA_ChangeParams(48000,0,0,0);
-   if abs(SA_GetCurrentFreq-471270)<2000 then SA_ChangeParams(480000,0,0,0);
+   if abs(SA_GetCurrentFreq-944056)<2000 then SA_ChangeParams(961538,0,0,0);
    if abs(SA_GetCurrentFreq-94254)<400 then SA_ChangeParams(96000,0,0,0);
    if abs(SA_GetCurrentFreq-48258)<200 then SA_ChangeParams(49152,0,0,0);
    end
@@ -656,8 +656,8 @@ else if playfilename<>'' then //  key=key_enter then
     fileread(sfh,atitle[1],16);
     fileread(sfh,buf,1);
 //         fi.outtextxy (10,50,'title: '+atitle,178);
-    if a1base=432 then error:=SA_changeparams(10*47127,16,2,1200)
-                  else error:=SA_changeparams(10*48000,16,2,1200);
+    if a1base=432 then error:=SA_changeparams(944056,16,2,2400)
+                  else error:=SA_changeparams(961538,16,2,2400);
     songs:=0;
     end
  else if (buf[0]=ord('P')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
@@ -667,8 +667,8 @@ else if playfilename<>'' then //  key=key_enter then
     for i:=1 to 4 do waitvbl;
     if cia>0 then siddelay:={985248}1000000 div (50*round(19652/cia));
     filetype:=1;
-    if a1base=432 then error:=SA_changeparams(10*47127,16,2,10*120)
-                  else error:=SA_changeparams(10*48000,16,2,10*120);
+    if a1base=432 then error:=SA_changeparams(944056,16,2,2400)
+                  else error:=SA_changeparams(961538,16,2,2400);
     fileclose(sfh);
     end
  else if (buf[0]=ord('R')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
@@ -833,12 +833,8 @@ else if playfilename<>'' then //  key=key_enter then
   begin
     for i:=0 to 15 do times6502[i]:=0;
     fileread(sfh,buf,21);
-//        fi.box(0,0,600,600,15);
-//
-//       fi.outtextxy(10,10,'type: unknown, 50 Hz SDMP assumed',178);
-
-    if a1base=432 then error:=SA_changeparams(471270,16,2,1200)
-                  else error:=SA_changeparams(480000,16,2,1200);
+    if a1base=432 then error:=SA_changeparams(944056,16,2,2400)
+                  else error:=SA_changeparams(961538,16,2,2400);
 
     songs:=0;
     end;
@@ -3093,12 +3089,12 @@ else
     audio2[0]:=(s[0]);
     audio2[1]:=(s[1]);
     oscilloscope1(s[0]+s[1]);
-    for i:=1 to 1199 do
+    for i:=1 to 2399 do
       begin
       s:=sid(0);
       audio2[2*i]:=(s[0]);
       audio2[2*i+1]:=(s[1]);
-      if (i mod 10) = 0 then oscilloscope1(s[0]+s[1]);
+      if (i mod 40) = 0 then oscilloscope1(s[0]+s[1]);
       end;
   end;
 inc(sidcount);

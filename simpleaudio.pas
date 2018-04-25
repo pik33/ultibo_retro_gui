@@ -130,7 +130,7 @@ end;
 
 const nocache=$C0000000;              // constant to disable GPU L2 Cache
       pll_freq=500000000;             // base PLL freq=500 MHz
-      pwm_base_freq=1920000;
+      pwm_base_freq=1923077;
 
       divider=2;
 
@@ -141,9 +141,10 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
 
 // TODO: make the sample buffer size dynamic (?)
 
-      sample_buffer_size=8192;        // max size for sample buffer.
+      sample_buffer_size=32768;        // max size for sample buffer.
+     // -- TODO: generate error if nax size exceeded
                                       // The max allowed by dma_buffer_size is 1536 for 44100/16/2 wave
-      sample_buffer_32_size=16384;     // 8x sample_buffer_size for 8-bit mono samples
+      sample_buffer_32_size=65536;
 
 // ------- Hardware registers addresses --------------------------------------
 
@@ -457,6 +458,7 @@ obtained^:=desired^;
 
 obtained^.oversample:=max_pwm_freq div desired^.freq;
 
+
   // the workaround for simply making 432 Hz tuned sound
   // the problem is: when going 44100->43298
   // the computed oversample changes from 21 to 22
@@ -566,7 +568,8 @@ obtained^.oversample:=max_pwm_freq div desired^.freq;
 
   if obtained^.oversample=22 then obtained^.oversample:=21;
 
-
+  box(0,0,100,100,0);
+  outtextxy(0,0,inttostr(obtained^.oversample),15);
 over_freq:=desired^.freq*obtained^.oversample;
 obtained^.range:=round(base_freq/over_freq);
 obtained^.freq:=round(base_freq/(obtained^.range*obtained^.oversample));
@@ -1777,7 +1780,7 @@ begin
 et2:=gettime;
 oversample1(bufaddr,outbuf,oversample,len);
 len2:=len*oversample;
-if equalizer_active then equalizer2(outbuf,len2);
+if equalizer_active then equalizer(outbuf,len2);
 
 
                  asm
