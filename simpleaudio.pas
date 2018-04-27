@@ -1188,16 +1188,16 @@ p101:           mov r0,#0
 
 //---- One band pass filter #1
 
-                mov r0,r8       //input
+                mov r0,r8                //input
                 ldr r2,filter1bl
-                ldr r3,filter1ll
                 sub r0,r0,r2,asr #1
+                ldr r3,filter1ll
                 sub r0,r0,r3            //r0=input-filterb-filterl (=filterh)
                 ldr r6,e1freq
-                smull r4,r5,r0,r6    // result in r5
-                add r2,r5            // filter_b:=filter-b+freq*filter_h
+                smull r4,r5,r0,r6       // result in r5
+                add r2,r5               // filter_b:=filter-b+freq*filter_h
                 smull r4,r5,r2,r6
-                add r3,r5            // filter_l:=filter_l+freq*filter_b
+                add r3,r5               // filter_l:=filter_l+freq*filter_b
                 str r2,filter1bl
                 str r3,filter1ll
 

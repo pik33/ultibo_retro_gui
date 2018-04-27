@@ -213,7 +213,7 @@ var pl:TWindow=nil;
    volume_pos,balance_pos:integer;
 
    speedtest:int64;
-   speedbuf:array[0..$FFFFFF] of byte;
+   sidbuf:array[0..4799] of smallint;
 
 procedure hide_sprites;
 procedure start_sprites;
