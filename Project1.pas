@@ -32,7 +32,7 @@ uses  //Ultibo units
   mp3,
   blitter,
   retro, simpleaudio, scripttest, xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot, notepad, c64;
+  playerunit, captureunit, mandelbrot, notepad, c64, fmsynth;
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
