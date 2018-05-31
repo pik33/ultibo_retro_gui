@@ -795,8 +795,8 @@ if (nativex>=1024) and (nativey>=768) then
   end
 else
   begin
-  xres:=round(1.5*nativex);
-  yres:=round(1.5*nativey);
+  xres:=round(2*nativex);
+  yres:=round(2*nativey);
   end;
 
 FramebufferProperties.Depth:=32;

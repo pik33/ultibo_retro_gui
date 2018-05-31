@@ -48,7 +48,7 @@ var
 
     wheel:integer;
     t:int64;
-    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian:TIcon;
+    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
@@ -135,6 +135,10 @@ textedit.x:=896; textedit.y:=0; textedit.size:=48; textedit.l:=128; textedit.h:=
 raspbian:=Testicon.append('Raspbian');
 raspbian.icon48:=i48_raspi;
 raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:=96; raspbian.draw;
+synth:=Testicon.append('FM Synthesizer');
+synth.icon48:=i48_note;
+synth.x:=384; synth.y:=96; synth.size:=48; synth.l:=128; synth.h:=96; synth.draw;
+
 filetype:=-1;
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 
