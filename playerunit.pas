@@ -667,8 +667,8 @@ else if playfilename<>'' then //  key=key_enter then
     for i:=1 to 4 do waitvbl;
     if cia>0 then siddelay:={985248}1000000 div (50*round(19652/cia));
     filetype:=1;
-    if a1base=432 then error:=SA_changeparams(944056,16,2,2400)
-                  else error:=SA_changeparams(961538,16,2,2400);
+    if a1base=432 then error:=SA_changeparams(944056,16,2,4800)
+                  else error:=SA_changeparams(961538,16,2,4800);
     fileclose(sfh);
     end
  else if (buf[0]=ord('R')) and (buf[1]=ord('S')) and (buf[2]=ord('I')) and (buf[3]=ord('D')) then
@@ -833,8 +833,8 @@ else if playfilename<>'' then //  key=key_enter then
   begin
     for i:=0 to 15 do times6502[i]:=0;
     fileread(sfh,buf,21);
-    if a1base=432 then error:=SA_changeparams(944056,16,2,2400)
-                  else error:=SA_changeparams(961538,16,2,2400);
+    if a1base=432 then error:=SA_changeparams(944056,16,2,4800)
+                  else error:=SA_changeparams(961538,16,2,4800);
 
     songs:=0;
     end;
@@ -866,6 +866,8 @@ end;
 
 
 procedure TPlayerThread.Execute;
+
+label p999;
 
 var fh,i,j,hh,mm,ss,sl1,sl2:integer;
     s1,s2:string;
@@ -927,7 +929,19 @@ desired.format:=AUDIO_S16;
 desired.freq:=480000;
 desired.samples:=1200;
 error:=openaudio(@desired,@obtained);
-
+if error<>0 then
+   begin
+   pl:=Twindow.create(550,232,'');   // no decoration, we will use the skin
+   pl.resizable:=false;
+   pl.move(400,500,550,232,0,0);
+   pl.cls(0);
+   pl.outtextxyz(16,16,'Error while opening audio: '+inttostr(error),120,1,1);
+   pl.outtextxyz(16,36,'Please close thee application which uses the audio driver ',120,1,1);
+   sleep(5000);
+   pl.destroy;
+   pl:=nil;
+   goto p999;
+   end;
 //box(0,0,100,30,0); outtextxy(0,0,inttostr(error),15);
 prepare_sprites;
 hide_sprites;
@@ -1624,6 +1638,7 @@ while player_item.prev<>nil do
 playlistitem.next:=nil;
 pl.destroy;
 pl:=nil;
+p999:
 end;
 
 //------------------------------------------------------------------------------
@@ -2969,7 +2984,7 @@ var audio2:psmallint;
     audio3:psingle;
     s:tsample;
     ttt:int64;
-    i,il:integer;
+    i,j,il:integer;
     buf:array[0..25] of byte;
 
 const aa:integer=0;
@@ -3042,6 +3057,9 @@ else if filetype=-1 then
   end
 else
   begin
+
+                     for j:=0 to 1 do begin /// test
+
   aa+=2500;
   if (aa>=siddelay) then
     begin
@@ -3086,17 +3104,20 @@ else
       end;
     end;
     s:=sid(1);
-    audio2[0]:=(s[0]);
-    audio2[1]:=(s[1]);
+    audio2[4800*j+0]:=(s[0]);
+    audio2[4800*j+1]:=(s[1]);
     oscilloscope1(s[0]+s[1]);
     for i:=1 to 2399 do
       begin
       s:=sid(0);
-      audio2[2*i]:=(s[0]);
-      audio2[2*i+1]:=(s[1]);
+      audio2[4800*j+2*i]:=(s[0]);
+      audio2[4800*j+2*i+1]:=(s[1]);
       if (i mod 40) = 0 then oscilloscope1(s[0]+s[1]);
       end;
   end;
+
+                     end;
+
 inc(sidcount);
 //sidtime+=gettime-t;
 p999:

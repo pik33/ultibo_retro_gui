@@ -81,7 +81,7 @@ si.outtextxy(230-8*i,48,inttostr(avspt)+' us',157);
 
 if sidcount<>0 then
   begin
-  if filetype<3 then      begin s1:='SID emulation:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/2500)); end
+  if filetype<3 then      begin s1:='SID emulation:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/5000)); end
   else if filetype=3 then begin s1:='WAV processing:'; s2:=inttostr(avall); s3:=inttostr(round(100*avall/siddelay)); end
   else if filetype=4 then begin s1:='MP3 decoding:'; s2:=inttostr(mp3time); s3:=inttostr(round(100*mp3time/siddelay)); end
   else if filetype=5 then begin s1:='MP2 decoding:'; s2:=inttostr(mp3time); s3:=inttostr(round(100*mp3time/siddelay)); end

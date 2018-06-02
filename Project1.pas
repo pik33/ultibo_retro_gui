@@ -53,6 +53,7 @@ var
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
     notepadthread:Tnotepadthread=nil;
+    fmthread:TFMSynthThread=nil;
     oneicon:TIcon ;
     fh,i,j:integer;
     message:TWindow;
@@ -211,6 +212,16 @@ repeat
       begin
       notepadthread:=Tnotepadthread.create(true);
       notepadthread.start;
+      end;
+    end;
+
+  if synth.dblclicked then
+    begin
+    synth.dblclicked:=false;
+    if fmwindow=nil then
+      begin
+      fmthread:=TFMSynthThread.create(true);
+      fmthread.start;
       end;
     end;
 

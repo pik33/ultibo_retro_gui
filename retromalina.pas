@@ -3119,7 +3119,7 @@ p224:          ldr r0,[r4,#0x30]
                mov r7,r4
                ldr r3,[r7,#0x1bc] //fri
                ldr r1,[r7,#0x1b8] //ffi
- lsl r1,#1
+ //lsl r1,#1
                ldr r6,[r7,#0x1b4]  // bandpass switch
                mov r9, #0  // init output L
                mov r10,#0  // init output R

@@ -69,6 +69,7 @@ const
       size_too_low =           -$81;
       size_too_high=           -$81;
       callback_not_specified= -$101;
+      audio_already_opened=      -1;
 
 // ---------- Audio formats. Subset of SDL formats
 // ---------- These are 99.99% of wave file formats:
@@ -329,7 +330,14 @@ end;
 
 function SA_OpenAudio(freq,bits,channels,samples:integer; callback: TAudioSpecCallback):integer;
 
+label p999;
+
 begin
+if audio_opened then
+  begin
+  result:=audio_already_opened;
+  goto p999;
+  end;
 s_desired.freq:=freq;
 s_desired.samples:=samples;
 s_desired.channels:=channels;
@@ -346,6 +354,7 @@ case bits of
     end;
   end;
 result:=OpenAudio(@s_desired,@s_obtained);
+p999:
 end;
 
 function  SA_ChangeParams(freq,bits,channels,samples:integer): Integer;
@@ -390,12 +399,19 @@ end;
 
 function OpenAudio(desired, obtained: PAudioSpec): Integer;
 
+label p999;
+
 var maxsize:double;
     over_freq:integer;
 
 begin
 
 result:=0;
+if audio_opened then
+  begin
+  result:=audio_already_opened;
+  goto p999;
+  end;
 
 // -----------  check if params can be used
 // -----------  the frequency should be between 8 and 960 kHz
@@ -497,6 +513,7 @@ removeramlimits(integer(@noiseshaper9));  // noise shaper uses local vars or it 
 pauseA:=1;
 AudioThread:=TAudioThread.Create(true);
 AudioThread.start;
+p999:
 end;
 
 
