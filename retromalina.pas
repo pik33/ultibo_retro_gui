@@ -788,7 +788,7 @@ nativey:=FramebufferProperties.PhysicalHeight;
 
 FramebufferDeviceRelease(fb);
 
-if (nativex>=1024) and (nativey>=768) then
+if (nativex>=1024) and (nativey>=720) then
   begin
   xres:=nativex;
   yres:=nativey;
