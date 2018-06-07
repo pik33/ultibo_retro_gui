@@ -46,7 +46,7 @@
 //    2FF6_001C - horizontal scroll right register ----TODO
 //    2FF6_0020 - x res
 //    2FF6_0024 - y res
-//    2FF6_0028 - KBD. 28 - ASCII 29 modifiers, 2A raw code 2B reserved
+//    2FF6_0028 - KBD. 28 - ASCII 29 modifiers, 2A raw code 2B key released
 //    2FF6_002C - mouse. 6002c,d x 6002e,f y
 //    2FF6_0030 - mouse keys, 2FF6_0032 - mouse wheel; 127 up 129 down
 //    2FF6_0034 - current dl position ----TODO
@@ -73,6 +73,7 @@
 //    2FF6_0F00 - system data area
 //    2FF6_0F00 - CPU clock
 //    2FF6_0F04 - CPU temperature
+//    2FF6_0FF8 - kbd report
 
 //    2FF7_0000  -  2FFF_FFFF - retromachine system area
 //    3000_0000  -  30FF_FFFF - virtual framebuffer area
@@ -181,6 +182,7 @@ const _pallette=        $10000;
       _nativex=         $60408;
       _nativey=         $6040C;
       _initialdl=       $60410;
+      _kbd_report=      $60FF8;
 
 
 type
@@ -322,6 +324,7 @@ var fh,filetype:integer;                // this needs cleaning...
     key_charcode:    byte     absolute base+_keybd;
     key_modifiers:   byte     absolute base+_keybd+1;
     key_scancode:    byte     absolute base+_keybd+2;
+    key_release :    byte     absolute base+_keybd+3;
     mousexy:         cardinal absolute base+_mousexy;
     mousex:          word     absolute base+_mousexy;
     mousey:          word     absolute base+_mousexy+2;
@@ -405,6 +408,7 @@ var fh,filetype:integer;                // this needs cleaning...
     nativex:         cardinal absolute base+_nativex;
     nativey:         cardinal absolute base+_nativey;
 
+    kbdreport:       array[0..7] of byte absolute base+_kbd_report;
 
 
     error:integer;
@@ -461,6 +465,9 @@ function sid(mode:integer):tsample;
 function getpixel(x,y:integer):integer; inline;
 function getkey:integer; inline;
 function readkey:integer; inline;
+function getreleasedkey:integer; inline;
+function readreleasedkey:integer; inline;
+
 function click:boolean;
 function dblclick:boolean;
 procedure waitvbl;
@@ -628,13 +635,15 @@ const rptcnt:integer=0;
 
 var ch:TKeyboardReport;
     i:integer;
+    keyrelease, found:integer;
 
 begin
 ThreadSetpriority(ThreadGetCurrent,5);
 sleep(1);
+for i:=0 to 7 do kbdreport[i]:=0;
 repeat
   waitvbl;
- sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
+  sprite7xy:=mousexy;//+$00280040;           //sprite coordinates are fullscreen
                                             //while mouse is on active screen only
 
   if mousedblclick=2 then begin dblclick:=0; dblcnt:=0; mousedblclick:=0; end;
@@ -653,9 +662,28 @@ repeat
   if click=1 then mouseclick:=1 else mouseclick:=0;
 
  ch:=getkeyboardreport;
+
  if ch[7]<>255 then
    begin
+//   box(0,0,300,16,0); for i:=0 to 7 do outtextxy(i*32,0, inttostr(ch[i]),120);
+//   generate a key release events, too...
+   keyrelease:=0;
+   for i:=2 to 7 do
+      begin
+      if kbdreport[i]>3 then
+        begin
+        found:=0;
+        for j:=2 to 7 do
+          begin
+          if ch[j]=kbdreport[i] then found:=1;
+          end;
+        if found=0 then keyrelease:=kbdreport[i];
+        end;
+      end;
 
+   if keyrelease<>0 then key_release:=keyrelease;
+
+   for i:=0 to 7 do kbdreport[i]:=ch[i];
    olactivekey:=lastactivekey;
    oldactivekey:=activekey;
    lastactivekey:=0;
@@ -680,7 +708,7 @@ repeat
    key_charcode:=byte(c);
    key_scancode:=activekey mod 256;
    end;
- until terminated;
+until terminated;
 end;
 
 
@@ -1637,14 +1665,29 @@ end;
 function readkey:integer; inline;
 
 begin
-result:=lpeek(base+$60028);
-lpoke(base+$60028,0);
+result:=lpeek(base+$60028) and $FFFFFF;
+poke(base+$60028,0);
+poke(base+$60029,0);
+poke(base+$6002a,0);
 end;
 
 function getkey:integer; inline;
 
 begin
-result:=lpeek(base+$60028);
+result:=lpeek(base+$60028) and $FFFFFF;
+end;
+
+function readreleasedkey:integer; inline;
+
+begin
+result:=peek(base+$6002B);
+poke(base+$6002B,0);
+end;
+
+function getreleasedkey:integer; inline;
+
+begin
+result:=peek(base+$6002B);
 end;
 
 function click:boolean; inline;

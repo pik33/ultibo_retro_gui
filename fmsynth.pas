@@ -22,10 +22,41 @@ const a212=1.0594630943592953098431053149397484958; //2^1/12
       samplerate=961538.461538;
       norm960=0.06815744;                          // 65536/samplerate
 
+      keymap:array[0..127] of byte=(
+//     0   1   2   3   4   5   6   7   8   9
+      000,000,000,000,048,042,040,050,062,051, // 000
+      052,053,067,054,055,056,044,043,068,069, // 010
+      060,063,049,064,066,041,061,039,065,038, // 020
+      073,074,075,076,077,078,079,080,081,082, // 030
+      000,000,085,000,036,083,084,070,071,000, // 040
+      059,057,058,072,045,046,047,000,084,085, // 050
+      086,087,088,089,090,091,092,093,094,095, // 060
+      096,097,098,000,000,000,000,000,000,000, // 070
+      000,000,000,000,000,000,000,000,000,000, // 080
+      000,000,000,000,000,000,000,000,000,000, // 090
+      037,000,000,000,000,000,000,000,000,000, // 100
+      000,000,000,000,000,000,000,000,000,000, // 110
+      000,000,000,000,000,000,000,000);        // 120
 
+      keymap2:array[0..127] of byte=(
+//     0   1   2   3   4   5   6   7   8   9
+      000,000,000,000,049,057,053,000,071,054, // 000
+      056,058,079,000,061,063,060,059,081,083, // 010
+      067,072,051,074,077,055,069,052,076,050, // 020
+      066,068,070,000,073,075,000,078,080,820, // 030
+      000,000,087,000,000,000,085,084,086,000, // 040
+      000,000,066,000,062,064,065,000,088,089, // 050
+      090,091,092,093,094,095,096,097,098,099, // 060
+      100,101,102,000,000,000,000,000,000,000, // 070
+      000,000,000,000,000,000,000,000,000,000, // 080
+      000,000,000,000,000,000,000,000,000,000, // 090
+      048,000,000,000,000,000,000,000,000,000, // 100
+      000,000,000,000,000,000,000,000,000,000, // 110
+      000,000,000,000,000,000,000,000);        // 120
 
 
 var sinetable:array[0..65535] of integer;
+    logtable:array[0..65535] of cardinal;
     fmwindow:TWindow=nil;
     notes:array[0..127,0..2] of integer;
     a:cardinal;
@@ -37,6 +68,25 @@ var sinetable:array[0..65535] of integer;
         t,tt:int64;
 
 implementation
+
+var opdata:array[0..16383] of cardinal;
+
+
+// 0 - PA
+// 1 - freq
+// 2 - fmod1
+// 3 - fmod2
+// 4 - fmod3
+// 5 - fmod4
+// 6 - LFO freq
+// 7 - reserved
+// 8 - vol
+// 9 - velocity
+//10 - ADSR
+//11 - LFO vol
+//12..15 reserved
+
+
 
 procedure audiocallback(userdata: Pointer; stream: PUInt8; len:Integer ); forward;
 
@@ -63,6 +113,22 @@ for i:=0 to 65535 do
 
 end;
 
+procedure initlogtable ;
+
+var i:integer;
+    q,q2:double;
+
+begin
+q:=4294967296;
+q2:=0.999682752735036376766;
+
+for i:=65535 downto 0 do
+ begin
+  q:=q*q2;
+ logtable[i]:=trunc(q);
+ end;
+end;
+
 constructor TFMSynthThread.create(CreateSuspended : boolean);
 
 begin
@@ -74,7 +140,7 @@ procedure TFMSynthThread.execute;
 
 label p999,p998;
 
-var i,err:integer;
+var i,err,nn:integer;
     aa:array[0..7] of integer=(48,50,52,53,55,57,59,60);
 begin
 if fmwindow=nil then
@@ -98,10 +164,19 @@ if err<>0 then
   goto p998;
   end;
 //for i:=0 to 10 do fmwindow.outtextxy(0,16*i,inttostr(sinetable[i+16380]),120);
-
+fmwindow.outtextxy(16,48,inttohex(logtable[65535],8),15);
+fmwindow.outtextxy(16,64,inttohex(logtable[49152],8),15);
+fmwindow.outtextxy(16,80,inttohex(logtable[32768],8),15);
+fmwindow.outtextxy(16,96,inttohex(logtable[16384],8),15);
+fmwindow.outtextxy(16,112,inttohex(logtable[0],8),15);
 pauseaudio(0);   noteon:=1; sleep(10); noteon:=0;
 p998:
-repeat i:=i+1; if i=8 then i:=0; sleep(500); n:=aa[i]; noteon:=1; sleep(10); noteon:=0;  fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);   until fmwindow.needclose;
+repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
+  if getkey>0 then begin nn:=keymap2[(readkey shr 16) and $FF]; if nn>12 then begin n:=nn-12; noteon:=1; end; end;
+  if getreleasedkey>0 then begin fmwindow.box(16,48,100,16,0); fmwindow.outtextxy(16,48,inttostr(readreleasedkey),120); noteon:=0; end;
+  sleep(8);
+
+until fmwindow.needclose;
 if err=0 then closeaudio;
 fmwindow.destroy;
 fmwindow:=nil;
@@ -140,6 +215,21 @@ const i:integer=0;
       s:int64=0;
 
 var p: int64;
+
+    // 0 - PA
+    // 1 - freq
+    // 2 - fmod1
+    // 3 - fmod2
+    // 4 - fmod3
+    // 5 - fmod4
+    // 6 - LFO freq
+    // 7 - reserved
+    // 8 - vol
+    // 9 - velocity
+    //10 - ADSR
+    //11 - LFO vol
+    //12..15 reserved
+
 
 
 begin

@@ -225,7 +225,7 @@ repeat
       end;
     end;
 
-  if (raspbian.dblclicked) or (key=ord('r')) then
+  if (raspbian.dblclicked) {or (key=ord('r'))} then
     begin
     raspbian.dblclicked:=false;
     if fileexists(drive+'\ultibo\Raspbian.u') then
