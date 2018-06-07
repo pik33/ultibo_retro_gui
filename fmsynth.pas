@@ -5,7 +5,7 @@ unit fmsynth;
 interface
 
 uses
-  Classes, SysUtils, simpleaudio, mwindows, retromalina;
+  Classes, SysUtils, simpleaudio, mwindows, retromalina, Threads;
 
 type TFMSynthThread=class (TThread)
 
@@ -120,7 +120,7 @@ var i:integer;
 
 begin
 q:=4294967296;
-q2:=0.999682752735036376766;
+q2:=0.999841363784793800909651;
 
 for i:=65535 downto 0 do
  begin
@@ -153,6 +153,8 @@ if fmwindow=nil then
   fmwindow.move(300,400,960,600,0,0);
   end
 else goto p999;
+ThreadSetPriority(ThreadGetCurrent,6);
+sleep(10);
 initsinetable;
 initlogtable;
 initnotes;
@@ -186,22 +188,25 @@ end;
 
 
 function adsr:cardinal;
-
-const q:cardinal=0;
+// 1073741824
+const q:integer=0;
       adsrstate:integer=0;
-      a1s:cardinal=40000000;
-      a1l:cardinal=4000000000;
-      a2s:cardinal=4000000;
-      a2l:cardinal=1000000000;
-      a4s:cardinal=40000;
+      a1s:integer=2000000;
+      a1l:integer=1000000000;
+      a2s:integer=100000;
+      a2l:integer=950000000;
+      a3s:integer=5000;
+      a3l:integer=100000;
+      a4s:integer=20000;
 
 begin
-if ((adsrstate=0) or (adsrstate=4)) and (noteon=1) then adsrstate:=1;
-if (adsrstate=1) then begin q:=q+a1s; if q>=a1l then adsrstate:=2; end; // attack
-if (adsrstate=2) then begin q:=q-a2s; if q<=a2l then adsrstate:=3; end; // decay
-if (adsrstate=3) and (noteon=0) then adsrstate:=4;
-if (adsrstate=4) then begin q:=q-a4s; if q<=0 then begin q:=0; adsrstate:=0; end;   end;
-result:=q;
+if ((adsrstate=0) or (adsrstate=5)) and (noteon=1) then adsrstate:=1;
+if (adsrstate=1) then begin q:=q+a1s; if q>1073741824 then q:=1073741824; if q>=a1l then adsrstate:=2; end; // attack
+if (adsrstate=2) then begin q:=q-a2s; if q<=a2l then adsrstate:=3; end; // decay   1
+if (adsrstate=3) then begin q:=q-a3s; if q<=a3l then adsrstate:=4; end; // decay   2
+if {(adsrstate=3) and} (noteon=0) then adsrstate:=5;
+if (adsrstate=5) then begin q:=q-a4s; if q<=0 then begin q:=0; adsrstate:=0; end;   end;
+result:=logtable[q shr 14];
 //fmwindow.box(0,0,100,16,0); fmwindow.outtextxy(0,0,inttostr(adsrstate),120); fmwindow.outtextxy(24,0,inttostr(q),120);
 end;
 

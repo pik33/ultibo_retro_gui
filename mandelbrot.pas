@@ -67,7 +67,8 @@ ixmax:=960;
 iymax:=600;
 pixelheight:= (cymax - cymin) / iymax;
 pixelwidth:= pixelheight;
-
+ThreadSetpriority(ThreadGetCurrent,6);
+sleep(1);
 for iy := 1 to iymax do
   begin
   cy := cymin + (iy - 1)*pixelheight;
@@ -99,6 +100,7 @@ for iy := 1 to iymax do
     man.putpixel(ix-1, iy-1, colour);
     end;
   end;
+ThreadSetpriority(ThreadGetCurrent,3);
 repeat sleep(100) until man.needclose;
 man.destroy;
 man:=nil;
