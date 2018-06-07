@@ -154,6 +154,7 @@ if fmwindow=nil then
   end
 else goto p999;
 initsinetable;
+initlogtable;
 initnotes;
 n:=48;
 err:=sa_openaudio(961538,16,2,4800,@audiocallback);
