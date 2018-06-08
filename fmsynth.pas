@@ -58,14 +58,14 @@ const a212=1.0594630943592953098431053149397484958; //2^1/12
 var sinetable:array[0..65535] of integer;
     logtable:array[0..65535] of cardinal;
     fmwindow:TWindow=nil;
-    notes:array[0..127,0..2] of integer;
+    notes:array[0..127] of integer;
     a:cardinal;
     b:cardinal;
     c:cardinal;
 
     n:integer;
     noteon:integer;
-        t,tt:int64;
+        t,tt,ttt,tttt:int64;
 
 implementation
 
@@ -99,7 +99,7 @@ begin
 q:=c03;
 for i:=0 to 127 do
   begin
-  notes[i,0]:=round(q*norm960*65536);
+  notes[i]:=round(q*norm960*65536);
   q:=q*a212;
   end;
 end;
@@ -154,6 +154,9 @@ if fmwindow=nil then
   end
 else goto p999;
 ThreadSetPriority(ThreadGetCurrent,6);
+removeramlimits(integer(@play));
+removeramlimits(integer(@play)+4096);
+
 sleep(10);
 initsinetable;
 initlogtable;
@@ -174,7 +177,7 @@ fmwindow.outtextxy(16,96,inttohex(logtable[16384],8),15);
 fmwindow.outtextxy(16,112,inttohex(logtable[0],8),15);
 pauseaudio(0);   noteon:=1; sleep(10); noteon:=0;
 p998:
-repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
+repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tttt),120);
   if getkey>0 then begin nn:=keymap2[(readkey shr 16) and $FF]; if nn>12 then begin n:=nn-12; noteon:=1; end; end;
   if getreleasedkey>0 then begin fmwindow.box(16,48,100,16,0); fmwindow.outtextxy(16,48,inttostr(readreleasedkey),120); noteon:=0; end;
   sleep(8);
@@ -215,10 +218,16 @@ end;
 
 function play(freq:integer):integer;
 
+label p101, p199,a3fffc;
+
 const i:integer=0;
       q:cardinal=0;
       r:int64=0;
       s:int64=0;
+
+var
+      optr,st:pointer;
+      v:integer;
 
 var p: int64;
 
@@ -229,7 +238,7 @@ var p: int64;
     // 4 - fmod3
     // 5 - fmod4
     // 6 - LFO freq
-    // 7 - reserved
+    // 7 - freq ratio
     // 8 - vol
     // 9 - velocity
     //10 - ADSR
@@ -239,16 +248,68 @@ var p: int64;
 
 
 begin
-a:=a+notes[freq,0];
-b:=(b+notes[freq,0]*2);
-c:=(c+notes[freq,0]*3);
-i:=i+1;
-if i=20 then begin q:=adsr; i:=0; end;
-p:=(q*(sinetable[((a+r*20) and $FFFFFFFF) shr 16])) shr 40;
-r:=((4000000000) *(sinetable[(b + s*20) shr 16])) shr 40;
-s:=((4000000000) *(sinetable[c shr 16])) shr 40;
+ttt:=gettime;
+optr:=@opdata[0];
+st:=@sinetable;
 
-result:=p;
+    asm
+    push {r0-r12,r14}
+    ldr r0,optr
+    ldr r6,st
+
+    mov r14,#1024
+
+p101:  ldr r1,[r0],#4                // r1:=PA0
+       ldr r2,[r0],#20             // r2:=freq0
+       ldr r3,[r0],#4              // r3:=LFO
+       ldr r4,[r0],#-28            // r4:=ratio  TODO: make const freq
+       umull r7,r8,r2,r3           // ratio, lfo, $10000=1
+       umull r9,r10,r8,r4          // now correct freq in r10
+       add r1,r10
+       str r1,[r0], #8              // save new PA
+       ldr r5,[r0],#4              // mod1
+       add r1,r5
+       ldr r5,[r0],#4              // mod2
+       add r1,r5
+       ldr r5,[r0],#4              // mod3
+       add r1,r5
+       ldr r5,[r0],#-20              // mod4
+       add r1,r5
+       lsr r1,#14
+       ldr r5,a3FFFc
+       and r1,r5
+      // lsl r1,#2
+       ldr r2,[r6,r1]
+       asr r2,#8
+       str r2,v
+
+    add r0,#64
+    subs r14,#1
+    bne p101
+
+    b p199
+
+a3FFFc: .long 0x3FFFC
+
+p199: pop {r0-r12,r14}
+
+   end;
+
+
+opdata[1]:=notes[freq]  ;
+
+
+//a:=a+notes[freq];
+//b:=(b+notes[freq]*2);
+//c:=(c+notes[freq]*3);
+//i:=i+1;
+//if i=20 then begin q:=adsr; i:=0; end;
+//p:=(q*(sinetable[((a+r*20) and $FFFFFFFF) shr 16])) shr 40;
+//r:=((4000000000) *(sinetable[(b + s*20) shr 16])) shr 40;
+//s:=((4000000000) *(sinetable[c shr 16])) shr 40;
+//p:=(q*v) shr 40;
+result:=v;
+tttt:=gettime-ttt;
 end;
 
 procedure audiocallback(userdata: Pointer; stream: PUInt8; len:Integer );
