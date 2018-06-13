@@ -6,6 +6,9 @@ DoExitLink ()
 echo Assembling mwindows
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=vfpv3 -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/mwindows.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/mwindows.s
 if [ $? != 0 ]; then DoExitAsm mwindows; fi
+echo Assembling fmsynth
+/usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=vfpv3 -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/fmsynth.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/fmsynth.s
+if [ $? != 0 ]; then DoExitAsm fmsynth; fi
 echo Assembling project1
 /usr/bin/arm-none-eabi-as -mfloat-abi=hard -meabi=5 -march=armv7-a -mfpu=vfpv3 -o /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.o  /home/pi/ultibo-retro-gui/lib/arm-ultibo/Project1.s
 if [ $? != 0 ]; then DoExitAsm project1; fi

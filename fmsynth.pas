@@ -161,8 +161,9 @@ sleep(10);
 initsinetable;
 initlogtable;
 initnotes;
+for i:=0 to 1023 do opdata[i*4+3]:=integer(@sinetable[0]);
 n:=48;
-err:=sa_openaudio(961538,16,2,4800,@audiocallback);
+err:=sa_openaudio(48000,16,2,384,@audiocallback);
 if err<>0 then
   begin
   fmwindow.outtextxyz(16,16,'Error while opening audio: '+inttostr(err),120,1,1);
@@ -231,19 +232,6 @@ var
 
 var p: int64;
 
-    // 0 - PA
-    // 1 - freq
-    // 2 - fmod1
-    // 3 - fmod2
-    // 4 - fmod3
-    // 5 - fmod4
-    // 6 - LFO freq
-    // 7 - freq ratio
-    // 8 - vol
-    // 9 - velocity
-    //10 - ADSR
-    //11 - LFO vol
-    //12..15 reserved
 
 
 
@@ -255,39 +243,34 @@ st:=@sinetable;
     asm
     push {r0-r12,r14}
     ldr r0,optr
-    ldr r6,st
+    add r12,r0,#16384
+    mov r14,#256
 
-    mov r14,#1024
+    // stage 1
 
-p101:  ldr r1,[r0],#4                // r1:=PA0
-       ldr r2,[r0],#20             // r2:=freq0
-       ldr r3,[r0],#4              // r3:=LFO
-       ldr r4,[r0],#-28            // r4:=ratio  TODO: make const freq
-       umull r7,r8,r2,r3           // ratio, lfo, $10000=1
-       umull r9,r10,r8,r4          // now correct freq in r10
-       add r1,r10
-       str r1,[r0], #8              // save new PA
-       ldr r5,[r0],#4              // mod1
-       add r1,r5
-       ldr r5,[r0],#4              // mod2
-       add r1,r5
-       ldr r5,[r0],#4              // mod3
-       add r1,r5
-       ldr r5,[r0],#-20              // mod4
-       add r1,r5
+    //   pa:=pa+freq;
+    //   out:=tbl[pa+mod]
+
+
+p101:  ldm r0,{r1-r8}             // r1:=PA0
+       add r1,r2
+       str r1,[r0],#16
+       add r1,r3
        lsr r1,#14
-       ldr r5,a3FFFc
-       and r1,r5
-      // lsl r1,#2
-       ldr r2,[r6,r1]
-       asr r2,#8
-       str r2,v
+       ldr r9,[r4,r1]
+       add r5,r6
+       str r5,[r0],#16
+       add r5,r7
+       lsr r5,#14
+       ldr r10,[r8,r5]
+       stm r12!,{r9,r10}
+       subs r14,#1
+       bne p101
 
-    add r0,#64
-    subs r14,#1
-    bne p101
+       b p199
 
-    b p199
+// stage 2
+
 
 a3FFFc: .long 0x3FFFC
 
@@ -296,7 +279,7 @@ p199: pop {r0-r12,r14}
    end;
 
 
-opdata[1]:=notes[freq]  ;
+//opdata[1]:=notes[freq]  ;
 
 
 //a:=a+notes[freq];
