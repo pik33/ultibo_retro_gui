@@ -57,6 +57,7 @@ const a212=1.0594630943592953098431053149397484958; //2^1/12
 
 var sinetable:array[0..65535] of integer;
     logtable:array[0..65535] of cardinal;
+    outputtable:array[0..4095] of integer;
     fmwindow:TWindow=nil;
     notes:array[0..127] of integer;
     a:cardinal;
@@ -70,21 +71,32 @@ var sinetable:array[0..65535] of integer;
 implementation
 
 var opdata:array[0..16383] of cardinal;
+// 512 operators @ 32 entries
+
+// 0 - freq
+// 1 - c3
+// 2 - lfo1
+// 3 - c4
+// 4 - lfo2
+// 5 - pa
+// 6 - algo //mods in another table
+// 7 - adsr
+// 8 - ar1
+// 9 - av1
+//10 - ar2
+//11 - av2
+//12 - ar3
+//13 - av3
+//14 - ar4
+//15 - av4
+//16 - c5
+//17 - lfo3
+//18 - vel
+//19 - key sense
+//20 - c6
+//21 - expression
 
 
-// 0 - PA
-// 1 - freq
-// 2 - fmod1
-// 3 - fmod2
-// 4 - fmod3
-// 5 - fmod4
-// 6 - LFO freq
-// 7 - reserved
-// 8 - vol
-// 9 - velocity
-//10 - ADSR
-//11 - LFO vol
-//12..15 reserved
 
 
 
@@ -161,7 +173,8 @@ sleep(10);
 initsinetable;
 initlogtable;
 initnotes;
-for i:=0 to 1023 do opdata[i*4+3]:=integer(@sinetable[0]);
+for i:=0 to 511 do opdata[i*32+7]:=integer(@sinetable[0]);
+for i:=0 to 511 do opdata[i*32+8]:=16;
 n:=48;
 err:=sa_openaudio(48000,16,2,384,@audiocallback);
 if err<>0 then
@@ -227,49 +240,144 @@ const i:integer=0;
       s:int64=0;
 
 var
-      optr,st:pointer;
+      optr,st,outputs:pointer;
       v:integer;
 
 var p: int64;
 
+{
+      // 0 - freq
+      // 1 - c3
+      // 2 - lfo1
+      // 3 - c4
+      // 4 - lfo2
+      // 5 - pa
+      // 6 - algo //mods in another table
+      // 7 - wavetable ptr
+      // 8 - wavetable length
+
+      //11 - ar1
+      //12 - av1
+      //13 - ar2
+      //14 - av2
+      //15 - ar3
+      //16 - av3
+      //17 - ar4
+      //18 - av4
+      //19 - adsr bias
+      //20 - c5
+      //21 - lfo3
+      //22 - vel
+      //23 - key sense
+      //24 - c6
+      //25 - expression
 
 
+      freq:=c1*midi_IN_FREQ+c2
+      freq:=freq+c3*lfo1
+      freq:=freq*c4*lfo2
+
+      pa:=pa+freq
+
+      mod:=out0+out1+...+out7 IF algo_bit=1
+
+      spl:=table[pa+mod]
+      spl:=spl*adsr
+      spl:=spl+c5*lfo3
+      spl:=spl*vel*key sense
+      spl:=spl*c6*expr
+      out:=spl
+
+}
 
 begin
 ttt:=gettime;
 optr:=@opdata[0];
 st:=@sinetable;
+//lt:=@logtable
+outputs:=@outputtable;
 
     asm
     push {r0-r12,r14}
     ldr r0,optr
-    add r12,r0,#16384
+    ldr r12,outputs
     mov r14,#256
 
     // stage 1
 
-    //   pa:=pa+freq;
-    //   out:=tbl[pa+mod]
+//    freq:=c1*midi_IN_FREQ+c2
+//    freq:=freq+c3*lfo1
+//    freq:=freq*c4*lfo2
+
+//    pa:=pa+freq
 
 
-p101:  ldm r0,{r1-r8}             // r1:=PA0
-       add r1,r2
-       str r1,[r0],#16
-       add r1,r3
-       lsr r1,#14
-       ldr r9,[r4,r1]
-       add r5,r6
-       str r5,[r0],#16
-       add r5,r7
-       lsr r5,#14
-       ldr r10,[r8,r5]
-       stm r12!,{r9,r10}
+p101:  ldm r0!,{r1-r6}                  // r1 - freq
+                                        // r2 - c3
+                                        // r3 - lfo1
+                                        // r4 - c4
+                                        // r5 - lfo2
+                                        // r6 - pa
+       umull r7,r8,r2,r3
+       add r8,r1
+       umull r7,r8,r4,r5
+       umull r7,r9,r1,r8
+       add r6,r9
+       str r6,[r0,#-4]                  // new pa saved
+
+//     stage 2
+
+//     add modulators accordng to algo
+//     PA:=PA+mod
+
+
+       ldr r1,[r0],#4                // algo in r1
+       ldm r12,{r2-r9}               // outputs in r2-r9
+       mov r10,r6
+       lsrs r1,#1
+       addcs r10,r2
+       lsrs r1,#1
+       addcs r10,r3
+       lsrs r1,#1
+       addcs r10,r4
+       lsrs r1,#1
+       addcs r10,r5
+       lsrs r1,#1
+       addcs r10,r6
+       lsrs r1,#1
+       addcs r10,r7
+       lsrs r1,#1
+       addcs r10,r8
+       lsrs r1,#1
+       addcs r10,r9                 // modulator+PA in r10
+
+
+//         stage 3
+//         Load the sample
+
+
+       ldm r0!,{r1,r2}             // wavetable pointer in r1
+       lsr r10,r2                   // normal r2=16
+       lsl r10,#2
+       ldr r1,[r1,r10]              // spl in r1
+
+
+//     stage 4
+//     Compute ADSR
+
+       ldm r0!,{r2,r3}             // r2 - adsr
+                                   // r3 - adsr state
+
+
+
+       add r0,#84
+
+
        subs r14,#1
        bne p101
 
        b p199
 
-// stage 2
 
 
 a3FFFc: .long 0x3FFFC
