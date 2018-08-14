@@ -57,7 +57,7 @@ const a212=1.0594630943592953098431053149397484958; //2^1/12
 
 var sinetable:array[0..65535] of integer;
     logtable:array[0..65535] of cardinal;
-    outputtable:array[0..4095] of integer;
+    outputtable:array[0..8191] of integer;
     fmwindow:TWindow=nil;
     notes:array[0..127] of integer;
     a:cardinal;
@@ -70,31 +70,48 @@ var sinetable:array[0..65535] of integer;
 
 implementation
 
-var opdata:array[0..16383] of cardinal;
-// 512 operators @ 32 entries
+var opdata:array[0..65535] of cardinal;
+// 1024 operators @ 64 entries
 
-// 0 - freq
-// 1 - c3
-// 2 - lfo1
-// 3 - c4
-// 4 - lfo2
-// 5 - pa
-// 6 - algo //mods in another table
-// 7 - adsr
-// 8 - ar1
-// 9 - av1
-//10 - ar2
-//11 - av2
-//12 - ar3
-//13 - av3
-//14 - ar4
-//15 - av4
-//16 - c5
-//17 - lfo3
-//18 - vel
-//19 - key sense
-//20 - c6
-//21 - expression
+
+
+
+              // 00 - 00 - freq
+              // 01 - 04 - c3
+              // 02 - 08 - lfo1
+              // 03 - 0c - c4
+              // 04 - 10 - lfo2
+              // 05 - 14 - pa
+              // 06 - 18 - mul0
+              // 07 - 1c - mul1
+              // 08 - 20 - mul2
+              // 09 - 24 - mul3
+              // 10 - 28 - mul4
+              // 11 - 2c - mul5
+              // 12 - 30 - mul6
+              // 13 - 34 - mul7
+              // 14 - 38 - wavetable ptr
+              // 15 - 3c - wavetable length
+              // 16 - 40 - wavetable loop start
+              // 17 - 44 - wavetable loop end
+              // 18 - 48 - ar1
+              // 19 - 4c - av1
+              // 20 - 50 - ar2
+              // 21 - 54 - av2
+              // 22 - 58 - ar3
+              // 23 - 5c - av3
+              // 24 - 60 - ar4
+              // 25 - 64 - av4
+              // 26 - 68 - adsr bias
+              // 27 - 6c - c5
+              // 28 - 70 - lfo3
+              // 29 - 74 - vel
+              // 30 - 78 - key sense
+              // 31 - 7c - c6
+              // 32 - 80 - expression
+
+              // 33..63 reserved
+
 
 
 
@@ -246,31 +263,43 @@ var
 var p: int64;
 
 {
-      // 0 - freq
-      // 1 - c3
-      // 2 - lfo1
-      // 3 - c4
-      // 4 - lfo2
-      // 5 - pa
-      // 6 - algo //mods in another table
-      // 7 - wavetable ptr
-      // 8 - wavetable length
 
-      //11 - ar1
-      //12 - av1
-      //13 - ar2
-      //14 - av2
-      //15 - ar3
-      //16 - av3
-      //17 - ar4
-      //18 - av4
-      //19 - adsr bias
-      //20 - c5
-      //21 - lfo3
-      //22 - vel
-      //23 - key sense
-      //24 - c6
-      //25 - expression
+
+      // 00 - 00 - freq   24 bit
+      // 01 - 04 - c3     32 bit  8:24
+      // 02 - 08 - lfo1   32 bit  signed
+      // 03 - 0c - c4     32 bit  8:24
+      // 04 - 10 - lfo2   32 bit  signed
+      // 05 - 14 - pa     32 bit
+      // 06 - 18 - mul0   24 bit  8:16
+      // 07 - 1c - mul1
+      // 08 - 20 - mul2
+      // 09 - 24 - mul3
+      // 10 - 28 - mul4
+      // 11 - 2c - mul5
+      // 12 - 30 - mul6
+      // 13 - 34 - mul7
+      // 14 - 38 - wavetable ptr
+      // 15 - 3c - wavetable length
+      // 16 - 40 - wavetable loop start
+      // 17 - 44 - wavetable loop end
+      // 18 - 48 - ar1
+      // 19 - 4c - av1
+      // 20 - 50 - ar2
+      // 21 - 54 - av2
+      // 22 - 58 - ar3
+      // 23 - 5c - av3
+      // 24 - 60 - ar4
+      // 25 - 64 - av4
+      // 26 - 68 - adsr bias
+      // 27 - 6c - c5
+      // 28 - 70 - lfo3
+      // 29 - 74 - vel
+      // 30 - 78 - key sense
+      // 31 - 7c - c6
+      // 32 - 80 - expression
+
+      // 33..63 reserved
 
 
       freq:=c1*midi_IN_FREQ+c2
@@ -279,7 +308,7 @@ var p: int64;
 
       pa:=pa+freq
 
-      mod:=out0+out1+...+out7 IF algo_bit=1
+      mod:=mul0*out0+mul1*out1+...+mul7*out7
 
       spl:=table[pa+mod]
       spl:=spl*adsr
@@ -303,7 +332,7 @@ outputs:=@outputtable;
     ldr r12,outputs
     mov r14,#256
 
-    // stage 1
+    // stage 1. Compute a new PA
 
 //    freq:=c1*midi_IN_FREQ+c2
 //    freq:=freq+c3*lfo1
@@ -318,11 +347,16 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
                                         // r4 - c4
                                         // r5 - lfo2
                                         // r6 - pa
-       umull r7,r8,r2,r3
-       add r8,r1
-       umull r7,r8,r4,r5
-       umull r7,r9,r1,r8
+
+       smull r7,r8,r2,r3                // r8:r7:= c3*lfo1    lfo1 as signed; out is 64 bit 8:56
+       add r1,r8                        // r1:=freq+c3*lfo1
+       add r5,#0x80000000               // convert lfo2 to unsigned
+       umull r7,r8,r4,r5                // r8:r7=c4*lfo2  @ 9:55
+       umull r7,r9,r1,r8                // r9:r7=freq*c3*lfo2 freq is 24 bit lfo2*c3 is 23 bit so 47 bit result has to be >>23 or <<9
+       lsr r9,#9
+       add r9,r9,r7,lsl #23
        add r6,r9
+       mov r14,r6
        str r6,[r0,#-4]                  // new pa saved
 
 //     stage 2
@@ -331,25 +365,24 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
 //     PA:=PA+mod
 
 
-       ldr r1,[r0],#4                // algo in r1
-       ldm r12,{r2-r9}               // outputs in r2-r9
-       mov r10,r6
-       lsrs r1,#1
-       addcs r10,r2
-       lsrs r1,#1
-       addcs r10,r3
-       lsrs r1,#1
-       addcs r10,r4
-       lsrs r1,#1
-       addcs r10,r5
-       lsrs r1,#1
-       addcs r10,r6
-       lsrs r1,#1
-       addcs r10,r7
-       lsrs r1,#1
-       addcs r10,r8
-       lsrs r1,#1
-       addcs r10,r9                 // modulator+PA in r10
+       ldm r0!,{r1-r4}               // algo coeffs
+       ldm r12!,{r5-r8}              // outputs in r2-r9
+
+       smull r9,r10,r1,r5
+       smlal r9,r10,r2,r6
+       smlal r9,r10,r3,r7
+       smlal r9,r10,r4,r8
+
+       ldm r0!,{r1-r4}               // algo coeffs
+       ldm r12!,{r5-r8}              // outputs in r2-r9
+
+       smull r9,r10,r1,r5
+       smlal r9,r10,r2,r6
+       smlal r9,r10,r3,r7
+       smlal r9,r10,r4,r8
+
+       add r10,r14                  // modulated PA in r10
+
 
 
 //         stage 3
@@ -368,7 +401,8 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
        ldm r0!,{r2,r3}             // r2 - adsr
                                    // r3 - adsr state
 
-
+   //    add r0,r0,r3,lsr #3
+   //    ldm r0!,{r4,r5}
 
        add r0,#84
 

@@ -85,15 +85,16 @@ else
   end;
 
 t:=SysRTCGetTime;
-if t=0 then
-  if fileexists(drive+'now.txt') then
-    begin
-    assignfile(f,drive+'now.txt');
-    reset(f);
-    read(f,hh); read(f,mm); read(f,ss);
-    closefile(f);
-    settime(hh,mm,ss,0);
-    end;
+// box(0,0,100,100,0); outtextxy(0,0,inttostr(t),15); sleep(100000);
+//if t=0 then
+//  if fileexists(drive+'now.txt') then
+//    begin
+//    assignfile(f,drive+'now.txt');
+//    reset(f);
+//    read(f,hh); read(f,mm); read(f,ss);
+//    closefile(f);
+//    settime(hh,mm,ss,0);
+//    end;
 
 scr:=mainscreen+$300000;
 fh:=fileopen(drive+'Colors\Wallpapers\rpi-logo.rbm',$40);
