@@ -118,6 +118,7 @@ var opdata:array[0..65535] of cardinal;
 
 
 procedure audiocallback(userdata: Pointer; stream: PUInt8; len:Integer ); forward;
+function play(freq:integer):integer;    forward;
 
 procedure initnotes;
 
@@ -182,7 +183,7 @@ if fmwindow=nil then
   fmwindow.move(300,400,960,600,0,0);
   end
 else goto p999;
-ThreadSetPriority(ThreadGetCurrent,6);
+//ThreadSetPriority(ThreadGetCurrent,6);
 removeramlimits(integer(@play));
 removeramlimits(integer(@play)+4096);
 
@@ -193,25 +194,37 @@ initnotes;
 for i:=0 to 511 do opdata[i*32+7]:=integer(@sinetable[0]);
 for i:=0 to 511 do opdata[i*32+8]:=16;
 n:=48;
-err:=sa_openaudio(48000,16,2,384,@audiocallback);
-if err<>0 then
-  begin
-  fmwindow.outtextxyz(16,16,'Error while opening audio: '+inttostr(err),120,1,1);
-  fmwindow.outtextxyz(16,56,'Please close this window and then close the application which uses the audio driver ',120,1,1);
-  goto p998;
-  end;
+
+//err:=sa_openaudio(48000,16,2,384,@audiocallback);
+//if err<>0 then
+///  begin
+//  fmwindow.outtextxyz(16,16,'Error while opening audio: '+inttostr(err),120,1,1);
+//  fmwindow.outtextxyz(16,56,'Please close this window and then close the application which uses the audio driver ',120,1,1);
+//  goto p998;
+//  end;
 //for i:=0 to 10 do fmwindow.outtextxy(0,16*i,inttostr(sinetable[i+16380]),120);
+
+
 fmwindow.outtextxy(16,48,inttohex(logtable[65535],8),15);
 fmwindow.outtextxy(16,64,inttohex(logtable[49152],8),15);
 fmwindow.outtextxy(16,80,inttohex(logtable[32768],8),15);
 fmwindow.outtextxy(16,96,inttohex(logtable[16384],8),15);
 fmwindow.outtextxy(16,112,inttohex(logtable[0],8),15);
-pauseaudio(0);   noteon:=1; sleep(10); noteon:=0;
-p998:
-repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tttt),120);
+// pauseaudio(0);   noteon:=1; sleep(10); noteon:=0;
+p998:  {
+repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
   if getkey>0 then begin nn:=keymap2[(readkey shr 16) and $FF]; if nn>12 then begin n:=nn-12; noteon:=1; end; end;
   if getreleasedkey>0 then begin fmwindow.box(16,48,100,16,0); fmwindow.outtextxy(16,48,inttostr(readreleasedkey),120); noteon:=0; end;
   sleep(8);
+        }
+
+
+repeat
+tt:=gettime;
+for  i:=0 to 999 do play(64);
+tt:=gettime-tt;
+fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
+sleep(100);
 
 until fmwindow.needclose;
 if err=0 then closeaudio;
@@ -283,23 +296,25 @@ var p: int64;
       // 15 - 3c - wavetable length
       // 16 - 40 - wavetable loop start
       // 17 - 44 - wavetable loop end
-      // 18 - 48 - ar1
-      // 19 - 4c - av1
-      // 20 - 50 - ar2
-      // 21 - 54 - av2
-      // 22 - 58 - ar3
-      // 23 - 5c - av3
-      // 24 - 60 - ar4
-      // 25 - 64 - av4
-      // 26 - 68 - adsr bias
-      // 27 - 6c - c5
-      // 28 - 70 - lfo3
-      // 29 - 74 - vel
-      // 30 - 78 - key sense
-      // 31 - 7c - c6
-      // 32 - 80 - expression
+      // 18 - 48 - adsr value
+      // 19 - 4c - adsr state
+      // 20 - 40 - ar1
+      // 21 - 54 - av1
+      // 22 - 58 - ar2
+      // 23 - 5c - av2
+      // 24 - 50 - ar3
+      // 25 - 64 - av3
+      // 26 - 68 - ar4
+      // 27 - 6c - av4
+      // 28 - 60 - adsr bias
+      // 29 - 74 - c5
+      // 30 - 78 - lfo3
+      // 31 - 7c - vel
+      // 32 - 70 - key sense
+      // 33 - 84 - c6
+      // 34 - 88 - expression
 
-      // 33..63 reserved
+      // 35..63 reserved
 
 
       freq:=c1*midi_IN_FREQ+c2
@@ -320,7 +335,7 @@ var p: int64;
 }
 
 begin
-ttt:=gettime;
+//ttt:=gettime;
 optr:=@opdata[0];
 st:=@sinetable;
 //lt:=@logtable
@@ -331,6 +346,9 @@ outputs:=@outputtable;
     ldr r0,optr
     ldr r12,outputs
     mov r14,#256
+
+
+
 
     // stage 1. Compute a new PA
 
@@ -359,6 +377,8 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
        mov r14,r6
        str r6,[r0,#-4]                  // new pa saved
 
+//stage 1 10 ns@1300
+
 //     stage 2
 
 //     add modulators accordng to algo
@@ -376,7 +396,7 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
        ldm r0!,{r1-r4}               // algo coeffs
        ldm r12!,{r5-r8}              // outputs in r2-r9
 
-       smull r9,r10,r1,r5
+       smlal r9,r10,r1,r5
        smlal r9,r10,r2,r6
        smlal r9,r10,r3,r7
        smlal r9,r10,r4,r8
@@ -384,31 +404,44 @@ p101:  ldm r0!,{r1-r6}                  // r1 - freq
        add r10,r14                  // modulated PA in r10
 
 
+// stage 2 18 ns @ 1300 MHz
+
 
 //         stage 3
-//         Load the sample
+//         Load the sample       TODO: use params 14-17 instead of sinetable
+
+         ldr r3,st
+         mov r1,#0xFFFFFFFF
+         sub r1,#0xFF000000
+         and r10,r1
+         lsl r10,#2
+         ldr r14,[r3,r10]
+
+//        stage 4
+//       Compute ADSR
+
+        add  r0,#16   //skip sample params TO DO use them
+        ldm  r0!,{r1-r2}  // adsr val and state
+
+        add r0,r0,r1,lsl #2
+        ldm r0!,{r3,r4} // current stage adsr params
+        add r1,r3
+        cmp r1,r4
+// todo!!!
 
 
-       ldm r0!,{r1,r2}             // wavetable pointer in r1
-       lsr r10,r2                   // normal r2=16
-       lsl r10,#2
-       ldr r1,[r1,r10]              // spl in r1
 
-
-//     stage 4
-//     Compute ADSR
-
-       ldm r0!,{r2,r3}             // r2 - adsr
+  //     ldm r0!,{r2,r3}             // r2 - adsr
                                    // r3 - adsr state
 
    //    add r0,r0,r3,lsr #3
    //    ldm r0!,{r4,r5}
 
-       add r0,#84
+   //    add r0,#84
 
 
-       subs r14,#1
-       bne p101
+ //      subs r14,#1
+ //      bne p101
 
        b p199
 
@@ -434,7 +467,7 @@ p199: pop {r0-r12,r14}
 //s:=((4000000000) *(sinetable[c shr 16])) shr 40;
 //p:=(q*v) shr 40;
 result:=v;
-tttt:=gettime-ttt;
+//tttt:=gettime-ttt;
 end;
 
 procedure audiocallback(userdata: Pointer; stream: PUInt8; len:Integer );
