@@ -476,11 +476,22 @@ function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 procedure scrconvertnative(src,screen:pointer);
 
+
+function floatfmsynth:tsample;
+
 implementation
 
 uses blitter, mwindows;
 
 var windows:Twindows;
+
+var fsinetable:array[0..65535] of double;
+    flogtable:array[0..65535] of double;
+    foutputtable:array[0..8191] of double;
+    fnotes:array[0..127] of double;
+    fopdata:array[0..65535] of double;
+
+    ft,ftt:int64;
 procedure scrconvert(src,screen:pointer); forward;
 procedure sprite(screen:pointer); forward;
 
@@ -3342,6 +3353,187 @@ sid[1]:= siddata[$6c];
 
 
 end;
+
+function floatfmsynth:tsample;
+
+var res64a:double;
+    vel,modulator:double;
+    i,j:integer;
+    sample:double;
+
+{
+      // 00 - 00 - freq   24 bit
+      // 01 - 04 - c3     32 bit  8:24
+      // 02 - 08 - lfo1   32 bit  signed
+      // 03 - 0c - c4     32 bit  8:24
+      // 04 - 10 - lfo2   32 bit  signed
+      // 05 - 14 - pa     32 bit
+      // 06 - 18 - mul0   24 bit  8:16
+      // 07 - 1c - mul1
+      // 08 - 20 - mul2
+      // 09 - 24 - mul3
+      // 10 - 28 - mul4
+      // 11 - 2c - mul5
+      // 12 - 30 - mul6
+      // 13 - 34 - mul7
+      // 14 - 38 - wavetable ptr
+      // 15 - 3c - wavetable length
+      // 16 - 40 - wavetable loop start
+      // 17 - 44 - wavetable loop end
+      // 18 - 48 - adsr value
+      // 19 - 4c - adsr state
+      // 20 - 40 - ar1
+      // 21 - 54 - av1
+      // 22 - 58 - ar2
+      // 23 - 5c - av2
+      // 24 - 50 - ar3
+      // 25 - 64 - av3
+      // 26 - 68 - ar4
+      // 27 - 6c - av4
+      // 28 - 60 - adsr bias
+      // 29 - 74 - c5
+      // 30 - 78 - lfo3
+      // 31 - 7c - vel
+      // 32 - 70 - key sense
+      // 33 - 84 - c6
+      // 34 - 88 - expression
+      // 35..63 reserved
+      freq:=c1*midi_IN_FREQ+c2
+      freq:=freq+c3*lfo1
+      freq:=freq*c4*lfo2
+      pa:=pa+freq
+      mod:=mul0*out0+mul1*out1+...+mul7*out7
+      spl:=table[pa+mod]
+      spl:=spl*adsr
+      spl:=spl+c5*lfo3
+      spl:=spl*vel*key sense
+      spl:=spl*c6*expr
+      out:=spl
+
+}
+begin
+ft:=gettime;
+
+// stage 1. Compute a new PA
+
+//    freq:=c1*midi_IN_FREQ+c2  <-- set via the control procedure
+
+
+//    freq:=freq+c3*lfo1
+//    freq:=freq*c4*lfo2
+
+//    pa:=pa+freq
+
+
+// 00 - 00 - freq   24 bit
+// 01 - 04 - c3     32 bit  8:24
+// 02 - 08 - lfo1   32 bit  signed
+// 03 - 0c - c4     32 bit  8:24
+// 04 - 10 - lfo2   32 bit  unsigned 8:24
+// 05 - 14 - pa     32 bit
+
+ for i:=1 to 1000 do
+   begin
+  fopdata[0]:=(fopdata[0]+((fopdata[1]*fopdata[2]))*fopdata[3]*fopdata[4]);
+
+  // stage2: compute the modulator
+
+  modulator:=foutputtable[0]*fopdata[6]
+  +foutputtable[1]*fopdata[7]
+  +foutputtable[2]*fopdata[8]
+  +foutputtable[3]*fopdata[9]
+  +foutputtable[4]*fopdata[10]
+  +foutputtable[5]*fopdata[11]
+  +foutputtable[6]*fopdata[12]
+  +foutputtable[7]*fopdata[13];
+
+  fopdata[5]:=((fopdata[5]+(modulator)+fopdata[0]));
+  // pa is 32 bit; n bit used for addressing
+  // todo: what if the sample is looped??
+
+ // stage 3
+ // load the sample
+
+   // sample:=sin(fopdata[5]);
+
+    //        stage 4
+    //       Compute ADSR
+
+    // 18 - 48 - adsr value
+    // 19 - 4c - adsr state
+    // 20 - 40 - ar1
+    // 21 - 54 - av1
+    // 22 - 58 - ar2
+    // 23 - 5c - av2
+    // 24 - 50 - ar3
+    // 25 - 64 - av3
+    // 26 - 68 - ar4
+    // 27 - 6c - av4
+
+
+  if fopdata[19]=4 then  // release
+   begin
+   fopdata[18]:=fopdata[18]+fopdata[26];
+   if fopdata[26]<0 then if fopdata[18]<fopdata[27] then fopdata[19]:=0
+                   else if fopdata[18]>fopdata[27] then fopdata[19]:=0;
+
+   end
+ else if fopdata[19]=1 then //attack
+   begin
+   fopdata[18]:=fopdata[18]+fopdata[20];
+   if fopdata[20]>=fopdata[21] then fopdata[19]:=2;
+   end
+ else if fopdata[19]=2 then  // decay 1
+   begin
+   fopdata[18]:=fopdata[18]+fopdata[22];
+   if fopdata[22]<0 then if fopdata[18]<fopdata[23] then fopdata[19]:=3
+                   else if fopdata[18]>fopdata[23] then fopdata[19]:=3;
+   end
+
+ else if fopdata[19]=3 then  // decay 2
+   begin
+   fopdata[18]:=fopdata[18]+fopdata[24];
+   if fopdata[24]<0 then if fopdata[18]<fopdata[25] then fopdata[19]:=4
+                   else if fopdata[18]>fopdata[25] then fopdata[19]:=4;
+
+   end;
+
+ sample:=(sample*fopdata[18]);
+
+
+// spl:=spl+c5*lfo3
+// spl:=spl*vel*key sense
+// spl:=spl*c6*expr
+// out:=spl
+
+// 29 - 74 - c5
+// 30 - 78 - lfo3
+// 31 - 7c - vel
+// 32 - 70 - key sense
+// 33 - 84 - c6
+// 34 - 88 - expression
+
+sample:=(sample*fopdata[29]*fopdata[30]);
+vel:=1-fopdata[31]+fopdata[31]*fopdata[32];
+sample:=(sample*vel) ;
+sample:=(sample*fopdata[33]);
+sample:=(sample*fopdata[34]);
+
+ end;
+
+
+  // TODO: pan
+
+ ftt:=gettime-ft;
+
+box(200,200,100,100,0);
+outtextxy(200,200,inttostr(ftt),15);
+
+floatfmsynth[0]:=round(sample);
+floatfmsynth[1]:=round(sample);
+
+end;
+
 
 end.
 
