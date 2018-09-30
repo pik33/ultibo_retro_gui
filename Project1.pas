@@ -32,7 +32,7 @@ uses  //Ultibo units
   mp3,
   blitter,
   retro, simpleaudio, {scripttest,} xmp, mwindows, calculatorunit, icons, sysinfo,
-  playerunit, captureunit, mandelbrot, notepad, c64, fmsynth;
+  playerunit, captureunit, mandelbrot, notepad, c64, fmsynth, camera1;
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
@@ -156,8 +156,15 @@ repeat
   if testicon.dblclicked then
     begin
     testicon.dblclicked:=false;
-floatfmsynth;
+    if keypressed then readkey;
+    if cmw=nil then
+      begin
+      camerathread:=TCameraThread.create(true);
+      camerathread.start;
+      cmw:=camerathread;
+      end;
     end;
+
 
   if calculator.dblclicked then
     begin

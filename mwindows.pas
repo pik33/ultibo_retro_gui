@@ -52,7 +52,9 @@ type TWindow=class(TObject)
      vcx,vcy:integer;                       // virtual canvas x,y
      mx,my,mk:integer;                      // mouse events
      wl,wh:integer;                         // windows l,h
+     tcx,tcy:integer;                       // text cursor
      bg:integer;                            // background color
+     tc:integer;                            // text color
      canvas:pointer;                        // graphic memory
      decoration:TDecoration;                // the decoration or nil if none
      visible:boolean;                       // visible or hidden
@@ -93,10 +95,12 @@ type TWindow=class(TObject)
      procedure putchar(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
      procedure putchar8(ax,ay:integer;ch:char;col:integer);              // put a 8x16 char on window
      procedure putcharz(ax,ay:integer;ch:char;col,xz,yz:integer);       // put a zoomed char, xz,yz - zoom
-     procedure outtextxy8(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
+     procedure outtextxy8(ax,ay:integer; t:string;c:integer);           // output a string from x,y position
      procedure outtextxy(ax,ay:integer; t:string;c:integer);            // output a string from x,y position
      procedure outtextxyz(ax,ay:integer; t:string;c,xz,yz:integer);     // output a zoomed string
      procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
+     procedure print(line:string);                                      // print a string at the text cursor
+     procedure println(line:string);                                    // print a string and add a new line
 
      // TODO: add the rest of graphic procedures from retromalina unit
 
@@ -423,6 +427,9 @@ if background<>nil then   // there ia s background so create a normal window
   wh:=ah;
   vcl:=0;
   vch:=0;
+  tcx:=0;
+  tcy:=0;
+  tc:=15;
   virtualcanvas:=false;
   buttons:=nil;
   icons:=nil;
@@ -1006,6 +1013,7 @@ var i,al:integer;
 
 begin
 box(0,0,wl,wh,c);
+bg:=c;
 end;
 
 
@@ -1133,7 +1141,41 @@ begin
 for i:=0 to length(t)-1 do putcharz(ax+8*xz*i,ay,t[i+1],c,xz,yz);
 end;
 
+procedure TWindow.print(line:string);
 
+var i:integer;
+
+begin
+for i:=1 to length(line) do
+  begin
+  box(8*tcx,16*tcy,8,16,bg);
+  putchar(8*tcx,16*tcy,line[i],tc);
+  tcx+=1;
+  if tcx>=(wl div 8) then
+    begin
+    tcx:=0;
+    tcy+=1;
+    if tcy>=(wh div 16) then
+      begin
+      // scrollup;  //todo - add this
+      tcy:=(wh div 16) -1;
+      end;
+    end;
+  end;
+end;
+
+procedure TWindow.println(line:string);
+
+begin
+print(line);
+tcy+=1;
+tcx:=0;
+if tcy>=(wh div 16) then
+  begin
+  //scrollup;
+  tcy:=(wh div 16) -1;
+  end;
+end;
 
 // box - draw a filled box
 

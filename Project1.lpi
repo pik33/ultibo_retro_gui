@@ -31,7 +31,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="18">
+    <Units Count="20">
       <Unit0>
         <Filename Value="Project1.pas"/>
         <IsPartOfProject Value="True"/>
@@ -106,6 +106,15 @@
         <Filename Value="fmsynth.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit17>
+      <Unit18>
+        <Filename Value="fmsynth2.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit18>
+      <Unit19>
+        <Filename Value="camera1.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Camera1"/>
+      </Unit19>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
