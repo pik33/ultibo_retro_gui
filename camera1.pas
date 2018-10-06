@@ -7,7 +7,7 @@ interface
 
 uses
   classes,sysutils,uIL_Client, uOMX, VC4, threads,
-  retromalina, mwindows;
+  retromalina, mwindows,blitter;
 
 
 
@@ -95,13 +95,13 @@ label p999;
 begin
   if camerawindow=nil then
     begin
-    camerawindow:=TWindow.create(480,320,'Camera log');
-    camerawindow.decoration.hscroll:=false;
-    camerawindow.decoration.vscroll:=false;
-    camerawindow.resizable:=false;
+    camerawindow:=TWindow.create(480,3200,'Camera log');
+    camerawindow.decoration.hscroll:=true;
+    camerawindow.decoration.vscroll:=true;
+    camerawindow.resizable:=true;
     camerawindow.cls(147);
     camerawindow.tc:=154;
-    camerawindow.move(50,500,480,320,0,0);
+    camerawindow.move(1200,0,480,1150,0,0);
     cmw:=camerawindow;
     end
   else goto p999;
@@ -146,15 +146,18 @@ function onOMXevent (
 
 begin
 
-//	print_event(hComponent, eEvent, nData1, nData2);
+  print_log('Callback called '+inttostr(ndata1)+' '+inttostr(ndata2)) ;// hComponent, eEvent, nData1, nData2);
 
   case eEvent of
   OMX_EventParamOrConfigChanged :
+                begin
+                print_log('Param or config changed ');
 		if(nData2 = OMX_IndexParamCameraDeviceNumber) then
                         begin
 			Pcontext(pAppData)^.isCameraReady := OMX_TRUE;
 			camerawindow.println('Camera device is ready.');
                         end;
+                end;
   end;
 
 result:= OMX_ErrorNone;
@@ -182,7 +185,7 @@ function onEmptyRenderIn(
 	        PBuffer: POMX_BUFFERHEADERTYPE):OMX_ERRORTYPE ; cdecl;
 
 begin
-  camerawindow.println('buffer '+ inttohex(integer(pbuffer),8)+' emptied');
+ // camerawindow.println('buffer '+ inttohex(cardinal(pbuffer),8)+' emptied');
   result:= OMX_ErrorNone;
 end;
 
@@ -199,17 +202,17 @@ end;
 function wait_for_state_change(state_tobe: OMX_STATETYPE; handle:OMX_HANDLETYPE): OMX_BOOL;
 
 var isValid:OMX_BOOL=OMX_TRUE;
-    timeout_counter:integer=0;
+    timeout_counter:cardinal=0;
     state_current:OMX_STATETYPE;
 
 begin
-camerawindow.println('Waiting for '+inttohex(integer(handle),8));
+camerawindow.println('Waiting for '+inttohex(cardinal(handle),8));
 isValid := OMX_FALSE;
-while (timeout_counter < 5000) or (isValid=OMX_FALSE) do
+while (timeout_counter < 5000) and (isValid=OMX_FALSE) do
   begin
   timeout_counter:=0;
   OMX_GetState(handle, @state_current);
-  if (state_current <> state_tobe) then begin threadsleep(100); inc(timeout_counter); end else IsValid:=OMX_TRUE;
+  if (state_current <> state_tobe) then begin threadsleep(1); inc(timeout_counter); end else IsValid:=OMX_TRUE;
   end;
 result:=IsValid;
 end;
@@ -276,7 +279,7 @@ begin
 
 // Loading component
 
-print_log('Load ' +COMPONENT_CAMERA);
+//print_log('Load ' +COMPONENT_CAMERA);
 err := OMX_GetHandle(@(mContext.pCamera), COMPONENT_CAMERA, @mContext, pCallbackOMX);
 if (err <> OMX_ErrorNone ) then
   begin
@@ -284,8 +287,9 @@ if (err <> OMX_ErrorNone ) then
   terminate();
   //exit(-1);
   end;
+//mcontext.pcamera:=pointer(cardinal(mcontext.pcamera) and $3FFFFFFF);
 
-print_log('Handler address :'+inttohex(integer(mContext.pCamera),8));
+print_log('Handler address: camera '+inttohex(cardinal(mContext.pCamera),8));
 
 print_log('Load ' +COMPONENT_RENDER);
 err := OMX_GetHandle(@(mContext.pRender), COMPONENT_RENDER, @mContext, pCallbackOMX);
@@ -295,8 +299,8 @@ if (err <> OMX_ErrorNone ) then
   terminate();
   //exit(-1);
   end;
-
-print_log('Handler address :'+inttohex(integer(mContext.pRender),8));
+//mcontext.prender:=pointer(cardinal(mcontext.prender) and $3FFFFFFF);
+print_log('Handler address: renderer '+inttohex(cardinal(mContext.pRender),8));
 end;
 
 
@@ -463,12 +467,12 @@ if err<>OMX_ErrorNone then
 
 // Wait up for camera being ready.
 
-while (mContext.isCameraReady=OMX_FALSE) do
-  begin
-  print_log('Waiting until camera device is ready');
-  threadsleep(100);
-  end;
-
+print_log('Waiting until camera device is ready');
+//while (mContext.isCameraReady=OMX_FALSE) do
+//  begin
+//
+//  end;
+sleep(2000);
 print_log('Camera is ready');
 end;
 
@@ -478,7 +482,7 @@ procedure componentPrepare;
 
 var err:OMX_ERRORTYPE;
     portDef:OMX_PARAM_PORTDEFINITIONTYPE;
-    i:integer;
+    i:cardinal;
 
 begin
 
@@ -519,7 +523,7 @@ portDef.nVersion.nStep := OMX_VERSION_STEP;
 portDef.nPortIndex := 90;
 
 OMX_GetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
-print_log('Size of predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
+print_log('Size of render predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
 
 mContext.nBufferPoolSize 	:= portDef.nBufferCountActual;
 mContext.nBufferPoolIndex 	:= 0;
@@ -549,7 +553,7 @@ portDef.nVersion.nStep := OMX_VERSION_STEP;
 portDef.nPortIndex := 71;
 
 OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-print_log('Size of predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
+print_log('Size of camera predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
 OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, @mContext, portDef.nBufferSize);
 
   if err<>OMX_ErrorNone then
@@ -560,10 +564,10 @@ OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, @mContext, 
     end;
 
 mContext.pSrcY 	:= mContext.pBufferCameraOut^.pBuffer;
-mContext.pSrcU	:= pointer(integer(mContext.pSrcY) + mContext.nSizeY);
-mContext.pSrcV	:= pointer(integer(mContext.pSrcU) + mContext.nSizeU);
-print_log(inttohex(integer(mContext.pSrcY),8)+' '+inttohex(integer(mContext.pSrcU),8)+' '+inttohex(integer(mContext.pSrcV),8));
-
+mContext.pSrcU	:= pointer(cardinal(mContext.pSrcY) + mContext.nSizeY);
+mContext.pSrcV	:= pointer(cardinal(mContext.pSrcU) + mContext.nSizeU);
+print_log(inttohex(cardinal(mContext.pSrcY),8)+' '+inttohex(cardinal(mContext.pSrcU),8)+' '+inttohex(cardinal(mContext.pSrcV),8));
+for i:=0 to 16 do removeramlimits(cardinal(mContext.pSrcY)+i*4096);
 // Wait up for component being idle.
 
 if wait_for_state_change(OMX_StateIdle, mContext.pRender)=OMX_FALSE then
@@ -599,13 +603,21 @@ var err:OMX_ERRORTYPE;
     py:POMX_U8=nil;
     pu:POMX_U8=nil;
     pv:POMX_U8=nil;
+    py2:POMX_U8=nil;
+    pu2:POMX_U8=nil;
+    pv2:POMX_U8=nil;
     nOffsetU, nOffsetV, nFrameMax, nFrames:cardinal;
     PBuffer: POMX_BUFFERHEADERTYPE;
-
+    i:integer;
+    qqq:int64;
 
 begin
 //* Initialize application variables */
-
+//print_log('Removing artificial limits');
+//for i:=0 to 200000 do removeramlimits($c00000+4096*i);
+//print_log('Testing artificial limits');
+//poke($C1000000,255);
+//if peek($C1000000)=255 then print_log('limits removed');
 FillChar (mContext, SizeOf(mContext), 0);
 mContext.nWidth 	:= 640;
 mContext.nHeight 	:= 480;
@@ -697,22 +709,35 @@ while(nFrames < nFrameMax) do
   begin
   if (mContext.isFilled) then
     begin
+    qqq:=gettime;
     pBuffer := mContext.pBufferPool[mContext.nBufferPoolIndex];
+
     if(pBuffer^.nFilledLen = 0) then
       begin
       pY := pBuffer^.pBuffer;
-      pU := pointer(integer(pY) + nOffsetU);
-      pV := pointer(integer(pY) + nOffsetV);
+      pU := pointer(cardinal(pY) + nOffsetU);
+      pV := pointer(cardinal(pY) + nOffsetV);
       end;
+    py:=pointer(cardinal(py));// and $3FFFFFFF);
+    pu:=pointer(cardinal(pu));// and $3FFFFFFF);
+    pv:=pointer(cardinal(pv));//; and $3FFFFFFF);
+    py2:=pointer(cardinal(mContext.pSrcY));//; and $3FFFFFFF);
+    pu2:=pointer(cardinal(mContext.pSrcU));// and $3FFFFFFF);
+    pv2:=pointer(cardinal(mContext.pSrcV));// and $3FFFFFFF);
 
-    move(pY^, mContext.pSrcY^, mContext.nSizeY);	pY := pointer(integer(py)+mContext.nSizeY);
-    move(pU^, mContext.pSrcU^, mContext.nSizeU);	pU := pointer(integer(pu)+mContext.nSizeU);
-    move(pV^, mContext.pSrcV^, mContext.nSizeV);	pV := pointer(integer(pv)+mContext.nSizeV);
+  //    print_log('nsizey is '+inttostr(mcontext.nsizey));
+
+    fastmove(integer(pY2), integer(py), mContext.nSizeY);	pY := pointer(cardinal(py)+mContext.nSizeY);
+    fastmove(integer(pU2), integer(pu), mContext.nSizeU);	pU := pointer(cardinal(pu)+mContext.nSizeU);
+    fastmove(integer(pV2), integer(pv), mContext.nSizeV);	pV := pointer(cardinal(pv)+mContext.nSizeV);
     pBuffer^.nFilledLen += mContext.pBufferCameraOut^.nFilledLen;
+
+    qqq:=gettime-qqq;
+    print_log('time is '+inttostr(qqq));
 
     if (mContext.pBufferCameraOut^.nFlags and OMX_BUFFERFLAG_ENDOFFRAME)<>0 then
       begin
-      print_log('BUFFER '+inttohex(integer(pbuffer),8)+' filled');
+      print_log('BUFFER '+inttohex(cardinal(pbuffer),8)+' filled');
       OMX_EmptyThisBuffer(mContext.pRender, pBuffer);
       mContext.nBufferPoolIndex+=1;
       if(mContext.nBufferPoolIndex = mContext.nBufferPoolSize) then mContext.nBufferPoolIndex := 0;
@@ -747,6 +772,7 @@ var
    camerastructure:OMX_PARAM_PORTDEFINITIONTYPE;
 
 begin
+
   bc:=@bc1;
   BCMHostInit;
   height := 600;
