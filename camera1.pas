@@ -93,6 +93,8 @@ procedure TCameraThread.execute;
 label p999;
 
 begin
+ThreadSetpriority(ThreadGetCurrent,6);
+sleep(1);
   if camerawindow=nil then
     begin
     camerawindow:=TWindow.create(480,3200,'Camera log');
@@ -101,7 +103,7 @@ begin
     camerawindow.resizable:=true;
     camerawindow.cls(147);
     camerawindow.tc:=154;
-    camerawindow.move(1200,0,480,1150,0,0);
+    camerawindow.move(1200,64,480,1100,0,0);
     cmw:=camerawindow;
     end
   else goto p999;
@@ -387,7 +389,7 @@ formatVideo^.nFrameWidth	:= mContext.nWidth;
 formatVideo^.nFrameHeight	:= mContext.nHeight;
 formatVideo^.xFramerate		:= mContext.nFramerate shl 16;   	// Fixed point. 1
 formatVideo^.nStride		:= formatVideo^.nFrameWidth;		// Stride 0 -> Raise segment fault.
-
+formatVideo^.nSliceHeight:=768;
 err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
 if err<>OMX_ErrorNone then
   begin
@@ -619,8 +621,8 @@ begin
 //poke($C1000000,255);
 //if peek($C1000000)=255 then print_log('limits removed');
 FillChar (mContext, SizeOf(mContext), 0);
-mContext.nWidth 	:= 640;
-mContext.nHeight 	:= 480;
+mContext.nWidth 	:= 1024;
+mContext.nHeight 	:= 768;
 mContext.nFramerate	:= 25;
 
 // RPI initialize.
@@ -709,7 +711,7 @@ while(nFrames < nFrameMax) do
   begin
   if (mContext.isFilled) then
     begin
-    qqq:=gettime;
+
     pBuffer := mContext.pBufferPool[mContext.nBufferPoolIndex];
 
     if(pBuffer^.nFilledLen = 0) then
@@ -732,8 +734,6 @@ while(nFrames < nFrameMax) do
     fastmove(integer(pV2), integer(pv), mContext.nSizeV);	pV := pointer(cardinal(pv)+mContext.nSizeV);
     pBuffer^.nFilledLen += mContext.pBufferCameraOut^.nFilledLen;
 
-    qqq:=gettime-qqq;
-    print_log('time is '+inttostr(qqq));
 
     if (mContext.pBufferCameraOut^.nFlags and OMX_BUFFERFLAG_ENDOFFRAME)<>0 then
       begin
@@ -745,8 +745,10 @@ while(nFrames < nFrameMax) do
       end;
 
     mContext.isFilled := OMX_FALSE;
+    qqq:=gettime;
     OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
-
+    qqq:=gettime-qqq;
+    print_log('time is '+inttostr(qqq));
     end;
   threadsleep(1);
   end;
