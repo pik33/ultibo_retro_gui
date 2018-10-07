@@ -1,26 +1,13 @@
 unit Camera1;
 
-interface
+//   Based on camera_tunnel_non.c by SonienTaegi
+//   Copyright: GPLv2
 
-{$mode delphi}{$H+}
-//{$define use_tftp}    // if PI not connected to LAN and set for DHCP then remove this
+interface
 
 uses
   classes,sysutils,uIL_Client, uOMX, VC4, threads,
-  retromalina, mwindows,blitter;
-
-
-
-(* based on hjimbens camera example
-   https://www.raspberrypi.org/forums/viewtopic.php?t=44852
-
-   pjde 2018 *)
-
-const
-  kRendererInputPort                       = 90;
-  kClockOutputPort0                        = 80;
-  kCameraCapturePort                       = 71;  //71
-  kCameraClockPort                         = 73;
+  retromalina, mwindows, blitter;
 
 type TCameraThread=class (TThread)
 
@@ -39,45 +26,36 @@ const   COMPONENT_RENDER='OMX.broadcom.video_render';
 type PContext=^context;
 
 
-  context=record
-  pcamera:OMX_HANDLETYPE;
-  prender:OMX_HANDLETYPE;
-  iscameraready:OMX_BOOL;
-  nwidth,nheight,nframerate:cardinal;
-  pBufferCameraOut:^OMX_BUFFERHEADERTYPE;
-  pSrcY,pSrcU,pSrcV:^OMX_U8;
-  nSizeY, nSizeU, nSizeV:cardinal;
-  pBufferPool:array[0..15] of ^OMX_BUFFERHEADERTYPE;  //	OMX_BUFFERHEADERTYPE**
-  nBufferPoolSize,nBufferPoolIndex:cardinal;
-  isFilled:OMX_BOOL;
-  end;
+    context=record
+            pcamera:OMX_HANDLETYPE;
+            prender:OMX_HANDLETYPE;
+            iscameraready:OMX_BOOL;
+            nwidth,nheight,nframerate:cardinal;
+            pBufferCameraOut:^OMX_BUFFERHEADERTYPE;
+            pSrcY,pSrcU,pSrcV:^OMX_U8;
+            nSizeY, nSizeU, nSizeV:cardinal;
+            pBufferPool:array[0..15] of ^OMX_BUFFERHEADERTYPE;  //	OMX_BUFFERHEADERTYPE**
+            nBufferPoolSize,nBufferPoolIndex:cardinal;
+            isFilled:OMX_BOOL;
+            end;
 
-
-
-
-procedure camera_tunnel_not;
 
 var camerathread:TCameraThread;
     cmw:pointer=nil;
     camerawindow:TWindow=nil;
-
     mContext:context;
 
-    bc: PILCLIENT_BUFFER_CALLBACK_T;
+
+procedure camera;
 
 implementation
+
+var camerabufferfilled:boolean;
 
 procedure print_log(s:string);
 
 begin
 camerawindow.println(s);
-end;
-
-
-procedure bc1(userdata : pointer; comp : PCOMPONENT_T); cdecl;
-
-begin
-  camerawindow.println('Callback called');
 end;
 
 constructor TCameraThread.create(CreateSuspended : boolean);
@@ -106,7 +84,7 @@ sleep(1);
     cmw:=camerawindow;
     end
   else goto p999;
-  camera_tunnel_not;
+  camera;
   repeat sleep(100) until camerawindow.needclose;
   camerawindow.destroy;
   camerawindow:=nil;
@@ -115,78 +93,42 @@ sleep(1);
 end;
 
 
-//  /----------------------------------------------------------------------------------------------------------
-//   ============================================================================
-//   Name        : camera_tunnel_non.c
-//   Author      : SonienTaegi ( https://github.com/SonienTaegi/rpi-omx-tutorial )
-//   Version     :
-//   Copyright   : GPLv2
-//   Description : This is tutorial of OpenMAX to play currently captured video frames.
-//                 Without tunneling, client handles any events of components and
-//                 copy camera buffer to renderer buffer if it needs.
-//                 Finally client requests empty buffer to renderer so renderer shows
-//                 the captured frame on user screen.
+//------------------------------------------------------------------------------
 //
-//                 Without propriety communication, it costs large amount of CPU works.
-//                 So it is slow and not so efficient. But this technique may need when
-//                 modulate current captured buffer directly.
-//   ============================================================================
-//   */
+// You need to define these 3 callbacks to use OMX
+//
+//------------------------------------------------------------------------------
 
-// Event Handler : OMX Event */
 
-// OMX_IN ???
+// Callback: OMX Event occured
 
-function onOMXevent (
-		hComponent: OMX_HANDLETYPE;
-		pAppData:OMX_PTR;
-		eEvent: OMX_EVENTTYPE;
-		nData1: OMX_U32;
-		nData2: OMX_U32;
-		pEventData: OMX_PTR): OMX_ERRORTYPE; cdecl;
+function onOMXevent(hComponent: OMX_HANDLETYPE;
+	    	      pAppData:OMX_PTR;
+		        eEvent: OMX_EVENTTYPE;
+		          nData1: OMX_U32;
+		            nData2: OMX_U32;
+		              pEventData: OMX_PTR): OMX_ERRORTYPE; cdecl;
 
 begin
-
-  print_log('Callback called '+inttostr(ndata1)+' '+inttostr(ndata2)) ;// hComponent, eEvent, nData1, nData2);
-
-  case eEvent of
-  OMX_EventParamOrConfigChanged :
-                begin
-                print_log('Param or config changed ');
-		if(nData2 = OMX_IndexParamCameraDeviceNumber) then
-                        begin
-			Pcontext(pAppData)^.isCameraReady := OMX_TRUE;
-			camerawindow.println('Camera device is ready.');
-                        end;
-                end;
-  end;
-
 result:= OMX_ErrorNone;
 end;
 
 
-//* Callback : Camera-out buffer is filled */
+// Callback: Camera buffer filled
 
-function onFillCameraOut (
-		hComponent:OMX_HANDLETYPE;
-		pAppData: OMX_PTR;
-		pBuffer: POMX_BUFFERHEADERTYPE): OMX_ERRORTYPE; cdecl;
+function onFillCameraOut(hComponent:OMX_HANDLETYPE; pAppData: OMX_PTR;pBuffer:POMX_BUFFERHEADERTYPE): OMX_ERRORTYPE; cdecl;
 
 begin
-	mContext.isFilled := OMX_TRUE;
-	result:=OMX_ErrorNone;
+camerabufferfilled:=true;
+result:=OMX_ErrorNone;
 end;
 
 
-//* Callback : Render-in buffer is emptied */
+// Callback: Render buffer empty
 
-function onEmptyRenderIn(
-		hComponent: OMX_HANDLETYPE;
-		pAppData:  OMX_PTR;
-	        PBuffer: POMX_BUFFERHEADERTYPE):OMX_ERRORTYPE ; cdecl;
+function onEmptyRenderIn(hComponent:OMX_HANDLETYPE; pAppData:OMX_PTR; PBuffer:POMX_BUFFERHEADERTYPE): OMX_ERRORTYPE; cdecl;
 
 begin
- // camerawindow.println('buffer '+ inttohex(cardinal(pbuffer),8)+' emptied');
   result:= OMX_ErrorNone;
 end;
 
@@ -256,8 +198,8 @@ if(isState(mContext.pRender, OMX_StateIdle)) then
   OMX_SendCommand(mContext.pRender, OMX_CommandStateSet, OMX_StateLoaded, nil);
   bWaitForRender := OMX_TRUE;
   end;
-if(bWaitForCamera=OMX_TRUE) then wait_for_state_change(OMX_StateLoaded, mContext.pCamera);
-if(bWaitForRender=OMX_TRUE) then wait_for_state_change(OMX_StateLoaded, mContext.pRender);
+//if(bWaitForCamera=OMX_TRUE) then wait_for_state_change(OMX_StateLoaded, mContext.pCamera);
+//if(bWaitForRender=OMX_TRUE) then wait_for_state_change(OMX_StateLoaded, mContext.pRender);
 
 // Loaded -> Free
 
@@ -266,215 +208,8 @@ if(isState(mContext.pRender, OMX_StateLoaded))=OMX_TRUE then OMX_FreeHandle(mCon
 
 OMX_Deinit();
 
-camerawindow.println('Press enter to terminate.');
-while keypressed do readkey;
-repeat until keypressed;
-end;
+print_log('Terminated. You can now close the window');
 
-
-procedure componentLoad(pCallbackOMX:POMX_CALLBACKTYPE);
-
-var err:OMX_ERRORTYPE;
-
-begin
-
-// Loading component
-
-//print_log('Load ' +COMPONENT_CAMERA);
-err := OMX_GetHandle(@(mContext.pCamera), COMPONENT_CAMERA, @mContext, pCallbackOMX);
-if (err <> OMX_ErrorNone ) then
-  begin
-  print_log('error loading camera'+inttostr(err));
-  terminate();
-  //exit(-1);
-  end;
-//mcontext.pcamera:=pointer(cardinal(mcontext.pcamera) and $3FFFFFFF);
-
-print_log('Handler address: camera '+inttohex(cardinal(mContext.pCamera),8));
-
-print_log('Load ' +COMPONENT_RENDER);
-err := OMX_GetHandle(@(mContext.pRender), COMPONENT_RENDER, @mContext, pCallbackOMX);
-if (err <> OMX_ErrorNone ) then
-  begin
-  print_log('error loading renderer'+inttostr(err));
-  terminate();
-  //exit(-1);
-  end;
-//mcontext.prender:=pointer(cardinal(mcontext.prender) and $3FFFFFFF);
-print_log('Handler address: renderer '+inttohex(cardinal(mContext.pRender),8));
-end;
-
-
-procedure componentConfigure;
-
-var err: OMX_ERRORTYPE;
-    portDef: OMX_PARAM_PORTDEFINITIONTYPE;
-    formatVideo:POMX_VIDEO_PORTDEFINITIONTYPE;
-    configCameraCallback:OMX_CONFIG_REQUESTCALLBACKTYPE;
-    deviceNumber:OMX_PARAM_U32TYPE;
-    displayRegion:OMX_CONFIG_DISPLAYREGIONTYPE;
-
-begin
-
-// Disable any unused ports
-
-OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 70, nil);
-OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 72, nil);
-OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 73, nil);
-
-// Configure OMX_IndexParamCameraDeviceNumber callback enable to ensure whether camera is initialized properly.
-
-print_log('Configure DeviceNumber callback enable.');
-FillChar (configCameraCallback, SizeOf(configCameraCallback), 0);
-configCameraCallback.nSize := sizeof(configCameraCallback);
-configCameraCallback.nVersion.nVersion := OMX_VERSION;
-configCameraCallback.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-configCameraCallback.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-configCameraCallback.nVersion.nRevision := OMX_VERSION_REVISION;
-configCameraCallback.nVersion.nStep := OMX_VERSION_STEP;
-
-configCameraCallback.nPortIndex	:= OMX_ALL;	// Must Be OMX_ALL
-configCameraCallback.nIndex 	:= OMX_IndexParamCameraDeviceNumber;
-configCameraCallback.bEnable 	:= OMX_TRUE;
-
-err := OMX_SetConfig(mContext.pCamera, OMX_IndexConfigRequestCallback, @configCameraCallback);
-if err<> OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'camera set config FAIL');
-  terminate();
-//exit(-1);
-  end;
-
-// OMX CameraDeviceNumber set -> will trigger Camera Ready callback
-
-print_log('Set CameraDeviceNumber parameter.');
-FillChar (deviceNumber, SizeOf(deviceNumber), 0);
-deviceNumber.nSize := sizeof(deviceNumber);
-deviceNumber.nVersion.nVersion := OMX_VERSION;
-deviceNumber.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-deviceNumber.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-deviceNumber.nVersion.nRevision := OMX_VERSION_REVISION;
-deviceNumber.nVersion.nStep := OMX_VERSION_STEP;
-deviceNumber.nPortIndex := OMX_ALL;
-deviceNumber.nU32 := 0;	// Mostly zero
-err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamCameraDeviceNumber, @deviceNumber);
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'camera set number FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-// Set video format of #71 port.
-
-print_log('Set video format of the camera : Using #71.');
-FillChar (portDef, SizeOf(portDef), 0);
-portDef.nSize := sizeof(portDef);
-portDef.nVersion.nVersion := OMX_VERSION;
-portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-portDef.nVersion.nRevision := OMX_VERSION_REVISION;
-portDef.nVersion.nStep := OMX_VERSION_STEP;
-portDef.nPortIndex := 71;
-
-print_log('Get non-initialized definition of #71.');
-OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-
-print_log('Set up parameters of video format of #71.');
-
-formatVideo := @portDef.format.video;
-formatVideo^.eColorFormat 	:= OMX_COLOR_FormatYUV420PackedPlanar;
-formatVideo^.nFrameWidth	:= mContext.nWidth;
-formatVideo^.nFrameHeight	:= mContext.nHeight;
-formatVideo^.xFramerate		:= mContext.nFramerate shl 16;   	// Fixed point. 1
-formatVideo^.nStride		:= formatVideo^.nFrameWidth;		// Stride 0 -> Raise segment fault.
-formatVideo^.nSliceHeight:=768;
-err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'camera set format FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-formatVideo := @portDef.format.video;
-mContext.nSizeY := formatVideo^.nFrameWidth * formatVideo^.nSliceHeight;
-mContext.nSizeU	:= mContext.nSizeY div 4;
-mContext.nSizeV	:= mContext.nSizeY div 4;
-print_log(inttostr(mContext.nSizeY)+' '+inttostr(mContext.nSizeU)+' '+inttostr(mContext.nSizeV));
-
-// Set video format of #90 port.
-
-print_log('Set video format of the render : Using #90.');
-
-FillChar (portDef, SizeOf(portDef), 0);
-portDef.nSize := sizeof(portDef);
-portDef.nVersion.nVersion := OMX_VERSION;
-portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-portDef.nVersion.nRevision := OMX_VERSION_REVISION;
-portDef.nVersion.nStep := OMX_VERSION_STEP;
-portDef.nPortIndex := 90;
-
-print_log('Get default definition of #90.');
-OMX_GetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
-
-print_log('Set up parameters of video format of #90.');
-
-formatVideo := @portDef.format.video;
-formatVideo^.eColorFormat 		:= OMX_COLOR_FormatYUV420PackedPlanar;
-formatVideo^.eCompressionFormat	        := OMX_VIDEO_CodingUnused;
-formatVideo^.nFrameWidth		:= mContext.nWidth;
-formatVideo^.nFrameHeight		:= mContext.nHeight;
-formatVideo^.nStride			:= mContext.nWidth;
-formatVideo^.nSliceHeight		:= mContext.nHeight;
-formatVideo^.xFramerate			:= mContext.nFramerate shl 16;
-
-err := OMX_SetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'renderer set format FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-// Configure rendering region
-
-FillChar (displayRegion, SizeOf(displayRegion), 0);
-displayRegion.nSize := sizeof(displayRegion);
-displayRegion.nVersion.nVersion := OMX_VERSION;
-displayRegion.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-displayRegion.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-displayRegion.nVersion.nRevision := OMX_VERSION_REVISION;
-displayRegion.nVersion.nStep := OMX_VERSION_STEP;
-
-displayRegion.nPortIndex := 90;
-displayRegion.dest_rect.width 	:= mContext.nWidth;
-displayRegion.dest_rect.height 	:= mContext.nHeight;
-displayRegion.set_ := OMX_DISPLAY_SET_NUM or OMX_DISPLAY_SET_FULLSCREEN or OMX_DISPLAY_SET_MODE or OMX_DISPLAY_SET_DEST_RECT;
-displayRegion.mode := OMX_DISPLAY_MODE_FILL;
-displayRegion.fullscreen := OMX_FALSE;
-displayRegion.num := 0;
-
-err := OMX_SetConfig(mContext.pRender, OMX_IndexConfigDisplayRegion, @displayRegion);
-
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'renderer set region FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-// Wait up for camera being ready.
-
-print_log('Waiting until camera device is ready');
-//while (mContext.isCameraReady=OMX_FALSE) do
-//  begin
-//
-//  end;
-sleep(2000);
-print_log('Camera is ready');
 end;
 
 
@@ -588,19 +323,19 @@ if wait_for_state_change(OMX_StateIdle, mContext.pCamera)=OMX_FALSE then
 print_log('STATE : IDLE OK!');
 end;
 
-// -- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-
-procedure camera_tunnel_not;
+procedure camera;
 
 label p999;
-
-///* Temporary variables */
 
 var err:OMX_ERRORTYPE;
     portdef:OMX_PARAM_PORTDEFINITIONTYPE;
     callbackOMX:OMX_CALLBACKTYPE;
     portCapturing:OMX_CONFIG_PORTBOOLEANTYPE;
+    deviceNumber:OMX_PARAM_U32TYPE;
+    formatVideo:POMX_VIDEO_PORTDEFINITIONTYPE;
+    displayRegion:OMX_CONFIG_DISPLAYREGIONTYPE;
+
     py:POMX_U8=nil;
     pu:POMX_U8=nil;
     pv:POMX_U8=nil;
@@ -613,34 +348,159 @@ var err:OMX_ERRORTYPE;
     qqq:int64;
 
 begin
-//* Initialize application variables */
+
+// Initialize variables
 
 FillChar (mContext, SizeOf(mContext), 0);
 mContext.nWidth 	:= 1024;
 mContext.nHeight 	:= 768;
 mContext.nFramerate	:= 25;
 
-// RPI initialize.
+// initialize VC4.
 bcmhostinit;
+print_log('VC4 initialized');
 
-// OMX initialize.
-print_log('Initialize OMX');
-err := OMX_Init;
-if err<> OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+' OMX init FAIL');
-  OMX_Deinit();
-  goto p999;
-  end;
+// initialize OMX
+OMX_Init;
+print_log('OMX initialized');
 
-// For loading component, Callback shall provide.
+// Set 3 callbacks needed by OMX components
 
-callbackOMX.EventHandler	:= onOMXevent;
-callbackOMX.EmptyBufferDone	:= onEmptyRenderIn;
-callbackOMX.FillBufferDone	:= onFillCameraOut;
+callbackOMX.EventHandler	:= @onOMXevent;
+callbackOMX.EmptyBufferDone	:= @onEmptyRenderIn;
+callbackOMX.FillBufferDone	:= @onFillCameraOut;
+print_log('Callbacks set');
 
-componentLoad(@callbackOMX);
-componentConfigure();
+// Load the camera and the renderer
+
+err := OMX_GetHandle(@(mContext.pCamera), COMPONENT_CAMERA, @mContext, @CallbackOMX);
+if (err <> OMX_ErrorNone ) then print_log('error loading camera'+inttostr(err));
+
+print_log('Camera loaded: '+inttohex(cardinal(mContext.pCamera),8));
+
+err := OMX_GetHandle(@(mContext.pRender), COMPONENT_RENDER, @mContext, @CallbackOMX);
+if (err <> OMX_ErrorNone ) then print_log('error loading renderer'+inttostr(err));
+
+print_log('Renderer loaded: '+inttohex(cardinal(mContext.pRender),8));
+
+// Disable unused camera ports - we will use #71
+
+OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 70, nil);
+OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 72, nil);
+OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 73, nil);
+print_log('Camera ports 70,72,73 disabled');
+
+// Set camera device number
+
+print_log('Setting CameraDeviceNumber parameter.');
+
+FillChar (deviceNumber, SizeOf(deviceNumber), 0);
+deviceNumber.nSize := sizeof(deviceNumber);
+deviceNumber.nVersion.nVersion := OMX_VERSION;
+deviceNumber.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+deviceNumber.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+deviceNumber.nVersion.nRevision := OMX_VERSION_REVISION;
+deviceNumber.nVersion.nStep := OMX_VERSION_STEP;
+deviceNumber.nPortIndex := OMX_ALL;
+deviceNumber.nU32 := 0;
+
+err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamCameraDeviceNumber, @deviceNumber);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'camera set number FAIL');
+print_log('Camera device number set to 0');
+
+// Set video format of #71 port and compute the camera buffer size.
+
+  //Step 1 - get default parameters
+
+FillChar (portDef, SizeOf(portDef), 0);
+portDef.nSize := sizeof(portDef);
+portDef.nVersion.nVersion := OMX_VERSION;
+portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+portDef.nVersion.nRevision := OMX_VERSION_REVISION;
+portDef.nVersion.nStep := OMX_VERSION_STEP;
+portDef.nPortIndex := 71;
+
+OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
+
+  //Step 2 - set needed video format
+
+formatVideo := @portDef.format.video;
+formatVideo^.eColorFormat 	:= OMX_COLOR_FormatYUV420PackedPlanar;
+formatVideo^.nFrameWidth	:= mContext.nWidth;
+formatVideo^.nFrameHeight	:= mContext.nHeight;
+formatVideo^.xFramerate		:= mContext.nFramerate shl 16;   	// Fixed point. 1
+formatVideo^.nStride		:= formatVideo^.nFrameWidth;		// Stride 0 -> Raise segment fault.
+formatVideo^.nSliceHeight       := mContext.nHeight;
+
+err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'camera set format FAIL');
+print_log('Camera video format set to '+inttostr(mContext.nWidth)+'x'+inttostr(mContext.nHeight));
+
+  //Step 3 - retrieve new parameters from the camera after setting and compute the buffers size
+
+OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
+formatVideo := @portDef.format.video;
+mContext.nSizeY := formatVideo^.nFrameWidth * formatVideo^.nSliceHeight;
+mContext.nSizeU	:= mContext.nSizeY div 4;
+mContext.nSizeV	:= mContext.nSizeY div 4;
+print_log('Camera buffer size Y: '+inttostr(mContext.nSizeY)+'; U: '+inttostr(mContext.nSizeU)+'; V: '+inttostr(mContext.nSizeV));
+
+// ------------- End of video format setting -----------------------------------
+
+// Set video format of renderer port #90
+
+FillChar (portDef, SizeOf(portDef), 0);
+portDef.nSize := sizeof(portDef);
+portDef.nVersion.nVersion := OMX_VERSION;
+portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+portDef.nVersion.nRevision := OMX_VERSION_REVISION;
+portDef.nVersion.nStep := OMX_VERSION_STEP;
+portDef.nPortIndex := 90;
+
+OMX_GetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
+
+formatVideo := @portDef.format.video;
+formatVideo^.eColorFormat 		:= OMX_COLOR_FormatYUV420PackedPlanar;
+formatVideo^.eCompressionFormat	        := OMX_VIDEO_CodingUnused;
+formatVideo^.nFrameWidth		:= mContext.nWidth;
+formatVideo^.nFrameHeight		:= mContext.nHeight;
+formatVideo^.nStride			:= mContext.nWidth;
+formatVideo^.nSliceHeight		:= mContext.nHeight;
+formatVideo^.xFramerate			:= mContext.nFramerate shl 16;
+
+err := OMX_SetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'renderer set format failed');
+print_log('Renderer video format set to '+inttostr(mContext.nWidth)+'x'+inttostr(mContext.nHeight));
+
+// Configure rendering region
+
+FillChar (displayRegion, SizeOf(displayRegion), 0);
+displayRegion.nSize := sizeof(displayRegion);
+displayRegion.nVersion.nVersion := OMX_VERSION;
+displayRegion.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+displayRegion.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+displayRegion.nVersion.nRevision := OMX_VERSION_REVISION;
+displayRegion.nVersion.nStep := OMX_VERSION_STEP;
+
+displayRegion.nPortIndex := 90;
+displayRegion.dest_rect.width 	:= mContext.nWidth;
+displayRegion.dest_rect.height 	:= mContext.nHeight;
+displayRegion.dest_rect.x_offset := 30;
+displayRegion.dest_rect.y_offset := 30;
+displayRegion.set_ := OMX_DISPLAY_SET_NUM or OMX_DISPLAY_SET_FULLSCREEN or OMX_DISPLAY_SET_MODE or OMX_DISPLAY_SET_DEST_RECT;
+displayRegion.mode := OMX_DISPLAY_MODE_FILL;
+displayRegion.fullscreen := OMX_FALSE;
+displayRegion.num := 0;
+
+err := OMX_SetConfig(mContext.pRender, OMX_IndexConfigDisplayRegion, @displayRegion);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'renderer set region FAIL');
+print_log('Renderer video format set to '+inttostr(displayRegion.dest_rect.width)+'x'+inttostr(displayRegion.dest_rect.height ));
+
+//------ End of renderer format setting ----------------------------------------
+
+
 componentPrepare();
 
 // Request state of component to be EXECUTE.
@@ -704,7 +564,7 @@ OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
 
 while(nFrames < nFrameMax) do
   begin
-  if (mContext.isFilled) then
+  if camerabufferfilled then
     begin
 
     pBuffer := mContext.pBufferPool[mContext.nBufferPoolIndex];
@@ -732,18 +592,14 @@ while(nFrames < nFrameMax) do
 
     if (mContext.pBufferCameraOut^.nFlags and OMX_BUFFERFLAG_ENDOFFRAME)<>0 then
       begin
-      print_log('BUFFER '+inttohex(cardinal(pbuffer),8)+' filled');
       OMX_EmptyThisBuffer(mContext.pRender, pBuffer);
       mContext.nBufferPoolIndex+=1;
       if(mContext.nBufferPoolIndex = mContext.nBufferPoolSize) then mContext.nBufferPoolIndex := 0;
       nFrames+=1;
       end;
 
-    mContext.isFilled := OMX_FALSE;
-    qqq:=gettime;
+    camerabufferfilled:=false;
     OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
-    qqq:=gettime-qqq;
-    print_log('time is '+inttostr(qqq));
     end;
   threadsleep(1);
   end;
