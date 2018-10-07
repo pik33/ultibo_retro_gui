@@ -43,6 +43,7 @@ type PContext=^context;
 var camerathread:TCameraThread;
     cmw:pointer=nil;
     camerawindow:TWindow=nil;
+    rendertestwindow:TWindow=nil;
     mContext:context;
 
 
@@ -84,10 +85,22 @@ sleep(1);
     cmw:=camerawindow;
     end
   else goto p999;
+  if rendertestwindow=nil then
+    begin
+    rendertestwindow:=TWindow.create(1024,768,'Camera render');
+    rendertestwindow.decoration.hscroll:=false;
+    rendertestwindow.decoration.vscroll:=false;
+    rendertestwindow.resizable:=true;
+    rendertestwindow.cls(0);
+    rendertestwindow.tc:=15;
+    rendertestwindow.move(800,400,1024,768,0,0);
+    end;
   camera;
   repeat sleep(100) until camerawindow.needclose;
   camerawindow.destroy;
   camerawindow:=nil;
+  rendertestwindow.destroy;
+  rendertestwindow:=nil;
   cmw:=nil;
   p999:
 end;
@@ -226,99 +239,17 @@ begin
 // The command will turn the component into waiting mode.
 // After allocating buffer to all enabled ports than the component will be IDLE.
 
-print_log('STATE : CAMERA - IDLE request');
-err := OMX_SendCommand(mContext.pCamera, OMX_CommandStateSet, OMX_StateIdle, nil);
 
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'camera idle request FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-print_log('STATE : RENDER - IDLE request');
-err := OMX_SendCommand(mContext.pRender, OMX_CommandStateSet, OMX_StateIdle, nil);
-
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+ 'renderer idle request FAIL');
-  terminate();
-  //exit(-1);
-  end;
-
-// Allocate buffers to render
-
-print_log('Allocate buffer to renderer #90 for input.');
-FillChar (portDef, SizeOf(portDef), 0);
-portDef.nSize := sizeof(portDef);
-portDef.nVersion.nVersion := OMX_VERSION;
-portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-portDef.nVersion.nRevision := OMX_VERSION_REVISION;
-portDef.nVersion.nStep := OMX_VERSION_STEP;
-portDef.nPortIndex := 90;
-
-OMX_GetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
-print_log('Size of render predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
-
-mContext.nBufferPoolSize 	:= portDef.nBufferCountActual;
-mContext.nBufferPoolIndex 	:= 0;
-//mContext.pBufferPool		:= getmem(sizeof(pointer) * mContext.nBufferPoolSize); // OMX_BUFFERHEADERTYPE* - pointer?
-
-for i:=0 to mContext.nBufferPoolSize-1 do
-  begin
-  mContext.pBufferPool[i] := nil;
-  err := OMX_AllocateBuffer(mContext.pRender, @(mContext.pBufferPool[i]), 90, @mContext, portDef.nBufferSize);
-  if err<>OMX_ErrorNone then
-    begin
-    print_log(inttostr(err)+ 'allocate render buffer FAIL');
-    terminate();
-    //exit(-1);
-    end;
-  end;
 
 // Allocate buffer to camera
 
-FillChar (portDef, SizeOf(portDef), 0);
-portDef.nSize := sizeof(portDef);
-portDef.nVersion.nVersion := OMX_VERSION;
-portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
-portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
-portDef.nVersion.nRevision := OMX_VERSION_REVISION;
-portDef.nVersion.nStep := OMX_VERSION_STEP;
-portDef.nPortIndex := 71;
 
-OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-print_log('Size of camera predefined buffer :'+inttostr(portDef.nBufferSize)+' '+inttostr(portDef.nBufferCountActual));
-OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, @mContext, portDef.nBufferSize);
 
-  if err<>OMX_ErrorNone then
-    begin
-    print_log(inttostr(err)+ 'allocate camera buffer FAIL');
-    terminate();
-    //exit(-1);
-    end;
 
-mContext.pSrcY 	:= mContext.pBufferCameraOut^.pBuffer;
-mContext.pSrcU	:= pointer(cardinal(mContext.pSrcY) + mContext.nSizeY);
-mContext.pSrcV	:= pointer(cardinal(mContext.pSrcU) + mContext.nSizeU);
-print_log(inttohex(cardinal(mContext.pSrcY),8)+' '+inttohex(cardinal(mContext.pSrcU),8)+' '+inttohex(cardinal(mContext.pSrcV),8));
-for i:=0 to 16 do removeramlimits(cardinal(mContext.pSrcY)+i*4096);
+//for i:=0 to 16 do removeramlimits(cardinal(mContext.pSrcY)+i*4096);
 // Wait up for component being idle.
 
-if wait_for_state_change(OMX_StateIdle, mContext.pRender)=OMX_FALSE then
-  begin
-  print_log('FAIL waiting for idle state');
-  terminate();
-//  exit(-1);
-  end;
 
-if wait_for_state_change(OMX_StateIdle, mContext.pCamera)=OMX_FALSE then
-  begin
-  print_log('FAIL waiting for idle state');
-  terminate();
-//  exit(-1);
-  end;
 
 print_log('STATE : IDLE OK!');
 end;
@@ -335,6 +266,7 @@ var err:OMX_ERRORTYPE;
     deviceNumber:OMX_PARAM_U32TYPE;
     formatVideo:POMX_VIDEO_PORTDEFINITIONTYPE;
     displayRegion:OMX_CONFIG_DISPLAYREGIONTYPE;
+    y,u,v,y2,u2,v2:cardinal;
 
     py:POMX_U8=nil;
     pu:POMX_U8=nil;
@@ -391,8 +323,6 @@ OMX_SendCommand(mContext.pCamera, OMX_CommandPortDisable, 73, nil);
 print_log('Camera ports 70,72,73 disabled');
 
 // Set camera device number
-
-print_log('Setting CameraDeviceNumber parameter.');
 
 FillChar (deviceNumber, SizeOf(deviceNumber), 0);
 deviceNumber.nSize := sizeof(deviceNumber);
@@ -485,8 +415,8 @@ displayRegion.nVersion.nRevision := OMX_VERSION_REVISION;
 displayRegion.nVersion.nStep := OMX_VERSION_STEP;
 
 displayRegion.nPortIndex := 90;
-displayRegion.dest_rect.width 	:= mContext.nWidth;
-displayRegion.dest_rect.height 	:= mContext.nHeight;
+displayRegion.dest_rect.width 	:= mContext.nWidth div 2;
+displayRegion.dest_rect.height 	:= mContext.nHeight div 2;
 displayRegion.dest_rect.x_offset := 30;
 displayRegion.dest_rect.y_offset := 30;
 displayRegion.set_ := OMX_DISPLAY_SET_NUM or OMX_DISPLAY_SET_FULLSCREEN or OMX_DISPLAY_SET_MODE or OMX_DISPLAY_SET_DEST_RECT;
@@ -496,48 +426,97 @@ displayRegion.num := 0;
 
 err := OMX_SetConfig(mContext.pRender, OMX_IndexConfigDisplayRegion, @displayRegion);
 if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'renderer set region FAIL');
-print_log('Renderer video format set to '+inttostr(displayRegion.dest_rect.width)+'x'+inttostr(displayRegion.dest_rect.height ));
+print_log('Renderer display region set to '+inttostr(displayRegion.dest_rect.width)+'x'+inttostr(displayRegion.dest_rect.height ));
 
 //------ End of renderer format setting ----------------------------------------
 
+//------ Change the components state from loaded to idle------------------------
 
-componentPrepare();
+err := OMX_SendCommand(mContext.pCamera, OMX_CommandStateSet, OMX_StateIdle, nil);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'camera idle request FAIL');
+print_log('Camera state set to idle');
 
-// Request state of component to be EXECUTE.
 
-print_log('STATE : CAMERA - EXECUTING request');
+err := OMX_SendCommand(mContext.pRender, OMX_CommandStateSet, OMX_StateIdle, nil);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'renderer idle request FAIL');
+print_log('Renderer state set to idle');
+
+//----- Allocate buffers to render
+
+FillChar (portDef, SizeOf(portDef), 0);
+portDef.nSize := sizeof(portDef);
+portDef.nVersion.nVersion := OMX_VERSION;
+portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+portDef.nVersion.nRevision := OMX_VERSION_REVISION;
+portDef.nVersion.nStep := OMX_VERSION_STEP;
+portDef.nPortIndex := 90;
+
+OMX_GetParameter(mContext.pRender, OMX_IndexParamPortDefinition, @portDef);
+
+mContext.nBufferPoolSize 	:= portDef.nBufferCountActual;
+mContext.nBufferPoolIndex 	:= 0;
+
+for i:=0 to mContext.nBufferPoolSize-1 do
+  begin
+  mContext.pBufferPool[i] := nil;
+  err := OMX_AllocateBuffer(mContext.pRender, @(mContext.pBufferPool[i]), 90, @mContext, portDef.nBufferSize);
+  if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'allocate render buffer FAIL');
+  end;
+
+print_log('Allocated '+inttostr(portDef.nBufferCountActual)+' render buffers size '+inttostr(portDef.nBufferSize));
+
+//----- Allocate buffers to camera
+
+FillChar (portDef, SizeOf(portDef), 0);
+portDef.nSize := sizeof(portDef);
+portDef.nVersion.nVersion := OMX_VERSION;
+portDef.nVersion.nVersionMajor := OMX_VERSION_MAJOR;
+portDef.nVersion.nVersionMinor := OMX_VERSION_MINOR;
+portDef.nVersion.nRevision := OMX_VERSION_REVISION;
+portDef.nVersion.nStep := OMX_VERSION_STEP;
+portDef.nPortIndex := 71;
+
+OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
+OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, @mContext, portDef.nBufferSize);
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'allocate camera buffer FAIL');
+print_log('Allocated '+inttostr(portDef.nBufferCountActual)+' camera buffers size '+inttostr(portDef.nBufferSize));
+
+  //--- set working variables
+
+mContext.pSrcY 	:= mContext.pBufferCameraOut^.pBuffer;
+mContext.pSrcU	:= pointer(cardinal(mContext.pSrcY) + mContext.nSizeY);
+mContext.pSrcV	:= pointer(cardinal(mContext.pSrcU) + mContext.nSizeU);
+
+print_log('Y buffer at '+inttohex(cardinal(mContext.pSrcY),8));
+
+//------- wait until components state is idle
+
+if wait_for_state_change(OMX_StateIdle, mContext.pRender)=OMX_FALSE then print_log('*** Failed waiting for renderer idle state')
+  else print_log('Renderer state is now idle');
+
+if wait_for_state_change(OMX_StateIdle, mContext.pCamera)=OMX_FALSE then print_log('*** Failed waiting for camera idle state')
+  else print_log('Camera state is now idle');
+
+//------ Change the components state from loaded to idle------------------------
+
 err := OMX_SendCommand(mContext.pCamera, OMX_CommandStateSet, OMX_StateExecuting, nil);
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+' Camera executing FAIL');
-  goto p999;
-  end;
+if err<>OMX_ErrorNone then print_log(inttostr(err)+' Camera executing FAIL');
 
-print_log('STATE : RENDER - EXECUTING request');
 err := OMX_SendCommand(mContext.pRender, OMX_CommandStateSet, OMX_StateExecuting, nil);
-if err<>OMX_ErrorNone then
-  begin
-  print_log(inttostr(err)+' Renderer executing FAIL');
-  goto p999;
-  end;
+if err<>OMX_ErrorNone then print_log(inttostr(err)+' Renderer executing FAIL');
 
-if wait_for_state_change(OMX_StateExecuting, mContext.pCamera)=OMX_FALSE then
-  begin
-  print_log(inttostr(err)+' Camera wait for executing FAIL');
-  goto p999;
-  end;
+if wait_for_state_change(OMX_StateExecuting, mContext.pRender)=OMX_FALSE then print_log('*** Failed waiting for renderer executing state')
+else print_log('Renderer state is now executing');
+if wait_for_state_change(OMX_StateExecuting, mContext.pCamera)=OMX_FALSE then print_log('*** Failed waiting for renderer executing state')
+else print_log('Camera state is now executing');
 
-if wait_for_state_change(OMX_StateExecuting, mContext.pRender)=OMX_FALSE then
-  begin
-  print_log(inttostr(err)+' Renderer wait for executing FAIL');
-  goto p999;
-  end;
 
-print_log('STATE : EXECUTING OK!');
 
-// Since #71 is capturing port, needs capture signal like other handy capture devices
+//----------- Start capturing at port 71 --------------------------------------
 
-print_log('Capture start.');
+while keypressed do readkey;
+print_log('Capture start. Press any key to stop');
 
 FillChar (portCapturing, SizeOf(portCapturing), 0);
 portCapturing.nSize := sizeof(portCapturing);
@@ -556,13 +535,24 @@ pU := nil;
 pV := nil;
 nOffsetU := mContext.nWidth * mContext.nHeight;
 nOffsetV := (nOffsetU * 5) div 4;
-nFrameMax:= mContext.nFramerate * 60;
+nFrameMax:= mContext.nFramerate * 600;
 nFrames	:= 0;
 
-print_log('Capture for '+inttostr(nFramemax)+' frames.');
+print_log('Capture will stop itself after '+inttostr(nFramemax div mContext.nFramerate)+' seconds');
+
+// ---- Fill initial camera buffer
+
 OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
 
-while(nFrames < nFrameMax) do
+// ---- Prepare addresses for fastmove
+
+y2:=cardinal(mContext.pSrcY);
+u2:=cardinal(mContext.pSrcU);
+v2:=cardinal(mContext.pSrcV);
+
+// ----- MAIN CAPTURE LOOP -----------------------------------------------------
+while keypressed do readkey;
+while(nFrames < nFrameMax) and (not keypressed) do
   begin
   if camerabufferfilled then
     begin
@@ -571,22 +561,18 @@ while(nFrames < nFrameMax) do
 
     if(pBuffer^.nFilledLen = 0) then
       begin
-      pY := pBuffer^.pBuffer;
-      pU := pointer(cardinal(pY) + nOffsetU);
-      pV := pointer(cardinal(pY) + nOffsetV);
+      y:= cardinal(pBuffer^.pBuffer);
+      u:=y+nOffsetU;
+      v:=y+nOffsetV;
       end;
-    py:=pointer(cardinal(py));// and $3FFFFFFF);
-    pu:=pointer(cardinal(pu));// and $3FFFFFFF);
-    pv:=pointer(cardinal(pv));//; and $3FFFFFFF);
-    py2:=pointer(cardinal(mContext.pSrcY));//; and $3FFFFFFF);
-    pu2:=pointer(cardinal(mContext.pSrcU));// and $3FFFFFFF);
-    pv2:=pointer(cardinal(mContext.pSrcV));// and $3FFFFFFF);
 
-  //    print_log('nsizey is '+inttostr(mcontext.nsizey));
+    fastmove(y2,y,mContext.nSizeY);	y += mContext.nSizeY;
+    fastmove(u2,u,mContext.nSizeU);	u += mContext.nSizeU;
+    fastmove(v2,v,mContext.nSizeV);	v += mContext.nSizeV;
 
-    fastmove(integer(pY2), integer(py), mContext.nSizeY);	pY := pointer(cardinal(py)+mContext.nSizeY);
-    fastmove(integer(pU2), integer(pu), mContext.nSizeU);	pU := pointer(cardinal(pu)+mContext.nSizeU);
-    fastmove(integer(pV2), integer(pv), mContext.nSizeV);	pV := pointer(cardinal(pv)+mContext.nSizeV);
+// retromachine blit test
+    blit8(y2,0,0,cardinal(rendertestwindow.canvas),0,0,1024,768,1024,1024);
+    rendertestwindow.outtextxyz(4,4,inttostr(nFrames),15,2,2);
     pBuffer^.nFilledLen += mContext.pBufferCameraOut^.nFilledLen;
 
 
