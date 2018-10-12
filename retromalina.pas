@@ -112,7 +112,7 @@ unit retromalina;
 interface
 
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
-     threads,GlobalConst,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;//, vc4, dispmanx;
+     threads,GlobalConst,globalconfig,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;//, vc4, dispmanx;
 
 const base=          $2BF00000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
@@ -443,14 +443,14 @@ procedure box2(x1,y1,x2,y2,color:integer);
 procedure box32(x,y,l,h,c:integer);
 procedure box322(x1,y1,x2,y2,color:integer);
 function gettime:int64;
-procedure poke(addr:integer;b:byte);
-procedure dpoke(addr:integer;w:word);
-procedure lpoke(addr:integer;c:cardinal);
-procedure slpoke(addr,i:integer);
-function peek(addr:integer):byte;
-function dpeek(addr:integer):word;
-function lpeek(addr:integer):cardinal;
-function slpeek(addr:integer):integer;
+procedure poke(addr:cardinal;b:byte);
+procedure dpoke(addr:cardinal;w:word);
+procedure lpoke(addr:cardinal;c:cardinal);
+procedure slpoke(addr:cardinal;i:integer);
+function peek(addr:cardinal):byte;
+function dpeek(addr:cardinal):word;
+function lpeek(addr:cardinal):cardinal;
+function slpeek(addr:cardinal):integer;
 procedure sethidecolor(c,bank,mask:cardinal);
 procedure fcircle(x0,y0,r,c:integer);
 procedure circle(x0,y0,r,c:integer);
@@ -472,6 +472,7 @@ function click:boolean;
 function dblclick:boolean;
 procedure waitvbl;
 procedure removeramlimits(addr:integer);
+procedure remapram(from,too,size:integer);
 function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 procedure scrconvertnative(src,screen:pointer);
@@ -879,6 +880,7 @@ mousewheel:=128;
 
 
 background:=TWindow.create(xres,yres,'');
+background32:=TWindow32.create(xres,yres,'');
 panel:=TPanel.create;
 sleep(100);
 
@@ -1582,10 +1584,31 @@ begin
 Entry:=PageTableGetEntry(addr);
 Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
-Entry:=PageTableGetEntry(addr+4096);
+Entry:=PageTableGetEntry(addr+MEMORY_PAGE_SIZE);
 Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
 end;
+
+procedure remapram(from,too,size:integer);
+
+var Entry:TPageTableEntry;
+    amount:integer;
+    i:integer;
+
+begin
+amount:=(size div MEMORY_PAGE_SIZE);
+for i:= 0 to amount do
+  begin
+  Entry:=PageTableGetEntry(from+MEMORY_PAGE_SIZE*i);
+  Entry.VirtualAddress:=too+MEMORY_PAGE_SIZE*i;
+  Entry.Flags:=$3b2;
+  PageTableSetEntry(Entry);
+  end;
+
+CleanDataCacheRange(from, size);
+InvalidateDataCacheRange(too, size);
+end;
+
 
 
 function gettime:int64; inline;
@@ -1614,49 +1637,49 @@ end;
 //   rev. 20161124
 // ----------------------------------------------------------------------
 
-procedure poke(addr:integer;b:byte); inline;
+procedure poke(addr:cardinal;b:byte); inline;
 
 begin
 PByte(addr)^:=b;
 end;
 
-procedure dpoke(addr:integer;w:word); inline;
+procedure dpoke(addr:cardinal;w:word); inline;
 
 begin
 PWord(addr and $FFFFFFFE)^:=w;
 end;
 
-procedure lpoke(addr:integer;c:cardinal); inline;
+procedure lpoke(addr:cardinal;c:cardinal); inline;
 
 begin
 PCardinal(addr and $FFFFFFFC)^:=c;
 end;
 
-procedure slpoke(addr,i:integer); inline;
+procedure slpoke(addr:cardinal;i:integer); inline;
 
 begin
 PInteger(addr and $FFFFFFFC)^:=i;
 end;
 
-function peek(addr:integer):byte; inline;
+function peek(addr:cardinal):byte; inline;
 
 begin
 peek:=Pbyte(addr)^;
 end;
 
-function dpeek(addr:integer):word; inline;
+function dpeek(addr:cardinal):word; inline;
 
 begin
 dpeek:=PWord(addr and $FFFFFFFE)^;
 end;
 
-function lpeek(addr:integer):cardinal; inline;
+function lpeek(addr:cardinal):cardinal; inline;
 
 begin
 lpeek:=PCardinal(addr and $FFFFFFFC)^;
 end;
 
-function slpeek(addr:integer):integer;  inline;
+function slpeek(addr:cardinal):integer;  inline;
 
 begin
 slpeek:=PInteger(addr and $FFFFFFFC)^;
