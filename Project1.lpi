@@ -111,9 +111,8 @@
         <IsPartOfProject Value="True"/>
       </Unit18>
       <Unit19>
-        <Filename Value="camera1.pas"/>
+        <Filename Value="camera1.backup.20181013.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="Camera1"/>
       </Unit19>
     </Units>
   </ProjectOptions>

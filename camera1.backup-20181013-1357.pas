@@ -22,8 +22,6 @@ type TCameraThread=class (TThread)
 const 	COMPONENT_CAMERA='OMX.broadcom.camera';
 const   COMPONENT_RENDER='OMX.broadcom.video_render';
 
-const cxres=1280;
-      cyres=720;
 
 type PContext=^context;
 
@@ -46,9 +44,8 @@ var camerathread:TCameraThread;
     cmw:pointer=nil;
     camerawindow:TWindow=nil;
     rendertestwindow:TWindow=nil;
-    miniwindow:TWindow=nil;
     mContext:context;
-    at,at1,at2,t1,t2,t3,t4:int64;
+    t1,t2,t3,t4:int64;
 
 procedure camera;
 
@@ -79,7 +76,7 @@ sleep(1);
 setpallette(grayscalepallette,0);
   if camerawindow=nil then
     begin
-    camerawindow:=TWindow.create(480,1200,'Camera log');
+    camerawindow:=TWindow.create(480,800,'Camera log');
     camerawindow.decoration.hscroll:=true;
     camerawindow.decoration.vscroll:=true;
     camerawindow.resizable:=true;
@@ -91,31 +88,18 @@ setpallette(grayscalepallette,0);
   else goto p999;
   if rendertestwindow=nil then
     begin
-    rendertestwindow:=TWindow.create(cxres,cyres,'Camera render');
+    rendertestwindow:=TWindow.create(1280,720,'Camera render');
     rendertestwindow.decoration.hscroll:=false;
     rendertestwindow.decoration.vscroll:=false;
     rendertestwindow.resizable:=true;
     rendertestwindow.cls(0);
     rendertestwindow.tc:=15;
-    rendertestwindow.move(800,400,cxres,cyres,0,0);
-    end;
-  if miniwindow=nil then
-    begin
-    miniwindow:=TWindow.create(cxres div 4,cyres div 4,'Camera mini');
-    miniwindow.decoration.hscroll:=false;
-    miniwindow.decoration.vscroll:=false;
-    miniwindow.resizable:=true;
-    miniwindow.cls(0);
-    miniwindow.tc:=15;
-    miniwindow.move(100,100,cxres div 4,cyres div 4,0,0);
+    rendertestwindow.move(800,400,1280,720,0,0);
     end;
   camera;
-  setpallette(ataripallette,0);
   repeat sleep(100) until camerawindow.needclose;
   camerawindow.destroy;
   camerawindow:=nil;
-  miniwindow.destroy;
-  miniwindow:=nil;
   rendertestwindow.destroy;
   rendertestwindow:=nil;
   cmw:=nil;
@@ -244,6 +228,35 @@ print_log('Terminated. You can now close the window');
 end;
 
 
+procedure componentPrepare;
+
+
+var err:OMX_ERRORTYPE;
+    portDef:OMX_PARAM_PORTDEFINITIONTYPE;
+    i:cardinal;
+
+begin
+
+// Request state of components to be IDLE.
+// The command will turn the component into waiting mode.
+// After allocating buffer to all enabled ports than the component will be IDLE.
+
+
+
+// Allocate buffer to camera
+
+
+
+
+//for i:=0 to 16 do removeramlimits(cardinal(mContext.pSrcY)+i*4096);
+// Wait up for component being idle.
+
+
+
+print_log('STATE : IDLE OK!');
+end;
+
+
 procedure camera;
 
 label p999;
@@ -273,9 +286,9 @@ begin
 // Initialize variables
 
 FillChar (mContext, SizeOf(mContext), 0);
-mContext.nWidth 	:= cxres;
-mContext.nHeight 	:= cyres;
-mContext.nFramerate	:= 60;
+mContext.nWidth 	:= 1280;
+mContext.nHeight 	:= 720;
+mContext.nFramerate	:= 90;
 
 // initialize VC4.
 bcmhostinit;
@@ -344,21 +357,17 @@ OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
 
   //Step 2 - set needed video format
 
-
 formatVideo := @portDef.format.video;
 formatVideo^.eColorFormat 	:= OMX_COLOR_FormatYUV420PackedPlanar;
 formatVideo^.nFrameWidth	:= mContext.nWidth;
 formatVideo^.nFrameHeight	:= mContext.nHeight;
 formatVideo^.xFramerate		:= mContext.nFramerate shl 16;   	// Fixed point. 1
 formatVideo^.nStride		:= formatVideo^.nFrameWidth;		// Stride 0 -> Raise segment fault.
-//formatVideo^.nSliceHeight       := mContext.nHeight div 3;
 formatVideo^.nSliceHeight       := mContext.nHeight;
 
 err := OMX_SetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-if err<>OMX_ErrorNone then print_log(inttostr(formatVideo^.eColorFormat)+ ' camera set format FAIL')
-else print_log('Camera video format set to '+inttostr(formatVideo^.eColorFormat )+' '+inttostr(mContext.nWidth)+'x'+inttostr(mContext.nHeight));
-
-
+if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'camera set format FAIL');
+print_log('Camera video format set to '+inttostr(mContext.nWidth)+'x'+inttostr(mContext.nHeight));
 
   //Step 3 - retrieve new parameters from the camera after setting and compute the buffers size
 
@@ -367,7 +376,6 @@ formatVideo := @portDef.format.video;
 mContext.nSizeY := formatVideo^.nFrameWidth * formatVideo^.nSliceHeight;
 mContext.nSizeU	:= mContext.nSizeY div 4;
 mContext.nSizeV	:= mContext.nSizeY div 4;
-print_log('Camera slice height is ' + inttostr(formatVideo^.nSliceHeight));
 print_log('Camera buffer size Y: '+inttostr(mContext.nSizeY)+'; U: '+inttostr(mContext.nSizeU)+'; V: '+inttostr(mContext.nSizeV));
 
 // ------------- End of video format setting -----------------------------------
@@ -546,36 +554,50 @@ v2:=cardinal(mContext.pSrcV);
 
 // ----- MAIN CAPTURE LOOP -----------------------------------------------------
 while keypressed do readkey;
-at:=0; at1:=0; at2:=0;
 while(nFrames < nFrameMax) and (not keypressed) do
   begin
   if camerabufferfilled then
     begin
+    t1:=gettime;
+//    pBuffer := mContext.pBufferPool[mContext.nBufferPoolIndex];
+
+//    if(pBuffer^.nFilledLen = 0) then
+//      begin
+//      y:= cardinal(pBuffer^.pBuffer);
+//      u:=y+nOffsetU;
+//      v:=y+nOffsetV;
+//      end;
+
+//    fastmove(y2,y,mContext.nSizeY);	y += mContext.nSizeY;
+//    fastmove(u2,u,mContext.nSizeU);	u += mContext.nSizeU;
+//    fastmove(v2,v,mContext.nSizeV);	v += mContext.nSizeV;
 
 // retromachine blit test
 
-    if nframes>0 then t3:=gettime-t3 else t3:=0;
-    at+=t3;
-    t3:=gettime;   // frame time
-    nFrames+=1;
-    t1:=gettime;   // blit time
-    fastmove(y2,cardinal(rendertestwindow.canvas),cxres*cyres);
- //    scale4(y2,cardinal(miniwindow.canvas),cxres*cyres, cxres) ;
- //   blit8(y2,0,0,cardinal(rendertestwindow.canvas),0,0,cxres,cyres,cxres,cxres);
+    blit8(y2,0,0,cardinal(rendertestwindow.canvas),0,0,1280,720,1280,1280);
+    t1:=gettime-t1;
 
-    t1:=gettime-t1; at1+=t1;
+    rendertestwindow.outtextxyz(4,4,inttostr(t1),15,2,2);
+    rendertestwindow.outtextxyz(4,44,inttostr(t2),15,2,2);
+    rendertestwindow.outtextxyz(4,84,inttostr(nframes),15,2,2);
 
-    rendertestwindow.outtextxy(4,4,inttostr(at1 div nframes),255);
-    rendertestwindow.outtextxy(4,34,inttostr(at2 div nframes),255);
-    if nframes>1 then rendertestwindow.outtextxy(4,64,inttostr(at div (nframes-1)),255);
-    rendertestwindow.outtextxy(4,94,inttostr(nframes),255);
+//    pBuffer^.nFilledLen += mContext.pBufferCameraOut^.nFilledLen;
+
+
+//    if (mContext.pBufferCameraOut^.nFlags and OMX_BUFFERFLAG_ENDOFFRAME)<>0 then
+//      begin
+//      OMX_EmptyThisBuffer(mContext.pRender, pBuffer);
+//      mContext.nBufferPoolIndex+=1;
+//      if(mContext.nBufferPoolIndex = mContext.nBufferPoolSize) then mContext.nBufferPoolIndex := 0;
+//      nFrames+=1;
+//      end;
+
     camerabufferfilled:=false;
-    t2:=gettime; // omx fill buffer time
+    t2:=gettime;
     OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
-         scale4(cardinal(rendertestwindow.canvas),cardinal(miniwindow.canvas),cxres*cyres, cxres) ;
-    t2:=gettime-t2;  at2+=t2;
+    t2:=gettime-t2;
     end;
-  threadsleep(2);
+  threadsleep(1);
   end;
 
 portCapturing.bEnabled := OMX_FALSE;

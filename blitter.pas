@@ -9,12 +9,13 @@ uses
 
 procedure dma_blit(chn,from,x,y,too,x2,y2,len,lines,bpl1,bpl2:integer);
 procedure blit8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
+//procedure aligned_blit8(from,x,y,too,x2,y2,length,lines,bpl1,bpl2:integer);
 procedure fill(start,len,color:integer);
 procedure fill32(start,len,color:integer);
 procedure fastmove(from,too,len:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
 procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
-
+procedure scale4(from,too,length,bpl:integer);
 
 
 implementation
@@ -88,6 +89,94 @@ p101:             ldrb r6,[r0],#1
                   subs r2,#1
                   bgt p101
                   pop {r0-r7}
+                  end;
+p999:
+end;
+
+
+
+procedure scale4(from,too,length,bpl:integer);
+
+// --- rev 20181013
+
+
+label p101,p102,p999;
+var lines:integer;
+
+begin
+lines:=(length div bpl) div 4;
+
+                  asm
+                  push {r0-r12}
+                  ldr r0,from
+                  ldr r1,too
+                  ldr r2,lines
+                  ldr r3,bpl
+
+p102:             mov r7,r3
+
+p101:             mov r12,#0
+                  ldrb r6,[r0],#1
+                  ldrb r8,[r0],#1
+                  ldrb r9,[r0],#1
+                  ldrb r10,[r0],#-3
+                  add r6,r8
+                  add r9,r10
+                  add r12,r9,r6
+                  mov r4,r12
+
+                  add r0,r3
+                  ldrb r6,[r0],#1
+                  ldrb r8,[r0],#1
+                  ldrb r9,[r0],#1
+                  ldrb r10,[r0],#-3
+                  add r6,r8
+                  add r9,r10
+                  add r12,r9,r6
+                  add r4,r12
+
+                  add r0,r3
+                  ldrb r6,[r0],#1
+                  ldrb r8,[r0],#1
+                  ldrb r9,[r0],#1
+                  ldrb r10,[r0],#-3
+                  add r6,r8
+                  add r9,r10
+                  add r12,r9,r6
+                  add r4,r12
+
+                  add r0,r3
+                  ldrb r6,[r0],#1
+                  ldrb r8,[r0],#1
+                  ldrb r9,[r0],#1
+                  ldrb r10,[r0],#1
+                  add r6,r8
+                  add r9,r10
+                  add r12,r9,r6
+                  add r4,r12
+
+                  sub r0,r3
+                  sub r0,r3
+                  sub r0,r3
+
+                  lsr r4,#4
+
+                  strb r4,[r1],#1
+
+                  subs r7,#4
+                  bgt  p101
+
+                  add r0,r0,r3
+                  add r0,r0,r3
+                  add r0,r0,r3
+
+
+
+                //  sub r0,#4
+
+                  subs r2,#1
+                  bgt p102
+                  pop {r0-r12}
                   end;
 p999:
 end;
@@ -364,6 +453,8 @@ p101:
      end;
 
 end;
+
+
 
 end.
 

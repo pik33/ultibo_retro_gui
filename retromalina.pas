@@ -114,9 +114,9 @@ interface
 uses sysutils,classes,unit6502,Platform,Framebuffer,retrokeyboard,retromouse,
      threads,GlobalConst,globalconfig,ultibo,retro, simpleaudio, mp3, xmp, HeapManager;//, vc4, dispmanx;
 
-const base=          $2BF00000;     // retromachine system area base
+const base=          $23F00000;     // retromachine system area base
       nocache=       $C0000000;     // cache off address addition
-      mainscreen=    $2C000000;
+      mainscreen=    $23000000;
 
 const _pallette=        $10000;
       _systemfont=      $50000;
