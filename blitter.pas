@@ -16,7 +16,8 @@ procedure fastmove(from,too,len:integer);
 procedure fill2d(dest,x,y,length,lines,bpl,color:integer);
 procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
 procedure scale4(from,too,length,bpl:integer);
-
+procedure scale4b(from,too,length,bpl:integer);
+procedure scale4c(from,too,lines,bpl:integer);
 
 implementation
 
@@ -177,6 +178,417 @@ p101:             mov r12,#0
                   subs r2,#1
                   bgt p102
                   pop {r0-r12}
+                  end;
+p999:
+end;
+
+
+procedure scale4c(from,too,lines,bpl:integer);
+
+// --- rev 20181014
+
+
+label p101,p102;
+
+begin
+
+
+                  asm
+                  push {r0-r12}
+                  ldr r0,from
+                  ldr r1,too
+                  ldr r2,lines
+                  ldr r3,bpl
+
+p102:             mov r7,r3
+
+p101:             mov r12,#0
+
+                  ldrb r6,[r0],#4
+                  strb r6,[r1],#1
+
+                  subs r7,#4
+                  bgt  p101
+
+                  add r0,r0,r3
+                  add r0,r0,r3
+                  add r0,r0,r3
+
+                //  sub r0,#4
+
+                  subs r2,#1
+                  bgt p102
+                  pop {r0-r12}
+                  end;
+end;
+
+
+
+
+
+procedure scale4b(from,too,length,bpl:integer);
+
+// --- rev 20181013
+
+
+label p101,p102,p999, p998, p997, temp1,temp2,temp3;
+//label t1,t2,t3,t4,t5,t6;
+var lines:integer;
+
+begin
+lines:=(length div bpl) div 4;
+
+                  asm
+                  push {r0-r12,r14}
+                  ldr r0,from
+                  ldr r1,too
+                  ldr r2,lines
+                  ldr r3,bpl
+
+p102:             mov r14,r3
+
+p101:             ldm r0,{r4-r7}  // 16 pixels
+                //  mov r12,#0
+
+
+
+                  mov r8,r4,  lsr #8
+                  mov r9,r4,  lsr #16
+                  mov r10,r4, lsr #24
+                  and r4,#0xFF
+                  and r8,#0xFF00
+                  and r9,#0xFF0000
+                  orr r4,r8
+                  orr r9,r10
+                  orr r12,r9,r4        // 4 pixels sum in r12, r4 free
+
+                  mov r8,r5,  lsr #8
+                  mov r9,r5,  lsr #16
+                  mov r10,r5, lsr #24
+                  and r5,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r5,r8
+                  add r9,r10
+                  mov r4,#0
+                  add r4,r9,r5       // 4 pixels sum in r4, r5 free
+
+                  mov r8,r6,  lsr #8
+                  mov r9,r6,  lsr #16
+                  mov r10,r6, lsr #24
+                  and r6,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r6,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r5,r9,r6    // 4 pixels sum in r5, r6 free
+
+                  mov r8,r7,  lsr #8
+                  mov r9,r7,  lsr #16
+                  mov r10,r7, lsr #24
+                  and r7,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r7,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r6,r9,r7    // 4 pixels sum in r6, r7 free
+
+                  lsr r12,#2
+                  lsr r4,#2
+                  lsr r5,#2
+                  lsr r6,#2
+
+                  add r12,r12,r4,lsl #8
+                  add r12,r12,r5,lsl #16
+                  add r12,r12,r6,lsl #24 // 4 pixels in r12
+
+
+                  str r12,temp1
+
+
+
+                  // line #2
+
+                  add r0,r3
+
+
+                  ldm r0,{r4-r7}  // 16 pixels
+                  mov r12,#0
+
+
+                  mov r8,r4,  lsr #8
+                  mov r9,r4,  lsr #16
+                  mov r10,r4, lsr #24
+                  and r4,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r4,r8
+                  add r9,r10
+                  add r12,r9,r4        // 4 pixels sum in r12, r4 free
+
+                  mov r8,r5,  lsr #8
+                  mov r9,r5,  lsr #16
+                  mov r10,r5, lsr #24
+                  and r5,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r5,r8
+                  add r9,r10
+                  mov r4,#0
+                  add r4,r9,r5       // 4 pixels sum in r4, r5 free
+
+                  mov r8,r6,  lsr #8
+                  mov r9,r6,  lsr #16
+                  mov r10,r6, lsr #24
+                  and r6,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r6,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r5,r9,r6    // 4 pixels sum in r5, r6 free
+
+                  mov r8,r7,  lsr #8
+                  mov r9,r7,  lsr #16
+                  mov r10,r7, lsr #24
+                  and r7,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r7,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r6,r9,r7    // 4 pixels sum in r6, r7 free
+
+                  lsr r12,#2
+                  lsr r4,#2
+                  lsr r5,#2
+                  lsr r6,#2
+
+                  add r12,r12,r4,lsl #8
+                  add r12,r12,r5,lsl #16
+                  add r12,r12,r6,lsl #24 // 4 pixels in r12
+
+
+                  str r12,temp2
+
+
+
+                  // line #3
+
+                  add r0,r3
+
+                  ldm r0,{r4-r7}  // 16 pixels
+                  mov r12,#0
+
+                  mov r8,r4,  lsr #8
+                  mov r9,r4,  lsr #16
+                  mov r10,r4, lsr #24
+                  and r4,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r4,r8
+                  add r9,r10
+                  add r12,r9,r4        // 4 pixels sum in r12, r4 free
+
+                  mov r8,r5,  lsr #8
+                  mov r9,r5,  lsr #16
+                  mov r10,r5, lsr #24
+                  and r5,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r5,r8
+                  add r9,r10
+                  mov r4,#0
+                  add r4,r9,r5       // 4 pixels sum in r4, r5 free
+
+                  mov r8,r6,  lsr #8
+                  mov r9,r6,  lsr #16
+                  mov r10,r6, lsr #24
+                  and r6,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r6,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r5,r9,r6    // 4 pixels sum in r5, r6 free
+
+                  mov r8,r7,  lsr #8
+                  mov r9,r7,  lsr #16
+                  mov r10,r7, lsr #24
+                  and r7,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r7,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r6,r9,r7    // 4 pixels sum in r6, r7 free
+
+                  lsr r12,#2
+                  lsr r4,#2
+                  lsr r5,#2
+                  lsr r6,#2
+
+                  add r12,r12,r4,lsl #8
+                  add r12,r12,r5,lsl #16
+                  add r12,r12,r6,lsl #24 // 4 pixels in r12
+
+
+                  str r12,temp3
+
+
+                  // line #4
+
+                  add r0,r3
+
+                  ldm r0!,{r4-r7}  // 16 pixels
+                  mov r12,#0
+
+                  mov r8,r4,  lsr #8
+                  mov r9,r4,  lsr #16
+                  mov r10,r4, lsr #24
+                  and r4,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r4,r8
+                  add r9,r10
+                  add r12,r9,r4        // 4 pixels sum in r12, r4 free
+
+                  mov r8,r5,  lsr #8
+                  mov r9,r5,  lsr #16
+                  mov r10,r5, lsr #24
+                  and r5,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r5,r8
+                  add r9,r10
+                  mov r4,#0
+                  add r4,r9,r5       // 4 pixels sum in r4, r5 free
+
+                  mov r8,r6,  lsr #8
+                  mov r9,r6,  lsr #16
+                  mov r10,r6, lsr #24
+                  and r6,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r6,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r5,r9,r6    // 4 pixels sum in r5, r6 free
+                  mov r8,r7,  lsr #8
+                  mov r9,r7,  lsr #16
+                  mov r10,r7, lsr #24
+                  and r7,#0xFF
+                  and r8,#0xFF
+                  and r9,#0xFF
+                  add r7,r8
+                  add r9,r10
+                  mov r5,#0
+                  add r6,r9,r7    // 4 pixels sum in r6, r7 free
+
+                  lsr r12,#2
+                  lsr r4,#2
+                  lsr r5,#2
+                  lsr r6,#2
+
+                  add r12,r12,r4,lsl #8
+                  add r12,r12,r5,lsl #16
+                  add r12,r12,r6,lsl #24 // 4 pixels in r12
+
+
+                  sub r0,r3
+                  sub r0,r3
+                  sub r0,r3
+
+
+                  mov r4,r12
+                  mov r5,r12,lsr #8
+                  mov r6,r12,lsr #16
+                  mov r7,r12,lsr #24
+                  and r4,#0xFF
+                  and r5,#0xFF
+                  and r6,#0xFF
+
+                  ldr r12,temp1
+
+                  mov r9,r12
+                  mov r10,r12,lsr #8
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r4,r9
+                  and r5,r10
+                  mov r9,r12,lsr #16
+                  mov r10,r12,lsr #24
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r6,r9
+                  and r7,r10
+
+                  ldr r12,temp2
+
+                  mov r9,r12
+                  mov r10,r12,lsr #8
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r4,r9
+                  and r5,r10
+                  mov r9,r12,lsr #16
+                  mov r10,r12,lsr #24
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r6,r9
+                  and r7,r10
+
+                  ldr r12,temp3
+
+                  mov r9,r12
+                  mov r10,r12,lsr #8
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r4,r9
+                  and r5,r10
+                  mov r9,r12,lsr #16
+                  mov r10,r12,lsr #24
+                  and r9,#0xff
+                  and r10,#0xff
+                  add r6,r9
+                  and r7,r10
+
+                  lsr r4,#2
+                  lsr r5,#2
+                  lsr r6,#2
+                  lsr r7,#2
+
+
+                  add r4,r4,r5,lsl #8
+                  add r4,r4,r6,lsl #16
+                  add r4,r4,r7,lsl #24
+
+
+p997:
+                ldr r4,temp1
+
+                  str r4,[r1],#4
+
+                  subs r14,#16
+                  bgt  p101
+
+                 add r0,r0,r3
+                 add r0,r0,r3
+                 add r0,r0,r3
+
+                  subs r2,#1
+                  bgt p102
+                  b p998
+
+
+temp1:            .long 0
+temp2:            .long 0
+temp3:            .long 0
+
+p998:
+                  pop {r0-r12,r14}
                   end;
 p999:
 end;
@@ -454,7 +866,9 @@ p101:
 
 end;
 
+initialization
 
+removeramlimits(cardinal(@scale4b));
 
 end.
 
