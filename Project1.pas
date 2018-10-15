@@ -50,7 +50,7 @@ var
 
     wheel:integer;
     t:int64;
-    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth:TIcon;
+    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth,cameratest:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
@@ -142,6 +142,9 @@ raspbian.x:=256; raspbian.y:=96; raspbian.size:=48; raspbian.l:=128; raspbian.h:
 synth:=Testicon.append('FM Synthesizer');
 synth.icon48:=i48_note;
 synth.x:=384; synth.y:=96; synth.size:=48; synth.l:=128; synth.h:=96; synth.draw;
+cameratest:=Testicon.append('Camera test');
+cameratest.icon48:=i48_camera;
+cameratest.x:=512; cameratest.y:=96; cameratest.size:=48; cameratest.l:=128; cameratest.h:=96; cameratest.draw;
 
 filetype:=-1;
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
@@ -173,9 +176,15 @@ repeat
 
 
   background.icons.checkall;
+
   if testicon.dblclicked then
     begin
     testicon.dblclicked:=false;
+    end;
+
+  if cameratest.dblclicked then
+    begin
+    cameratest.dblclicked:=false;
     if keypressed then readkey;
     if cmw=nil then
       begin
@@ -184,7 +193,6 @@ repeat
       cmw:=camerathread;
       end;
     end;
-
 
   if calculator.dblclicked then
     begin
