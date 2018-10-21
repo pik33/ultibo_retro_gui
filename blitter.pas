@@ -18,6 +18,8 @@ procedure fill2d32(dest,x,y,length,lines,bpl:integer;color:cardinal);
 procedure scale4(from,too,length,bpl:integer);
 procedure scale4b(from,too,length,bpl:integer);
 procedure scale4c(from,too,lines,bpl:integer);
+procedure diff(b1,b2,b3,count:integer);
+procedure diff2(b1,b2,b3,count,t:integer);
 
 implementation
 
@@ -224,6 +226,76 @@ end;
 
 
 
+procedure diff(b1,b2,b3,count:integer);
+
+// --- rev 20181020
+
+
+label p101;
+
+begin
+
+
+                  asm
+                  push {r0-r6}
+                  ldr r0,b1
+                  ldr r1,b2
+                  ldr r2,b3
+                  ldr r3,count
+
+
+p101:             ldrb r4,[r0],#1
+                  ldrb r5,[r1],#1
+
+                  cmps r4,r5
+                  subge r6,r4,r5
+                  sublt r6,r5,r4
+                  strb r6,[r2],#1
+
+                  subs r3,#1
+                  bgt  p101
+                  pop {r0-r6}
+                  end;
+end;
+
+
+procedure diff2(b1,b2,b3,count,t:integer);
+
+// --- rev 20181020
+
+
+label p101;
+
+begin
+
+
+                  asm
+                  push {r0-r8}
+                  ldr r0,b1
+                  ldr r1,b2
+                  ldr r2,b3
+                  ldr r3,count
+                  ldr  r8,t
+
+                  mov r7,#0
+
+
+p101:             ldrb r4,[r0],#1
+                  ldrb r5,[r1],#1
+
+                  cmps r4,r5
+                  subge r6,r4,r5
+                  sublt r6,r5,r4
+                  cmps r6,r8
+                  movlt r4,#0
+                  strb r4,[r2],#1
+
+
+                  subs r3,#1
+                  bgt  p101
+                  pop {r0-r8}
+                  end;
+end;
 
 
 procedure scale4b(from,too,length,bpl:integer);

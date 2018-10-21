@@ -19,12 +19,24 @@ type TCameraThread=class (TThread)
      end;
 
 
+type TPAThread=class (TThread)
+
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create(CreateSuspended : boolean);
+     end;
+
+
 const 	COMPONENT_CAMERA='OMX.broadcom.camera';
 
 
-const cxres=1280;
-      cyres=720;
+const cxres=1152;
+      cyres=864;
       cframerate=60;
+
+type cbuffer=array[0..cxres*cyres-1] of byte;
 
 type PContext=^context;
 
@@ -41,12 +53,15 @@ type PContext=^context;
 
 
 var camerathread:TCameraThread;
+    PAthread:TPAThread;
     cmw:pointer=nil;
     camerawindow:TWindow=nil;
     rendertestwindow:TWindow=nil;
     miniwindow:TWindow=nil;
     mContext:context;
     at,at1,at2,t1,t2,t3,t4:int64;
+    testbuf1, testbuf2, testbuf3: cbuffer;
+    s1:integer=0;
 
 procedure camera;
 
@@ -60,11 +75,40 @@ begin
 camerawindow.println(s);
 end;
 
+constructor TPAThread.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
 constructor TCameraThread.create(CreateSuspended : boolean);
 
 begin
 FreeOnTerminate := True;
 inherited Create(CreateSuspended);
+
+end;
+
+procedure TPAThread.execute;
+
+begin
+ThreadSetpriority(ThreadGetCurrent,1);
+threadsleep(1);
+repeat
+threadsleep(1);
+if s1>0 then
+  begin
+  if s1=1 then diff2(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres div 16,16 );
+  if s1=2 then diff2(cardinal(@testbuf2),cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres div 16,16 );
+  fastmove(cardinal(@testbuf3),cardinal(miniwindow.canvas),cxres*cyres div 16);
+  s1:=0;
+  end;
+
+
+
+
+until terminated;
 end;
 
 procedure TCameraThread.execute;
@@ -72,8 +116,10 @@ procedure TCameraThread.execute;
 label p999;
 
 begin
-ThreadSetpriority(ThreadGetCurrent,6);
-sleep(1);
+//ThreadSetAffinity(ThreadGetCurrent,2);
+//ThreadSetCPU(ThreadGetCurrent,1);
+ThreadSetpriority(ThreadGetCurrent,7);
+threadsleep(1);
 
 setpallette(grayscalepallette,0);
   if camerawindow=nil then
@@ -110,7 +156,7 @@ setpallette(grayscalepallette,0);
     end;
   camera;
   setpallette(ataripallette,0);
-  repeat sleep(100) until camerawindow.needclose;
+  repeat threadsleep(100) until camerawindow.needclose;
   camerawindow.destroy;
   camerawindow:=nil;
   miniwindow.destroy;
@@ -120,6 +166,8 @@ setpallette(grayscalepallette,0);
   cmw:=nil;
   p999:
   setpallette(ataripallette,0);
+  PAThread.terminate;
+  PAThread.destroy;
 end;
 
 
@@ -351,7 +399,7 @@ OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
 
 // ---- Prepare addresses for fastmove
 
-y2:=cardinal(mContext.pSrcY);
+y2:=cardinal(mContext.pSrcY);  at:=0; t1:=gettime;
 
 // ----- MAIN CAPTURE LOOP -----------------------------------------------------
 
@@ -361,14 +409,22 @@ while(nFrames < nFrameMax) and (not keypressed) do
   if camerabufferfilled then
     begin
     nFrames+=1;
-    OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
-    scale4c(y2,cardinal(miniwindow.canvas),cyres div 4,cxres) ;
+
+//    scale4c(y2,cardinal(miniwindow.canvas),cyres div 4,cxres) ;
+    if (nframes mod 2) =0 then scale4c(y2,cardinal(@testbuf1),cyres div 4,cxres)
+    else scale4c(y2,cardinal(@testbuf2),cyres div 4,cxres) ;
+    s1:=(nframes mod 2) +1;
     fastmove(y2,cardinal(rendertestwindow.canvas),cxres*cyres);
-    t1:=gettime-t1; rendertestwindow.outtextxyz(4,44,inttostr(t1),255,2,2); t1:=gettime;
+
+     OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
+
+
+
+    t1:=gettime-t1; if nframes>1 then begin at+=t1; rendertestwindow.outtextxyz(4,44,inttostr(at div (nframes-1)),255,2,2); end; t1:=gettime;
     rendertestwindow.outtextxyz(4,4,inttostr(nframes),255,2,2);
     camerabufferfilled:=false;
     end;
-  threadsleep(0);
+  threadsleep(1);
   end;
 
 // ----- MAIN CAPTURE LOOP END -------------------------------------------------

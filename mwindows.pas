@@ -426,7 +426,7 @@ Arectangle.handle:=-1;
 q:=0;
 scr:=mainscreen+$800000;
 ThreadSetAffinity(ThreadGetCurrent,4);
-sleep(1);
+threadsleep(1);
 cls(100);
 
 repeat
@@ -445,7 +445,7 @@ repeat
   panel.draw(scr);
   windowsdone:=true;
   wt:=gettime-t;
-  repeat sleep(1) until screenaddr<>scr;
+  repeat threadsleep(1) until screenaddr<>scr;
   scr:=screenaddr;
 until terminated;
 end;

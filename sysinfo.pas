@@ -50,7 +50,7 @@ const cpuclock:integer=0;
 
 begin
 ThreadSetAffinity(ThreadGetCurrent,4);
-sleep(1);
+threadsleep(1);
 for i:=0 to 15 do tbb[i]:=0;
 si:=Twindow.create(300,290,'System status');
 si.bg:=147;
@@ -61,7 +61,7 @@ si.decoration.vscroll:=false;
 si.needclose:=false;
 repeat
 
-repeat sleep(1) until si.redraw;
+repeat threadsleep(1) until si.redraw;
 
 c1:=framecnt mod 60;
 si.box(0,0,300,300,147);

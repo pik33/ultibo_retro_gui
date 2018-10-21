@@ -519,7 +519,7 @@ var mb:tmousedata;
 
 begin
 ThreadSetpriority(ThreadGetCurrent,5);
-sleep(1);
+threadsleep(1);
 mousetype:=0;
   repeat
     p102:
@@ -642,7 +642,7 @@ var ch:TKeyboardReport;
 
 begin
 ThreadSetpriority(ThreadGetCurrent,5);
-sleep(1);
+threadsleep(1);
 for i:=0 to 7 do kbdreport[i]:=0;
 repeat
   waitvbl;
@@ -746,7 +746,7 @@ begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
 ThreadSetPriority(ThreadGetCurrent,5);
-sleep(1);
+threadsleep(1);
 
 running:=1;
 repeat
@@ -836,7 +836,7 @@ FramebufferProperties.PhysicalHeight:=yres;
 FramebufferProperties.VirtualWidth:=xres+64;
 FramebufferProperties.VirtualHeight:=yres*2;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
-sleep(300);
+threadsleep(300);
 
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 p2:=Pointer(FramebufferProperties.Address);
@@ -882,7 +882,7 @@ mousewheel:=128;
 background:=TWindow.create(xres,yres,'');
 background32:=TWindow32.create(xres,yres,'');
 panel:=TPanel.create;
-sleep(100);
+threadsleep(100);
 
 // start frame refreshing thread
 thread:=tretro.create(true);
@@ -1621,14 +1621,14 @@ end;
 procedure waitvbl;
 
 begin
-repeat sleep(1) until vblank1=0;
-repeat sleep(1) until vblank1=1;
+repeat threadsleep(1) until vblank1=0;
+repeat threadsleep(1) until vblank1=1;
 end;
 
 function waitscreen:integer;
 
 begin
-repeat sleep(1) until vblank1=1;
+repeat threadsleep(1) until vblank1=1;
 end;
 
 //  ---------------------------------------------------------------------

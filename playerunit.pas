@@ -622,11 +622,11 @@ else if playfilename<>'' then //  key=key_enter then
   av6502:=0;
   pause1a:=true;
   pauseaudio(1);
-  sleep(10);
+  threadsleep(10);
   for i:=$d400 to $d420 do poke(base+i,0);
   if sfh>=0 then fileclose(sfh);
   sfh:=-1;
-  sleep(10);
+  threadsleep(10);
   for i:=0 to $2F do siddata[i]:=0;
   for i:=$50 to $7F do siddata[i]:=0;
   siddata[$0e]:=$7FFFF8;
@@ -683,13 +683,13 @@ else if playfilename<>'' then //  key=key_enter then
     begin
     filetype:=4;
     sr:=mp3open(sfh);
-    sleep(20);
+    threadsleep(20);
     filebuffer.setmp3(1);
-    sleep(50);
+    threadsleep(50);
     for i:=0 to 15 do times6502[i]:=0;
     filetype:=4;
     filebuffer.setfile(sfh);
-    sleep(200);
+    threadsleep(200);
     songs:=0;
     if sr>=44100 then
       begin
@@ -745,7 +745,7 @@ else if playfilename<>'' then //  key=key_enter then
       xmp_free_context(xmp_context);
       goto p102;
       end;
-    sleep(50);
+    threadsleep(50);
     for i:=0 to 15 do times6502[i]:=0;
 
 //          fi.box(0,0,600,600,15);
@@ -759,12 +759,12 @@ else if playfilename<>'' then //  key=key_enter then
      begin
      fileseek(sfh,$2800,fsfrombeginning);
      filebuffer.clear;
-     sleep(50);
+     threadsleep(50);
      filetype:=5;
      filebuffer.setmp3(2);
      for i:=0 to 15 do times6502[i]:=0;
      filebuffer.setfile(sfh);
-     sleep(200);
+     threadsleep(200);
      songs:=0;
 
      siddelay:=8000;
@@ -797,7 +797,7 @@ else if playfilename<>'' then //  key=key_enter then
     filebuffer.setfile(sfh);
 
 
-    sleep(100);
+    threadsleep(100);
     songs:=0;
 
     if head.srate=44100 then siddelay:=8707
@@ -937,7 +937,7 @@ if error<>0 then
    pl.cls(0);
    pl.outtextxyz(16,16,'Error while opening audio: '+inttostr(error),120,1,1);
    pl.outtextxyz(16,36,'Please close thee application which uses the audio driver ',120,1,1);
-   sleep(5000);
+   threadsleep(5000);
    pl.destroy;
    pl:=nil;
    goto p999;
@@ -1109,7 +1109,7 @@ repeat
 //outtextxy(0,16,inttohex(ctrl2adr,8),15);
 //outtextxy(100,0,inttohex(dmanextcb,8),15);
 
-  repeat sleep(1) until pl.redraw;
+  repeat threadsleep(1) until pl.redraw;
   pl.redraw:=false;
   inc(cnt);
 
@@ -1168,7 +1168,7 @@ repeat
       begin
       eqthread:=Tequalizerthread.create;
       eqthread.start;
-      sleep(100);
+      threadsleep(100);
       blit8(integer(shufrep),0,146,integer(pl.canvas),438,116,46,24,184,550)
       end
     else
@@ -1185,7 +1185,7 @@ repeat
       begin
       playlistthread:=TPlaylistthread.create;
       playlistthread.start;
-      sleep(100);
+      threadsleep(100);
       blit8(integer(shufrep),46,146,integer(pl.canvas),484,116,46,24,184,550)
       end
     else
@@ -1314,7 +1314,7 @@ repeat
     info.outtextxy(8,68,'Plays: mp2, mp3, s48, wav, sid, dmp, mod, s3m, xm, it files',skintextcolor);
     info.outtextxy(8,88,'GPL 2.0 or higher',skintextcolor);
     info.outtextxy(8,108,'more information: pik33@o2.pl',skintextcolor);
-    sleep(100);
+    threadsleep(100);
     info.select;
     end;
   end;
@@ -1505,7 +1505,7 @@ if sel1<>nil then
       playfilename:=sel1.filename;
       pf2:=playfilename;
       cnt:=0;
-      sleep(50);
+      threadsleep(50);
       if spritebutton<>nil then if spritebutton.selected then start_sprites;  // if dancing sprites visuzlization active, start the sprites
       dir:=sel1.currentdir2;   // remember a file selector direcory
       sel1.destroy;            // and close the file selector window
@@ -1617,7 +1617,7 @@ hide_sprites;
 closeaudio;
 //repeat sleep(20) until audio_opened=false;
 filebuffer.terminate;
-repeat sleep(10) until filebuffer.Terminated;
+repeat threadsleep(10) until filebuffer.Terminated;
 filebuffer:=nil;
 if sfh>0 then fileclose(sfh);
 sfh:=-1; s1:=''; s2:='';  songname:='';
@@ -1627,7 +1627,7 @@ if info<>nil then begin info.destroy; info:=nil; end;
 if sc<>nil then sc.needclose:=true;
 if vis<>nil then vis.needclose:=true;
 if list<>nil then list.needclose:=true;
-repeat sleep(10) until list=nil;
+repeat threadsleep(10) until list=nil;
 player_item:=playlistitem;
 while player_item.next<>nil do player_item:=player_item.next;
 while player_item.prev<>nil do
@@ -1688,7 +1688,7 @@ xx:=pl.x; yy:=pl.y;
 if xx<400 then vis.move(xx+600,yy,256,64,0,0) else vis.move(xx-300,yy,256,64,0,0);
 vis.select;
 repeat
-  repeat sleep(1) until vis.redraw;
+  repeat threadsleep(1) until vis.redraw;
   if sc=nil then oscilloscopebutton.unselect else oscilloscopebutton.select;
   if oscilloscopebutton.clicked=1 then
     begin
@@ -1752,7 +1752,7 @@ var scr,xx,yy:integer;
 begin
 
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_1);
-sleep(1);
+threadsleep(1);
 if sc=nil then
   begin
   sc:=Twindow.create(884,187,'Oscilloscope');      //884,187
@@ -1768,7 +1768,7 @@ if sc=nil then
   sc.select;
   end;
 repeat
-  repeat sleep(1) until sc.redraw;
+  repeat threadsleep(1) until sc.redraw;
   t:=gettime;
   sc.box(0,0,884,187,178);
   sc.box(0,93,884,2,140);
@@ -2205,7 +2205,7 @@ while item.next<>nil do item:=item.next;
 
 repeat
 
-  repeat sleep(2) until list.redraw;
+  repeat threadsleep(2) until list.redraw;
 
   list.redraw:=false;
   if item.next<>nil then // someone added something
@@ -2253,7 +2253,7 @@ if (mousek=1) and (state=1) then
 
 //box(0,0,300,50,0); outtextxy(0,0,inttostr(state)+' '+inttostr(dmx)+' '+inttostr(dmy)+' '+inttostr(mousex)+' '+inttostr(list.x+list.l),15);
 until terminated or list.needclose;
-sleep(100);
+threadsleep(100);
 list.destroy;
 item:=playlistitem;
 while item<>nil do
@@ -2426,7 +2426,7 @@ procedure TCountThread.Execute;
 
 begin
   repeat
-  repeat sleep(10) until countfilename<>'';
+  repeat threadsleep(10) until countfilename<>'';
   if countfilename<>'' then mp3check(countfilename);
   countfilename:='';
   until terminated;
@@ -2477,7 +2477,7 @@ preamp_pos:=127;
 eq.move(pl.x,pl.y+232,550,232,0,0);
 
 repeat
-  repeat sleep(2) until eq.redraw;
+  repeat threadsleep(2) until eq.redraw;
   clickcount+=1;
   eq.redraw:=false;
   if mousek=0 then
@@ -2633,7 +2633,7 @@ if sett=nil then
   sett.move(200,200,400,400,0,0);
   end;
 repeat
-  repeat sleep(2) until sett.redraw;
+  repeat threadsleep(2) until sett.redraw;
   sett.redraw:=false;
   cnt:=cnt+1;
   if (sett.selected) and (mousek=1) and (sett.my<8+20*ii) and (sett.my>8) then
@@ -2799,7 +2799,7 @@ var   outbuf2: PSmallint;
 begin
 outbuf2:=@outbuf;
 ThreadSetaffinity(ThreadGetCurrent,2);
-sleep(1);
+threadsleep(1);
 repeat
   if needclear or (seekamount<>0) or (newfh>0) then
 
@@ -2909,7 +2909,7 @@ repeat
 //      eof:=false;
 //      end;
     end;
-  sleep(1);
+  threadsleep(1);
 until terminated;
 
 end;

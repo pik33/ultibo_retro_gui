@@ -306,7 +306,7 @@ ctrl2_ptr^:=ctrl1_ptr^;                   // copy first block to second
 ctrl2_ptr^[5]:=nocache+ctrl1_adr;         // next ctrl block -> ctrl block #1
 ctrl2_ptr^[1]:=nocache+dmabuf2_adr;       // source address -> buffer #2
 CleanDataCacheRange(dmactrl_adr,64);      // now push this into RAM
-sleep(1);
+threadsleep(1);
 
 // Init the hardware
 
@@ -623,9 +623,9 @@ if obtained^.range<>CurrentAudioSpec.range then
   debug2:=ctrl2_adr;
   debug3:=ctrl1_adr;
   begin
-  repeat sleep(0) until dma_nextcb=nocache+ctrl2_adr;
+  repeat threadsleep(0) until dma_nextcb=nocache+ctrl2_adr;
   ctrl1_ptr^[3]:=obtained^.oversampled_size;
-  repeat sleep(0) until dma_nextcb=nocache+ctrl1_adr;
+  repeat threadsleep(0) until dma_nextcb=nocache+ctrl1_adr;
   ctrl2_ptr^[3]:=obtained^.oversampled_size;
   end;
 
@@ -648,7 +648,7 @@ begin
 if audio_opened then
   begin
   AudioThread.terminate;
-  repeat sleep(1) until AudioOn=0;
+  repeat threadsleep(1) until AudioOn=0;
 
 // ...then switch off DMA...
 
@@ -658,7 +658,7 @@ if audio_opened then
 
 // up to 8 ms of audio can still reside in the buffer
 
-  sleep(20);
+  threadsleep(20);
 
 // Now disable DMA and PWM...
 

@@ -69,7 +69,7 @@ var
 begin
 
 initmachine(144);     // 16+128=hi, double buffered TODO init @19
-sleep(1);
+threadsleep(1);
 while not DirectoryExists('C:\') do
   begin
   Sleep(100);
@@ -190,6 +190,11 @@ repeat
       begin
       camerathread:=TCameraThread.create(true);
       camerathread.start;
+
+     threadsleep(100);
+
+      PAThread:=TPAThread.create(true);
+      PAThread.start;
       cmw:=camerathread;
       end;
     end;

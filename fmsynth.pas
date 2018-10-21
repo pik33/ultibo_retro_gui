@@ -187,7 +187,7 @@ else goto p999;
 removeramlimits(integer(@play));
 removeramlimits(integer(@play)+4096);
 
-sleep(10);
+threadsleep(10);
 initsinetable;
 initlogtable;
 initnotes;
@@ -210,12 +210,12 @@ fmwindow.outtextxy(16,64,inttohex(logtable[49152],8),15);
 fmwindow.outtextxy(16,80,inttohex(logtable[32768],8),15);
 fmwindow.outtextxy(16,96,inttohex(logtable[16384],8),15);
 fmwindow.outtextxy(16,112,inttohex(logtable[0],8),15);
-// pauseaudio(0);   noteon:=1; sleep(10); noteon:=0;
+// pauseaudio(0);   noteon:=1; threadsleep(10); noteon:=0;
 p998:  {
 repeat fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
   if getkey>0 then begin nn:=keymap2[(readkey shr 16) and $FF]; if nn>12 then begin n:=nn-12; noteon:=1; end; end;
   if getreleasedkey>0 then begin fmwindow.box(16,48,100,16,0); fmwindow.outtextxy(16,48,inttostr(readreleasedkey),120); noteon:=0; end;
-  sleep(8);
+  threadsleep(8);
         }
 
 
@@ -224,7 +224,7 @@ tt:=gettime;
 for  i:=0 to 999 do play(64);
 tt:=gettime-tt;
 fmwindow.box(0,0,80,16,0); fmwindow.outtextxy(0,0,inttostr(tt),120);
-sleep(100);
+threadsleep(100);
 
 until fmwindow.needclose;
 if err=0 then closeaudio;
