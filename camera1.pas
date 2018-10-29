@@ -7,7 +7,7 @@ interface
 
 uses
   classes,sysutils, uOMX, VC4, threads,
-  retromalina, mwindows, blitter, retro;
+  retromalina, mwindows, blitter, retro, platform;
 
 type TCameraThread=class (TThread)
 
@@ -32,8 +32,8 @@ type TPAThread=class (TThread)
 const 	COMPONENT_CAMERA='OMX.broadcom.camera';
 
 
-const cxres=1152;
-      cyres=864;
+const cxres=640;
+      cyres=480;
       cframerate=60;
 
 type cbuffer=array[0..cxres*cyres-1] of byte;
@@ -59,9 +59,10 @@ var camerathread:TCameraThread;
     rendertestwindow:TWindow=nil;
     miniwindow:TWindow=nil;
     mContext:context;
-    at,at1,at2,t1,t2,t3,t4:int64;
+    at,at1,at2,at3,t1,t2,t3,t4:int64;
     testbuf1, testbuf2, testbuf3: cbuffer;
     s1:integer=0;
+    nFrames:cardinal=0;
 
 procedure camera;
 
@@ -92,16 +93,30 @@ end;
 
 procedure TPAThread.execute;
 
+var td:int64;
+    td2:int64=0;
+    n:integer=1;
+
 begin
-ThreadSetpriority(ThreadGetCurrent,1);
+ThreadSetpriority(ThreadGetCurrent,5);
 threadsleep(1);
 repeat
 threadsleep(1);
 if s1>0 then
+
   begin
-  if s1=1 then diff2(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres div 16,16 );
-  if s1=2 then diff2(cardinal(@testbuf2),cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres div 16,16 );
-  fastmove(cardinal(@testbuf3),cardinal(miniwindow.canvas),cxres*cyres div 16);
+    SchedulerPreemptDisable(CPUGetCurrent);
+  td:=gettime;
+ // if s1=1 then diff3(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,8 );
+ // if s1=2 then diff3(cardinal(@testbuf2),cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres,8 );
+  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,8 );
+
+  fastmove(cardinal(@testbuf2),cardinal(miniwindow.canvas),cxres*cyres);
+      td:=gettime-td;
+  SchedulerPreemptEnable(CPUGetCurrent);
+  td2+=td;
+  miniwindow.outtextxyz(0,0,inttostr(td2 div n),255,2,2);
+  n+=1;
   s1:=0;
   end;
 
@@ -130,7 +145,7 @@ setpallette(grayscalepallette,0);
     camerawindow.resizable:=true;
     camerawindow.cls(0);
     camerawindow.tc:=252;
-    camerawindow.move(1200,64,480,1100,0,0);
+    camerawindow.move(1200,64,480,600,0,0);
     cmw:=camerawindow;
     end
   else goto p999;
@@ -146,13 +161,13 @@ setpallette(grayscalepallette,0);
     end;
   if miniwindow=nil then
     begin
-    miniwindow:=TWindow.create(cxres div 4,cyres div 4,'Camera mini');
+    miniwindow:=TWindow.create(cxres,cyres,'Camera diff');
     miniwindow.decoration.hscroll:=false;
     miniwindow.decoration.vscroll:=false;
     miniwindow.resizable:=true;
     miniwindow.cls(0);
     miniwindow.tc:=15;
-    miniwindow.move(100,100,cxres div 4,cyres div 4,0,0);
+    miniwindow.move(100,100,cxres,cyres,0,0);
     end;
   camera;
   setpallette(ataripallette,0);
@@ -252,7 +267,7 @@ var err:OMX_ERRORTYPE;
 
     y2:cardinal;
 
-    nOffsetU, nOffsetV, nFrameMax, nFrames:cardinal;
+    nOffsetU, nOffsetV, nFrameMax:cardinal;
     PBuffer: POMX_BUFFERHEADERTYPE;
 
 begin
@@ -399,7 +414,7 @@ OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
 
 // ---- Prepare addresses for fastmove
 
-y2:=cardinal(mContext.pSrcY);  at:=0; t1:=gettime;
+y2:=cardinal(mContext.pSrcY);  at:=0; at2:=0; at3:=0; t1:=gettime;     t2:=t1; t3:=t1;
 
 // ----- MAIN CAPTURE LOOP -----------------------------------------------------
 
@@ -411,16 +426,23 @@ while(nFrames < nFrameMax) and (not keypressed) do
     nFrames+=1;
 
 //    scale4c(y2,cardinal(miniwindow.canvas),cyres div 4,cxres) ;
-    if (nframes mod 2) =0 then scale4c(y2,cardinal(@testbuf1),cyres div 4,cxres)
-    else scale4c(y2,cardinal(@testbuf2),cyres div 4,cxres) ;
+//    if (nframes mod 2) =0 then scale4c(y2,cardinal(@testbuf1),cyres div 4,cxres)
+//    else scale4c(y2,cardinal(@testbuf2),cyres div 4,cxres) ;
+   // if (nframes mod 2) =0 then fastmove(y2,cardinal(@testbuf1),cyres*cxres)
+   // else
+    fastmove(y2,cardinal(@testbuf1),cyres*cxres) ;
     s1:=(nframes mod 2) +1;
+    t3:=gettime;
     fastmove(y2,cardinal(rendertestwindow.canvas),cxres*cyres);
-
+    t3:=gettime-t3;
+    t2:=gettime;
      OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
-
+    t2:=gettime-t2;
 
 
     t1:=gettime-t1; if nframes>1 then begin at+=t1; rendertestwindow.outtextxyz(4,44,inttostr(at div (nframes-1)),255,2,2); end; t1:=gettime;
+    if nframes>1 then begin at2+=t2; rendertestwindow.outtextxyz(4,84,inttostr(at2 div (nframes-1)),255,2,2); end;
+    if nframes>1 then begin at3+=t3; rendertestwindow.outtextxyz(4,124,inttostr(at3 div (nframes-1)),255,2,2); end;
     rendertestwindow.outtextxyz(4,4,inttostr(nframes),255,2,2);
     camerabufferfilled:=false;
     end;

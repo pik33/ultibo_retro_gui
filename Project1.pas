@@ -191,7 +191,7 @@ repeat
       camerathread:=TCameraThread.create(true);
       camerathread.start;
 
-     threadsleep(100);
+      threadsleep(100);
 
       PAThread:=TPAThread.create(true);
       PAThread.start;
