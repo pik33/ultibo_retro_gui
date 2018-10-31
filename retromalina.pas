@@ -472,7 +472,7 @@ function click:boolean;
 function dblclick:boolean;
 procedure waitvbl;
 procedure removeramlimits(addr:integer);
-procedure remapram(from,too,size:integer);
+function remapram(from,too,size:integer):integer;
 function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 procedure scrconvertnative(src,screen:pointer);
@@ -1589,22 +1589,24 @@ Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
 end;
 
-procedure remapram(from,too,size:integer);
+function remapram(from,too,size:integer):integer;
 
 var Entry:TPageTableEntry;
     amount:integer;
-    i:integer;
+    s,len:integer;
 
 begin
-amount:=(size div MEMORY_PAGE_SIZE);
-for i:= 0 to amount do
-  begin
-  Entry:=PageTableGetEntry(from+MEMORY_PAGE_SIZE*i);
-  Entry.VirtualAddress:=too+MEMORY_PAGE_SIZE*i;
+s:=size;
+repeat
+  Entry:=PageTableGetEntry(from);
+  len:=entry.Size;
+  entry.virtualaddress:=too;
   Entry.Flags:=$3b2;
   PageTableSetEntry(Entry);
-  end;
-
+  too+=len;
+  from+=len;
+  s-=len;
+until s<=0;
 CleanDataCacheRange(from, size);
 InvalidateDataCacheRange(too, size);
 end;

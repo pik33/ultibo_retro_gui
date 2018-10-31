@@ -160,13 +160,14 @@ testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 
 testptr:=getalignedmem  (1000000,MEMORY_PAGE_SIZE);
 t:=gettime;
-remapram(cardinal(testptr),$80000000,1000000);
+tt:=remapram(cardinal(testptr),$80000000,1000000);
 t:=gettime-t;
 poke($80001234,123);
 if peek($80001234)=123 then
   begin box(0,0,100,100,0);
   outtextxy(0,0,'remap test ok',15);
   outtextxy(0,20,'1 MB remapped in '+inttostr(t)+' us',15);
+  outtextxy(0,40,inttostr(tt),15);
 remapram(cardinal(testptr),cardinal(testptr),1000000);
 freemem(testptr);
 
