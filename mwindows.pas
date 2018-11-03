@@ -13,7 +13,7 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils, threads, retro, icons, retromalina, platform, vc4, dispmanx;
+  Classes, SysUtils, threads, retro, icons, retromalina, platform, vc4;
 
 const mapbase=mainscreen+$800000;
       framewidth=4;
@@ -103,6 +103,7 @@ type TWindow=class(TObject)
      procedure box(ax,ay,al,ah,c:integer);                              // draw a filled box
      procedure print(line:string);                                      // print a string at the text cursor
      procedure println(line:string);                                    // print a string and add a new line
+     procedure scrollup;
 
      // TODO: add the rest of graphic procedures from retromalina unit
 
@@ -1232,7 +1233,7 @@ for i:=1 to length(line) do
     tcy+=1;
     if tcy>=(wh div 16) then
       begin
-      // scrollup;  //todo - add this
+      scrollup;  //todo - add this
       tcy:=(wh div 16) -1;
       end;
     end;
@@ -1247,9 +1248,17 @@ tcy+=1;
 tcx:=0;
 if tcy>=(wh div 16) then
   begin
-  //scrollup;
+  scrollup;
   tcy:=(wh div 16) -1;
   end;
+end;
+
+
+procedure TWindow.scrollup;
+
+begin
+blit8(cardinal(canvas),0,16,cardinal(canvas),0,0,wl,16*(wh div 16)-16,wl,wl);
+box(0,16*((wh div 16)-1),wl,16+(wh mod 16),bg);
 end;
 
 // box - draw a filled box

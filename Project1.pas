@@ -50,14 +50,14 @@ var
 
     wheel:integer;
     t:int64;
-    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth,cameratest:TIcon;
+    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth,cameratest,basictest:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
     notepadthread:Tnotepadthread=nil;
     fmthread:TFMSynthThread=nil;
     oneicon:TIcon ;
-    fh,i,j:integer;
+    fh,i,j,k:integer;
     message:TWindow;
     scr:cardinal;
     testbutton:TButton;
@@ -145,11 +145,17 @@ synth.x:=384; synth.y:=96; synth.size:=48; synth.l:=128; synth.h:=96; synth.draw
 cameratest:=Testicon.append('Camera test');
 cameratest.icon48:=i48_camera;
 cameratest.x:=512; cameratest.y:=96; cameratest.size:=48; cameratest.l:=128; cameratest.h:=96; cameratest.draw;
+basictest:=Testicon.append('BASIC');
+basictest.icon48:=i48_basic;
+basictest.x:=640; basictest.y:=96; basictest.size:=48; basictest.l:=128; basictest.h:=96; basictest.draw;
 
 filetype:=-1;
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 
 //------------------- The main loop
+
+
+
 
 // todo:
 // icons from ini file
@@ -256,6 +262,30 @@ repeat
 
   if synth.dblclicked then
     begin
+
+{assignfile(f,drive+'\vgafont.txt');
+rewrite(f);
+for i:=0 to 255 do
+  begin
+  write (f,'(');
+  for j:=0 to 15 do
+    begin
+    k:=vgafont[i,j];
+    k:=((k and $80) shr 7)+
+        ((k and $40) shr 5)+
+         ((k and $20) shr 3)+
+          ((k and $10) shr 1)+
+           ((k and $08) shl 1)+
+            ((k and $04) shl 3)+
+             ((k and $02) shl 5)+
+              ((k and $01) shl 7);
+    write(f,'$'+inttohex(k,2)+', ');
+    end;
+  writeln(f,'),');
+  end;
+closefile(f);
+ }
+
     synth.dblclicked:=false;
     if fmwindow=nil then
       begin

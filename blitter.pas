@@ -355,6 +355,7 @@ begin
 
 
                  asm
+
                  push {r0-r8}
                  ldr r0,b1
                  ldr r1,b2
@@ -373,9 +374,9 @@ p101:            ldrb r4,[r0],#1
                  lsr r6,#3
                  strb r6,[r1],#1
 
-                 cmps r4,r6
-                 subge r6,r4,r5
-                 sublt r6,r5,r4
+//                 cmps r4,r6
+                 sub r6,r4,r5
+//                 sublt r6,r5,r4
                  cmps r6,r8
                  movge r4,#255
                  movlt r4,#0

@@ -472,7 +472,7 @@ function click:boolean;
 function dblclick:boolean;
 procedure waitvbl;
 procedure removeramlimits(addr:integer);
-function remapram(from,too,size:integer):integer;
+function remapram(from,too,size:cardinal):cardinal;
 function readwheel: shortint; inline;
 procedure unhidecolor(c,bank:cardinal);
 procedure scrconvertnative(src,screen:pointer);
@@ -848,6 +848,7 @@ framecnt:=0;                              // frame counter
 // init pallette, font and mouse cursor
 
 systemfont:=st4font;
+//systemfont:=st4font;
 sprite7def:=mysz;
 sprite7zoom:=$00010001;
 setpallette(ataripallette,0);
@@ -1589,10 +1590,9 @@ Entry.Flags:=$3b2;            //executable, shareable, rw, cacheable, writeback
 PageTableSetEntry(Entry);
 end;
 
-function remapram(from,too,size:integer):integer;
+function remapram(from,too,size:cardinal):cardinal;
 
 var Entry:TPageTableEntry;
-    amount:integer;
     s,len:integer;
 
 begin

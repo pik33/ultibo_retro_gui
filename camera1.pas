@@ -37,6 +37,7 @@ const cxres=640;
       cframerate=60;
 
 type cbuffer=array[0..cxres*cyres-1] of byte;
+type cbufferl=array[0..(cxres*cyres div 4)-1] of cardinal;
 
 type PContext=^context;
 
@@ -51,6 +52,7 @@ type PContext=^context;
             isFilled:OMX_BOOL;
             end;
 
+type TPoint=array[0..1] of integer;
 
 var camerathread:TCameraThread;
     PAthread:TPAThread;
@@ -60,13 +62,99 @@ var camerathread:TCameraThread;
     miniwindow:TWindow=nil;
     mContext:context;
     at,at1,at2,at3,t1,t2,t3,t4:int64;
-    testbuf1, testbuf2, testbuf3: cbuffer;
+    testbuf1, testbuf2, testbuf3, testbuf4: cbuffer;
+    tb4l:cbufferl absolute testbuf4;
     s1:integer=0;
     nFrames:cardinal=0;
+
+    points:array[0..3900] of TPoint;
+    pointnum:integer=0;
+    i,j,k,l,m:integer;
 
 procedure camera;
 
 implementation
+
+procedure soap(b1,b2,count:integer);
+
+label p101;
+
+begin
+
+
+                 asm
+                 push {r0-r7}
+                 ldr r0,b1
+                 ldr r1,b2
+                 ldr r2,count
+                 mov r3,#0
+
+p101:            add r7,r6
+                 add r7,r5
+                 ldrb r4,[r0],#1
+                 add r7,r4
+                 lsr r7,#2
+                 strb r7,[r1],#1
+                 mov r7,r6
+                 mov r6,r5
+                 mov r5,r4
+                 subs r2,#1
+                 bne p101
+
+                 pop {r0-r7}
+                 end;
+
+
+end;
+
+
+
+
+
+function findpoints(b1,b2,count:integer):integer;
+
+// --- rev 20181102
+
+label p101,p102;
+
+begin
+
+
+                 asm
+                 push {r0-r7}
+                 ldr r0,b1
+                 ldr r6,b2
+                 ldr r1,count
+                 mov r2,#0
+                 mov r4,#0
+                 mov r5,#0
+                 mov r7,#0
+
+p101:            mov r5,r4
+                 mov r4,r3
+                 ldrb r3,[r0],#1
+                 add r7,#1
+                 add r5,r4
+                 add r5,r5,r3,lsl #1
+                 cmps r5, #1020
+
+                 streq r7,[r6],#4
+                 addeq r2,#1
+                 cmps r2,#100
+                 bge p102
+                 subs r1,#1
+                 bne p101
+
+p102:            str r2,result
+                 pop {r0-r7}
+                 end;
+
+
+end;
+
+
+
+
 
 var camerabufferfilled:boolean;
 
@@ -96,6 +184,8 @@ procedure TPAThread.execute;
 var td:int64;
     td2:int64=0;
     n:integer=1;
+    i:integer;
+    maxx,minx,maxy,miny,xx,yy:integer;
 
 begin
 ThreadSetpriority(ThreadGetCurrent,5);
@@ -105,23 +195,46 @@ threadsleep(1);
 if s1>0 then
 
   begin
-    SchedulerPreemptDisable(CPUGetCurrent);
+   SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
  // if s1=1 then diff3(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,8 );
  // if s1=2 then diff3(cardinal(@testbuf2),cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres,8 );
-  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,8 );
+  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,24 );
+  pointnum:=findpoints(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
 
-  fastmove(cardinal(@testbuf2),cardinal(miniwindow.canvas),cxres*cyres);
-      td:=gettime-td;
-  SchedulerPreemptEnable(CPUGetCurrent);
+
+  fastmove(cardinal(@testbuf3),cardinal(miniwindow.canvas),cxres*cyres);
+  td:=gettime-td;
+   SchedulerPreemptEnable(CPUGetCurrent);
   td2+=td;
+  minx:=640; miny:=480; maxx:=-1; maxy:=-1;
+    if pointnum>1 then
+      begin
+      for i:=0 to pointnum-1 do
+        begin
+        xx:=tb4l[i] mod 640;
+        yy:=tb4l[i] div 640;
+        if xx<minx then minx:=xx;
+        if xx>maxx then maxx:=xx;
+        if yy<miny then miny:=yy;
+        if yy>maxy then maxy:=yy;
+
+        camerawindow.print(inttostr(xx));
+        camerawindow.print(' ');
+        camerawindow.println(inttostr(yy));
+        end;
+      yy:=(miny+maxy) div 2;
+      xx:=(minx+maxx) div 2;
+      mousex:=miniwindow.x+xx;
+      mousey:=miniwindow.y+yy;
+      camerawindow.println('');
+      end;
+
   miniwindow.outtextxyz(0,0,inttostr(td2 div n),255,2,2);
+  miniwindow.outtextxyz(0,40,inttostr(pointnum),255,2,2);
   n+=1;
   s1:=0;
   end;
-
-
-
 
 until terminated;
 end;
@@ -139,7 +252,7 @@ threadsleep(1);
 setpallette(grayscalepallette,0);
   if camerawindow=nil then
     begin
-    camerawindow:=TWindow.create(480,1200,'Camera log');
+    camerawindow:=TWindow.create(480,600,'Camera log');
     camerawindow.decoration.hscroll:=true;
     camerawindow.decoration.vscroll:=true;
     camerawindow.resizable:=true;
@@ -181,8 +294,8 @@ setpallette(grayscalepallette,0);
   cmw:=nil;
   p999:
   setpallette(ataripallette,0);
-  PAThread.terminate;
-  PAThread.destroy;
+//  PAThread.terminate;
+//  PAThread.destroy;
 end;
 
 
@@ -403,7 +516,7 @@ portCapturing.nPortIndex := 71;
 portCapturing.bEnabled := OMX_TRUE;
 OMX_SetConfig(mContext.pCamera, OMX_IndexConfigPortCapturing, @portCapturing);
 
-nFrameMax:= mContext.nFramerate * 600;
+nFrameMax:= mContext.nFramerate * 60;
 nFrames	:= 0;
 
 print_log('Capture will stop itself after '+inttostr(nFramemax div mContext.nFramerate)+' seconds');
@@ -430,10 +543,10 @@ while(nFrames < nFrameMax) and (not keypressed) do
 //    else scale4c(y2,cardinal(@testbuf2),cyres div 4,cxres) ;
    // if (nframes mod 2) =0 then fastmove(y2,cardinal(@testbuf1),cyres*cxres)
    // else
-    fastmove(y2,cardinal(@testbuf1),cyres*cxres) ;
+    soap(y2,cardinal(@testbuf1),cyres*cxres) ;
     s1:=(nframes mod 2) +1;
     t3:=gettime;
-    fastmove(y2,cardinal(rendertestwindow.canvas),cxres*cyres);
+    soap(y2,cardinal(rendertestwindow.canvas),cxres*cyres);
     t3:=gettime-t3;
     t2:=gettime;
      OMX_FillThisBuffer(mContext.pCamera, mContext.pBufferCameraOut);
@@ -448,6 +561,11 @@ while(nFrames < nFrameMax) and (not keypressed) do
     end;
   threadsleep(1);
   end;
+
+while keypressed do readkey;
+//PAThread.terminate;
+//PAThread.destroy;
+//threadsleep(10);
 
 // ----- MAIN CAPTURE LOOP END -------------------------------------------------
 
