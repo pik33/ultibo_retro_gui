@@ -53,6 +53,7 @@ type PContext=^context;
             end;
 
 type TPoint=array[0..1] of integer;
+     TMinMaxPoint=array[0..3] of integer;
 
 var camerathread:TCameraThread;
     PAthread:TPAThread;
@@ -71,9 +72,18 @@ var camerathread:TCameraThread;
     pointnum:integer=0;
     i,j,k,l,m:integer;
 
+const maxpoint=5;
+
+var   points1: array[0..4*maxpoint-1] of integer;
+      points1a:array[0..maxpoint-1] of TMinMaxPoint absolute points1;
+      points2: array[0..2*maxpoint-1] of integer;
+      points2a:array[0..maxpoint-1] of TPoint absolute points2;
+
 procedure camera;
 
 implementation
+
+uses playerunit; // for sprites :)
 
 procedure soap(b1,b2,count:integer);
 
@@ -181,62 +191,128 @@ end;
 
 procedure TPAThread.execute;
 
+label p101,p102;
+
 var td:int64;
     td2:int64=0;
     n:integer=1;
     i:integer;
+    p:integer;
     maxx,minx,maxy,miny,xx,yy:integer;
+    tf:textfile;
 
 begin
+//assignfile(tf,'c:\cameratest');
+//rewrite(tf);
 ThreadSetpriority(ThreadGetCurrent,5);
 threadsleep(1);
+prepare_sprites;
 repeat
 threadsleep(1);
-if s1>0 then
+if (s1>0) and (n>60)  then
 
   begin
-   SchedulerPreemptDisable(CPUGetCurrent);
+  SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
- // if s1=1 then diff3(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,8 );
- // if s1=2 then diff3(cardinal(@testbuf2),cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres,8 );
   diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,24 );
   pointnum:=findpoints(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
-
-
   fastmove(cardinal(@testbuf3),cardinal(miniwindow.canvas),cxres*cyres);
   td:=gettime-td;
-   SchedulerPreemptEnable(CPUGetCurrent);
+  SchedulerPreemptEnable(CPUGetCurrent);
   td2+=td;
-  minx:=640; miny:=480; maxx:=-1; maxy:=-1;
-    if pointnum>1 then
-      begin
-      for i:=0 to pointnum-1 do
-        begin
-        xx:=tb4l[i] mod 640;
-        yy:=tb4l[i] div 640;
-        if xx<minx then minx:=xx;
-        if xx>maxx then maxx:=xx;
-        if yy<miny then miny:=yy;
-        if yy>maxy then maxy:=yy;
 
-        camerawindow.print(inttostr(xx));
-        camerawindow.print(' ');
-        camerawindow.println(inttostr(yy));
+// initialize minmax and points tables
+//  camerawindow.println('Initializing tables') ;
+
+  for i:=0 to maxpoint-1 do
+    begin
+    points1a[i][0]:=32767; //minx
+    points1a[i][1]:=-1;    //maxx
+    points1a[i][2]:=32767; //miny
+    points1a[i][3]:=-1;    //maxy
+    points2a[i][0]:=-1;
+    points2a[i][1]:=-1;
+    end;
+
+//  camerawindow.println('Point number is '+inttostr(pointnum));
+
+  if pointnum>1 then
+    begin
+    for i:=0 to pointnum-1 do
+      begin
+      xx:=tb4l[i] mod 640;
+      yy:=tb4l[i] div 640;
+      p:=0;
+p101:
+      if points2a[p][0]<>-1 then  // the point is in the table
+        begin
+        if (xx>points1a[p][0]-4)
+          and (xx<points1a[p][1]+4)
+            and (yy>points1a[p][2]-4)
+              and (yy<points1a[p][3]+4) then // the pixel belongs to the point
+          begin
+//          camerawindow.println('point# '+inttostr(p)+' updated: '+inttostr(xx)+'  '+inttostr(yy));
+          if xx<points1a[p][0] then points1a[p][0]:=xx
+            else if xx>points1a[p][1] then points1a[p][1]:=xx;
+          if yy<points1a[p][2] then points1a[p][2]:=yy
+            else if yy>points1a[p][3] then points1a[p][3]:=yy;
+          end
+
+        else begin p+=1; if p<maxpoint then goto p101 else goto p102; end;
+        end
+      else   // add a new point
+        begin
+ //       camerawindow.println('point# '+inttostr(p)+' added: '+inttostr(xx)+'  '+inttostr(yy));
+        points1a[p][0]:=xx;
+        points1a[p][1]:=xx;
+        points1a[p][2]:=yy;
+        points1a[p][3]:=yy;
+        points2a[p][0]:=xx;
+        points2a[p][1]:=yy;
         end;
-      yy:=(miny+maxy) div 2;
-      xx:=(minx+maxx) div 2;
-      mousex:=miniwindow.x+xx;
-      mousey:=miniwindow.y+yy;
-      camerawindow.println('');
+p102:
+      end;
+    p:=0;
+    for i:=0 to maxpoint-1 do
+      begin
+      if points2a[i][0]>-1 then p+=1;
+      if points2a[i][0]>-1 then points2a[i][0]:=(points1a[i][0]+points1a[i][1]) div 2;
+      if points2a[i][1]>-1 then points2a[i][1]:=(points1a[i][2]+points1a[i][3]) div 2;
+      xx:=points2a[i][0];
+      yy:=points2a[i][1];
+      if xx>-1 then
+        begin
+
+        camerawindow.println(inttostr(i)+' '+inttostr(xx)+' '+inttostr(yy));
+
+        end;
       end;
 
-  miniwindow.outtextxyz(0,0,inttostr(td2 div n),255,2,2);
+    waitvbl;
+    for i:=0 to p-1 do
+      begin
+      dpoke(base+_spritebase+8*i,miniwindow.x-32+points2a[i][0]);
+      dpoke(base+_spritebase+8*i+2,miniwindow.y-32+points2a[i][1]);
+      end;
+    for i:=p to 6 do
+      begin
+      dpoke(base+_spritebase+8*i,2048);
+      dpoke(base+_spritebase+8*i+2,2048);
+      end;
+
+
+    yy:=points2a[0][1];
+    xx:=points2a[0][0];
+    end;
+  miniwindow.outtextxyz(0,0,inttostr(td2 div (n-60)),255,2,2);
   miniwindow.outtextxyz(0,40,inttostr(pointnum),255,2,2);
-  n+=1;
+  miniwindow.outtextxyz(0,80,inttostr(p),255,2,2);
+  camerawindow.println('');
   s1:=0;
   end;
-
+n+=1;
 until terminated;
+//closefile(tf);
 end;
 
 procedure TCameraThread.execute;
@@ -283,19 +359,21 @@ setpallette(grayscalepallette,0);
     miniwindow.move(100,100,cxres,cyres,0,0);
     end;
   camera;
+// for i:=0 to 10000 do camerawindow.println(inttostr(i));
   setpallette(ataripallette,0);
   repeat threadsleep(100) until camerawindow.needclose;
   camerawindow.destroy;
   camerawindow:=nil;
-  miniwindow.destroy;
-  miniwindow:=nil;
+
   rendertestwindow.destroy;
   rendertestwindow:=nil;
   cmw:=nil;
   p999:
   setpallette(ataripallette,0);
-//  PAThread.terminate;
-//  PAThread.destroy;
+  PAThread.terminate;
+  PAThread.destroy;
+  miniwindow.destroy;
+  miniwindow:=nil;
 end;
 
 
