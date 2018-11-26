@@ -7,7 +7,7 @@ interface
 
 uses
   classes,sysutils, uOMX, VC4, threads,
-  retromalina, mwindows, blitter, retro, platform;
+  retromalina, mwindows, blitter, retro, platform,camera;
 
 type TCameraThread=class (TThread)
 
@@ -93,25 +93,41 @@ begin
 
 
                  asm
-                 push {r0-r7}
+                 push {r0-r12}
                  ldr r0,b1
                  ldr r1,b2
                  ldr r2,count
-                 mov r3,#0
+                 mov r3,#640 // todo - line count
+                 mov r4,#0
+                 mov r5,#0
+                 mov r6,#0
+                 mov r7,#0
+                 mov r8,#0
+                 mov r9,#0
+                 mov r10,#0
+                 mov r12,#0
 
-p101:            add r7,r6
-                 add r7,r5
+p101:            add r12,r10
+                 add r12,r9
+                 add r12,r8
+                 add r12,r7
+                 add r12,r6
+                 ldrb r5,[r0,r3]
+                 add r12,r5
                  ldrb r4,[r0],#1
-                 add r7,r4
-                 lsr r7,#2
-                 strb r7,[r1],#1
-                 mov r7,r6
-                 mov r6,r5
-                 mov r5,r4
+                 add r12,r4
+                 //lsr r12,#2
+                 strb r12,[r1],#1
+                 mov r12,r9
+                 mov r10,r8
+                 mov r9,r7
+                 mov r8,r6
+                 mov r7,r5
+                 mov r6,r4
                  subs r2,#1
                  bne p101
 
-                 pop {r0-r7}
+                 pop {r0-r12}
                  end;
 
 
@@ -214,7 +230,7 @@ if (s1>0) and (n>60)  then
   begin
   SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
-  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,24 );
+  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,32 );
   pointnum:=findpoints(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
   fastmove(cardinal(@testbuf3),cardinal(miniwindow.canvas),cxres*cyres);
   td:=gettime-td;
@@ -487,7 +503,7 @@ print_log('Callbacks set');
 
 // Load the camera and the renderer
 
-err := OMX_GetHandle(@(mContext.pCamera), COMPONENT_CAMERA, @mContext, @CallbackOMX);
+err := OMX_GetHandle(@(mContext.pCamera), COMPONENT_CAMERA, nil {@mContext}, @CallbackOMX);
 if (err <> OMX_ErrorNone ) then print_log('error loading camera'+inttostr(err));
 
 print_log('Camera loaded: '+inttohex(cardinal(mContext.pCamera),8));
@@ -560,7 +576,7 @@ portDef.nVersion.nVersion := OMX_VERSION;
 portDef.nPortIndex := 71;
 
 OMX_GetParameter(mContext.pCamera, OMX_IndexParamPortDefinition, @portDef);
-OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, @mContext, portDef.nBufferSize);
+OMX_AllocateBuffer(mContext.pCamera, @mContext.pBufferCameraOut, 71, {@mContext} nil, portDef.nBufferSize);
 if err<>OMX_ErrorNone then print_log(inttostr(err)+ 'allocate camera buffer FAIL');
 print_log('Allocated '+inttostr(portDef.nBufferCountActual)+' camera buffers size '+inttostr(portDef.nBufferSize));
 
