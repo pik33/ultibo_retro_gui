@@ -115,7 +115,183 @@ p101:            add r12,r10
 end;
 
 
+procedure soap3(b1,b2,count:integer);
 
+label p101;
+
+// Make an average of 8 pixels
+
+
+begin
+
+
+                 asm
+                 push {r0-r12,r14}
+                 ldr r0,b1
+                 ldr r1,b2
+                 ldr r2,count
+                 mov r3,#0
+                 mov r4,#0
+                 mov r5,#0
+                 mov r6,#0
+                 mov r7,#0
+                 mov r8,#0
+                 mov r9,#0
+                 mov r10,#0
+                 mov r12,#0
+
+p101:            sub r12,r3
+                 ldrb r3,[r0],#1
+                 add r12,r3
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r4
+                 ldrb r4,[r0],#1
+                 add r12,r4
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r5
+                 ldrb r5,[r0],#1
+                 add r12,r5
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r6
+                 ldrb r6,[r0],#1
+                 add r12,r6
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r7
+                 ldrb r7,[r0],#1
+                 add r12,r7
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r8
+                 ldrb r8,[r0],#1
+                 add r12,r8
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r9
+                 ldrb r9,[r0],#1
+                 add r12,r9
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 sub r12,r10
+                 ldrb r10,[r0],#1
+                 add r12,r10
+                 lsr r14,r12,#2
+                 strb r14,[r1],#1
+
+                 subs r2,#8
+                 bgt p101
+
+                 pop {r0-r14}
+                 end;
+
+
+end;
+
+procedure soap3v(b1,b2,count:integer);
+
+label p101,p102;
+
+// Make an average of 8 pixels
+
+
+begin
+
+
+                 asm
+                 push {r0-r12,r14}
+                 ldr r0,b1
+                 ldr r1,b2
+                 mov r2,#640
+                 mov r3,#0
+                 mov r4,#0
+                 mov r5,#0
+                 mov r6,#0
+                 mov r7,#0
+                 mov r8,#0
+                 mov r9,#0
+                 mov r10,#0
+                 mov r12,#0
+
+p102:            push {r2}
+
+
+                 mov r2,#60
+
+p101:            sub r12,r3
+                 ldrb r3,[r0],#640
+                 add r12,r3
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r4
+                 ldrb r4,[r0],#640
+                 add r12,r4
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r5
+                 ldrb r5,[r0],#640
+                 add r12,r5
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r6
+                 ldrb r6,[r0],#640
+                 add r12,r6
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r7
+                 ldrb r7,[r0],#640
+                 add r12,r7
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r8
+                 ldrb r8,[r0],#640
+                 add r12,r8
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r9
+                 ldrb r9,[r0],#640
+                 add r12,r9
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 sub r12,r10
+                 ldrb r10,[r0],#640
+                 add r12,r10
+                 lsr r14,r12,#2
+                 strb r14,[r1],#640
+
+                 subs r2,#1
+                 bgt p101
+
+                 sub r0,#307200
+                 sub r1,#307200
+                 add r0,#1
+                 add r1,#1
+
+                 pop {r2}
+                 subs r2,#1
+                 bgt p102
+
+                 pop {r0-r12,r14}
+                 end;
+
+
+end;
 
 
 function findpoints2(b1,b2,count:integer):integer;
@@ -199,7 +375,7 @@ if (s1>0) and (n>60)  then
   begin
   SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
-  diff4(cardinal(@testbuf1),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,32 );
+  diff4(cardinal(@rendertestwindow2.canvas),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,12 );
   pointnum:=findpoints2(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
   fastmove(cardinal(@testbuf3),cardinal(miniwindow2.canvas),cxres*cyres);
   td:=gettime-td;
@@ -358,24 +534,24 @@ if buffer<$C0000000 then goto p999;
 startcamera;
 while keypressed do readkey;
 for frames2:=1 to maxframe do
-   begin
-   threadsleep(16);
-   repeat threadsleep(1) until filled;
-//    fastmove(buffer,cardinal(rendertestwindow2.canvas),640*480);
-//    filled:=false;
-//    camerawindow2.println(inttostr(frames2));
+  begin
+  repeat threadsleep(1) until filled;
   t3:=gettime;
-  soap2(buffer,cardinal(@testbuf1),cyres*cxres) ;
+  soap3(buffer,cardinal(@testbuf1),cyres*cxres) ;
   t3:=gettime-t3;
   filled:=false;
   s1:=(frames mod 2) +1;
-  fastmove(cardinal(@testbuf1),cardinal(rendertestwindow2.canvas),cxres*cyres);
-  t1:=gettime-t1; if frames>1 then begin at+=t1; rendertestwindow2.outtextxyz(4,44,inttostr(at div (frames-1)),255,2,2); end; t1:=gettime;
-  if frames2>1 then begin at3+=t3; rendertestwindow2.outtextxyz(4,124,inttostr(at3 div (frames2-1)),255,2,2); end;
-  rendertestwindow2.outtextxyz(4,4,inttostr(frames),255,2,2);
-    if keypressed then goto p998;
+    t3:=gettime;
+  soap3v(cardinal(@testbuf1),cardinal(rendertestwindow2.canvas),cxres*cyres);
+    t3:=gettime-t3;
+ // t1:=gettime-t1; if frames>1 then begin at+=t1; rendertestwindow2.outtextxyz(4,44,inttostr(at div (frames-1)),255,2,2); end; t1:=gettime;
+ // if frames2>1 then begin at3+=t3; rendertestwindow2.outtextxyz(4,124,inttostr(at3 div (frames2-1)),255,2,2); end;
+ // rendertestwindow2.outtextxyz(4,4,inttostr(frames),255,2,2);
+  if keypressed then goto p998;
   end;
 p998:
+stopcamera;
+camerawindow2.println ('----- Camera stopped ');
 camerawindow2.println ('----- Main loop ended ');
 
 
@@ -387,8 +563,7 @@ camerawindow2.println ('----- Close button clicked ');
 
 
 p999:
-  stopcamera;
-camerawindow2.println ('----- Camera stopped ');
+
 
   destroycamera;
   camerawindow2.println ('----- Camera destroyed ');

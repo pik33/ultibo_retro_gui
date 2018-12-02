@@ -5,7 +5,7 @@ unit camera;
 //------------------------------------------------------------------------------
 //
 // A simple camera unit for Ultibo using pure OMX calls
-// v.0.10 alpha - 20181124
+// v.0.11 alpha - 20181202
 //
 // Piotr Kardasz
 // pik33@o2.pl
@@ -89,7 +89,6 @@ const logenable=true; // logging disabled
 
 implementation
 
-uses camera2; // for logging
 
 procedure print_log(s:string);  forward;
 
@@ -126,7 +125,7 @@ repeat
 
 if camerabufferfilled then
   begin
-  print_log('******* camera buffer filled, frame '+inttostr(frames));
+ // print_log('******* camera buffer filled, frame '+inttostr(frames));
   frames+=1;
   camerabufferfilled:=false;
   filled:=true;
@@ -206,7 +205,6 @@ procedure print_log(s:string);
 begin
   if logenable then
     begin
-    camerawindow2.println(s);
      // add your logging code here
     end;
 end;
