@@ -34,7 +34,7 @@ uses  //Ultibo units
   blitter,
   retro, simpleaudio, {scripttest,} xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64, fmsynth,
-  camera1;
+  camera2;
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
@@ -193,16 +193,16 @@ repeat
     begin
     cameratest.dblclicked:=false;
     if keypressed then readkey;
-    if cmw=nil then
+    if cmw2=nil then
       begin
-      camerathread:=TCameraThread.create(true);
-      camerathread.start;
+      camerathread2:=TCameraThread2.create(true);
+      camerathread2.start;
 
       threadsleep(100);
 
-      PAThread:=TPAThread.create(true);
-      PAThread.start;
-      cmw:=camerathread;
+      PAThread2:=TPAThread2.create(true);
+      PAThread2.start;
+      cmw2:=camerathread2;
       end;
     end;
 

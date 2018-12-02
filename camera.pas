@@ -76,17 +76,22 @@ var width,height,framerate:cardinal;
     formatVideo:POMX_VIDEO_PORTDEFINITIONTYPE;
 
     PBuffer: POMX_BUFFERHEADERTYPE;
-    cameraworkerthread:TCameraWorkerThread;
+    cameraworkerthread:TCameraWorkerThread=nil;
+    cameraworkerthreadterminate:boolean=false;
 
 function initcamera(xres,yres,fps:integer):cardinal;
 function startcamera:cardinal;
 function stopcamera:cardinal;
 function destroycamera:cardinal;
 
-const logenable=false; // logging disabled
+const logenable=true; // logging disabled
 // you have to implement your own print_log function before eneble the logging
 
 implementation
+
+uses camera2; // for logging
+
+procedure print_log(s:string);  forward;
 
 //------------------------------------------------------------------------------
 //
@@ -98,6 +103,7 @@ constructor TCameraWorkerThread.create(CreateSuspended : boolean);
 
 begin
 FreeOnTerminate := True;
+cameraworkerthreadterminate:=false;
 inherited Create(CreateSuspended);
 
 end;
@@ -105,7 +111,12 @@ end;
 
 procedure TCameraWorkerThread.execute;
 
+label p998;
+
+var counter:integer=0;
 begin
+ThreadSetpriority(ThreadGetCurrent,6);
+threadsleep(1);
 
 OMX_FillThisBuffer(pcamera, pCameraOutBuffer);
 
@@ -115,16 +126,25 @@ repeat
 
 if camerabufferfilled then
   begin
+  print_log('******* camera buffer filled, frame '+inttostr(frames));
   frames+=1;
   camerabufferfilled:=false;
   filled:=true;
-  threadsleep(5);
-  SchedulerPreemptDisable(CPUGetCurrent);
+  counter:=0;
+  repeat counter+=1; threadsleep(0) until (filled=false) or (counter>1000);
+    if counter>1000 then
+      begin
+      print_log('******* No receiver responding');
+      goto p998;
+      end;
+//  SchedulerPreemptDisable(CPUGetCurrent);
   OMX_FillThisBuffer(pcamera,pCameraOutBuffer);
-  SchedulerPreemptEnable(CPUGetCurrent);
+//  SchedulerPreemptEnable(CPUGetCurrent);
   end;
 threadsleep(1);
-until terminated;
+until terminated or (counter>1000) or cameraworkerthreadterminate;
+p998:
+if counter>1000 then print_log('Camera worker terminated on receiver timeout');
 end;
 
 
@@ -186,6 +206,7 @@ procedure print_log(s:string);
 begin
   if logenable then
     begin
+    camerawindow2.println(s);
      // add your logging code here
     end;
 end;
@@ -405,6 +426,8 @@ label p999;
 
 begin
 
+if cameraworkerthread<>nil then goto p999;
+
 //------ Change the components state from idle to executing---------------------
 
 err := OMX_SendCommand(pcamera, OMX_CommandStateSet, OMX_StateExecuting, nil);
@@ -452,9 +475,21 @@ end;
 
 function stopcamera:cardinal;
 
+label p999;
+
 begin
-cameraworkerthread.terminate;
+if cameraworkerthread=nil then
+  begin
+  print_log(' *** Nothing to stop, exiting');
+  result:=10;
+  goto p999;
+  end;
+
+print_log('*** Terminating camera worker.');
+cameraworkerthreadterminate:=true;
 threadsleep(50);
+cameraworkerthread.destroy;
+print_log('*** Camera worker destroyed.');
 portCapturing.bEnabled := OMX_FALSE;
 OMX_SetConfig(pcamera, OMX_IndexConfigPortCapturing, @portCapturing);
 print_log('Capture stop.');
@@ -467,6 +502,7 @@ if wait_for_state_change(OMX_StateIdle, pcamera)=OMX_FALSE then
   result:=9; // the camera didn't return to idle state
   end
 else result:=0;
+p999:
 end;
 
 //------------------------------------------------------------------------------
