@@ -306,6 +306,10 @@ type TIcon=class(TObject)
      procedure arrange;
      procedure checkall;
 
+     procedure LoadICONFromFile (fn : string);   // added pjde
+     procedure LoadICONFromStream (s : TStream);   // added pjde
+
+
      end;
 
 
@@ -397,7 +401,8 @@ procedure getrectanglelist;
 
 implementation
 
-uses blitter;
+uses FPImage, FPReadPNG, // added pjde
+    blitter;
 
 
 //------------------------------------------------------------------------------
@@ -3120,6 +3125,84 @@ repeat
 until temp=nil;
 p999:
 end;
+
+procedure TIcon.LoadICONFromFile(fn: string);    // added pjde
+var
+  f:TFileStream;
+begin
+  try
+    f:=TFileStream.Create(fn,fmOpenRead);
+    LoadICONFromStream(f);
+    f.Free;
+  except
+  end;
+end;
+
+procedure TIcon.LoadICONFromStream(s:TStream);   // added pjde
+var
+  im:TFPCustomImage;
+  i,j: LongWord;
+  r:TIcon48; // largest possible
+  ac,cc:LongWord; // current colour
+  p,sz:integer;
+  pi:byte;
+  cd,nd:double;
+
+  function ColorDif(c1,c2:LongWord):double;
+  var
+    r1,r2,g1,g2,b1,b2:byte;
+  begin
+    r1:=(c1 shr 16) and $ff;
+    g1:=(c1 shr 8) and $ff;
+    b1:= c1 and $ff;
+    r2:=(c2 shr 16) and $ff;
+    g2:=(c2 shr 8) and $ff;
+    b2:= c2 and $ff;
+    Result := (r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2);
+  end;
+
+begin
+  s.Seek(0,soFromBeginning);
+  im:=TFPMemoryImage.Create(0,0);
+  try
+   im.LoadFromStream(s);
+   sz:=im.Width;
+   if (im.Width=im.Height)and(im.Width>0) then
+    begin
+     for i:=0 to im.Width-1 do
+      for j:=0 to im.Height-1 do
+      if (im.Colors[i,j].alpha and $ff)=0 then
+        r[i+(j*im.Width)]:=$00
+      else
+        begin
+          cc:=((im.Colors[i,j].red and $ff00) shl 8) +        // 8 -> 16 <-
+              (im.Colors[i,j].green and $ff00) +              // 8 ->  8 <-
+              ((im.Colors[i,j].blue and $ff00) shr 8);        // 8 ->  0 <-
+          pi:=0;                    // default is transparent
+          cd:=100000;               // start with large difference
+          for p:=0 to 255 do
+            begin
+              nd:=ColorDif(cc,ataripallette[p]);
+              if nd<cd then
+                begin
+                  cd:=nd;
+                  pi:=p;
+                end;
+            end;
+          r[i+(j*im.Width)]:= pi;
+        end;
+      end;
+  except on e: exception do
+    outtextxy(0,280,'Image Load Error '+e.Message,15);
+    end;
+  im.free;
+  case sz of
+   16:System.Move(r[0],Icon16[0],sz*sz);
+   32:System.Move(r[0],Icon32[0],sz*sz);
+   48:System.Move(r[0],Icon48[0],sz*sz);
+  end;
+end;
+
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------

@@ -119,7 +119,8 @@ trash:=testicon.append('Trash');
 trash.icon48:=i48_trash;
 trash.x:=0; trash.y:=960; trash.size:=48; trash.l:=128; trash.h:=96; trash.draw;
 calculator:=Testicon.append('Calculator');
-calculator.icon48:=i48_calculator;
+//calculator.icon48:=i48_calculator;   commented out pjde
+calculator.LoadICONFromFile(drive+'Colors\Icons\Calculator-01.png');    // added pjde
 calculator.x:=256; calculator.y:=0; calculator.size:=48; calculator.l:=128; calculator.h:=96; calculator.draw;
 console:=Testicon.append('Console');
 console.icon48:=i48_terminal;
@@ -134,7 +135,8 @@ mandel:=Testicon.append('Mandelbrot');
 mandel.icon48:=i48_mandelbrot;
 mandel.x:=768; mandel.y:=0; mandel.size:=48; mandel.l:=128; mandel.h:=96; mandel.draw;
 textedit:=Testicon.append('Text editor');
-textedit.icon48:=i48_textedit;
+//textedit.icon48:=i48_textedit;     commented out pjde
+textedit.LoadICONFromFile(drive+'Colors\Icons\Text-Edit-icon.png');    // added pjde
 textedit.x:=896; textedit.y:=0; textedit.size:=48; textedit.l:=128; textedit.h:=96; textedit.draw;
 raspbian:=Testicon.append('Raspbian');
 raspbian.icon48:=i48_raspi;
