@@ -142,50 +142,66 @@ begin
 
 p101:            sub r12,r3
                  ldrb r3,[r0],#1
+                 cmps r3,#192
+                 movlt r3,#0
                  add r12,r3
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r4
                  ldrb r4,[r0],#1
+                 cmps r4,#192
+                 movlt r4,#0
                  add r12,r4
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r5
                  ldrb r5,[r0],#1
+                 cmps r5,#192
+                 movlt r5,#0
                  add r12,r5
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r6
                  ldrb r6,[r0],#1
+                 cmps r6,#192
+                 movlt r6,#0
                  add r12,r6
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r7
                  ldrb r7,[r0],#1
+                 cmps r7,#192
+                 movlt r7,#0
                  add r12,r7
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r8
                  ldrb r8,[r0],#1
+                 cmps r8,#192
+                 movlt r8,#0
                  add r12,r8
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r9
                  ldrb r9,[r0],#1
+                 cmps r9,#192
+                 movlt r9,#0
                  add r12,r9
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  sub r12,r10
                  ldrb r10,[r0],#1
+                 cmps r10,#192
+                 movlt r10,#0
                  add r12,r10
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#1
 
                  subs r2,#8
@@ -230,49 +246,49 @@ p102:            push {r2}
 p101:            sub r12,r3
                  ldrb r3,[r0],#640
                  add r12,r3
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r4
                  ldrb r4,[r0],#640
                  add r12,r4
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r5
                  ldrb r5,[r0],#640
                  add r12,r5
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r6
                  ldrb r6,[r0],#640
                  add r12,r6
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r7
                  ldrb r7,[r0],#640
                  add r12,r7
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r8
                  ldrb r8,[r0],#640
                  add r12,r8
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r9
                  ldrb r9,[r0],#640
                  add r12,r9
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  sub r12,r10
                  ldrb r10,[r0],#640
                  add r12,r10
-                 lsr r14,r12,#2
+                 lsr r14,r12,#3
                  strb r14,[r1],#640
 
                  subs r2,#1
@@ -375,7 +391,7 @@ if (s1>0) and (n>60)  then
   begin
   SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
-  diff4(cardinal(@rendertestwindow2.canvas),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,12 );
+  diff4(cardinal(@rendertestwindow2.canvas),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,32);
   pointnum:=findpoints2(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
   fastmove(cardinal(@testbuf3),cardinal(miniwindow2.canvas),cxres*cyres);
   td:=gettime-td;
@@ -444,7 +460,7 @@ p102:
       if xx>-1 then
         begin
 
-        camerawindow2.println(inttostr(i)+' '+inttostr(xx)+' '+inttostr(yy));
+ //       camerawindow2.println(inttostr(i)+' '+inttostr(xx)+' '+inttostr(yy));
 
         end;
       end;
@@ -468,7 +484,7 @@ p102:
   miniwindow2.outtextxyz(0,0,inttostr(td2 div (n-60)),255,2,2);
   miniwindow2.outtextxyz(0,40,inttostr(pointnum),255,2,2);
   miniwindow2.outtextxyz(0,80,inttostr(p),255,2,2);
-  camerawindow2.println('');
+//  if maxpoint>0 then  camerawindow2.println('');
   s1:=0;
   end;
 n+=1;

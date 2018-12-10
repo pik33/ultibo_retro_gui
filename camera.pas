@@ -88,7 +88,7 @@ const logenable=true; // logging disabled
 // you have to implement your own print_log function before eneble the logging
 
 implementation
-
+uses camera2; //for logging
 
 procedure print_log(s:string);  forward;
 
@@ -142,6 +142,8 @@ if camerabufferfilled then
   end;
 threadsleep(1);
 until terminated or (counter>1000) or cameraworkerthreadterminate;
+print_log('Camera worker thread terminated');
+cameraworkerthreadterminate:=false;
 p998:
 if counter>1000 then print_log('Camera worker terminated on receiver timeout');
 end;
@@ -206,6 +208,7 @@ begin
   if logenable then
     begin
      // add your logging code here
+      camerawindow2.println(s);
     end;
 end;
 
@@ -474,6 +477,7 @@ end;
 function stopcamera:cardinal;
 
 label p999;
+var cnt:integer;
 
 begin
 if cameraworkerthread=nil then
@@ -485,8 +489,10 @@ if cameraworkerthread=nil then
 
 print_log('*** Terminating camera worker.');
 cameraworkerthreadterminate:=true;
-threadsleep(50);
+cnt:=0;
+repeat cnt+=1; threadsleep(50) until (cameraworkerthreadterminate=false) or (cnt>50);
 cameraworkerthread.destroy;
+cameraworkerthread:=nil;
 print_log('*** Camera worker destroyed.');
 portCapturing.bEnabled := OMX_FALSE;
 OMX_SetConfig(pcamera, OMX_IndexConfigPortCapturing, @portCapturing);
