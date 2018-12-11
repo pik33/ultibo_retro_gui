@@ -34,7 +34,7 @@ uses  //Ultibo units
   blitter,
   retro, simpleaudio, {scripttest,} xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64, fmsynth,
-  camera2;
+  camera2, gltest;
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
@@ -147,7 +147,7 @@ synth.x:=384; synth.y:=96; synth.size:=48; synth.l:=128; synth.h:=96; synth.draw
 cameratest:=Testicon.append('Camera test');
 cameratest.icon48:=i48_camera;
 cameratest.x:=512; cameratest.y:=96; cameratest.size:=48; cameratest.l:=128; cameratest.h:=96; cameratest.draw;
-basictest:=Testicon.append('BASIC');
+basictest:=Testicon.append('GL test');
 basictest.icon48:=i48_basic;
 basictest.x:=640; basictest.y:=96; basictest.size:=48; basictest.l:=128; basictest.h:=96; basictest.draw;
 
@@ -260,6 +260,23 @@ repeat
       notepadthread:=Tnotepadthread.create(true);
       notepadthread.start;
       end;
+    end;
+
+  if basictest.dblclicked then
+    begin
+    basictest.dblclicked:=false;
+    threadsetpriority(threadgetcurrent,7);
+    threadsleep(2);
+
+    StartGLES2;
+
+        threadsetpriority(threadgetcurrent,4);
+        threadsleep(2);
+ //   if note=nil then
+ //     begin
+ //     notepadthread:=Tnotepadthread.create(true);
+ //     notepadthread.start;
+ //     end;
     end;
 
   if synth.dblclicked then
