@@ -417,8 +417,8 @@ begin
   if State.Surface = EGL_NO_SURFACE then Exit;
 
   {Preserve the buffers on swap}
-  EGLResult:=eglSurfaceAttrib(State.Display,State.Surface,EGL_SWAP_BEHAVIOR,EGL_BUFFER_PRESERVED);
-  if EGLResult = EGL_FALSE then Exit;
+//  EGLResult:=eglSurfaceAttrib(State.Display,State.Surface,EGL_SWAP_BEHAVIOR,EGL_BUFFER_PRESERVED);
+//  if EGLResult = EGL_FALSE then Exit;
 
   {Connect the EGL context to the EGL surface}
   EGLResult:=eglMakeCurrent(State.Display,State.Surface,State.Surface,State.Context);
@@ -627,7 +627,7 @@ begin
  glUseProgram(Scene.programID);
 
  {Enable and bind the vertex information}
-glEnableVertexAttribArray(Scene.positionLoc);
+ glEnableVertexAttribArray(Scene.positionLoc);
  glBindBuffer(GL_ARRAY_BUFFER,Scene.vertexID);
  glVertexAttribPointer(Scene.positionLoc,3,GL_FLOAT,GL_FALSE,3 * SizeOf(GLfloat),nil);
 
@@ -643,7 +643,7 @@ glEnableVertexAttribArray(Scene.positionLoc);
  glUniformMatrix4fv(Scene.mvpLoc,1,GL_FALSE,@Scene.mvpMat.mat[0][0]);
 
  {Draw all of our triangles at once}
- glDrawArrays(GL_TRIANGLES,0,36);
+  glDrawArrays(GL_TRIANGLES,0,36);
 
  {Disable the attribute arrays}
 glDisableVertexAttribArray(Scene.positionLoc);
@@ -651,9 +651,9 @@ glDisableVertexAttribArray(Scene.colorLoc);
 
  {Swap the buffers to display the new scene}
  ttt:=gettime;
-   SchedulerPreemptDisable(CPUGetCurrent);
+
  eglSwapBuffers(State.Display,State.Surface);
-   SchedulerPreemptenable(CPUGetCurrent);
+
  ttt:=gettime-ttt;
   frames+=1;
   retromalina.box(0,0,200,100,0);
