@@ -262,7 +262,7 @@ repeat
       end;
     end;
 
-  if basictest.dblclicked then
+  if (basictest.dblclicked) or (key=ord('g')) then
     begin
     basictest.dblclicked:=false;
     threadsetpriority(threadgetcurrent,7);

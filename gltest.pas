@@ -215,6 +215,8 @@ procedure GLES2ScaleMatrix(Result:PglMatrix;sx,sy,sz:GLfloat);
 procedure GLES2RotateMatrix(Result:PglMatrix;Angle,x,y,z:GLfloat);
 procedure GLES2FrustumMatrix(Result:PglMatrix;Left,Right,Bottom,Top,NearZ,FarZ:GLfloat);
 
+var Element:DISPMANX_ELEMENT_HANDLE_T;
+
 implementation
 
 uses retromalina,threads,platform; //for readkey
@@ -384,8 +386,8 @@ begin
 
   {Create an EGL window surface}
   if BCMHostGraphicsGetDisplaySize(DISPMANX_ID_MAIN_LCD,State.ScreenWidth,State.ScreenHeight) < 0 then Exit;
- // State.ScreenHeight:=State.ScreenHeight div 2;
- // State.Screenwidth:=State.Screenwidth div 2;
+  State.ScreenHeight:=State.ScreenHeight div 2;
+  State.Screenwidth:=State.Screenwidth div 2;
 
 
   {Setup the DispmanX source and destination rectangles}
@@ -403,6 +405,7 @@ begin
   {Add a DispmanX element for our display}
   State.DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,State.DispmanDisplay,0 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@State.Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
   if State.DispmanElement = DISPMANX_NO_HANDLE then Exit;
+  element:= State.DispmanElement;
 
   {Define an EGL DispmanX native window structure}
   State.NativeWindow.Element:=State.DispmanElement;
@@ -608,8 +611,18 @@ procedure GLES2RenderScene(var State:TGLES2State;var Scene:TGLES2Scene);
 
 const frames:integer=0;
       ttt:int64=0;
+
+var   src_rect,Dst_Rect:VC_RECT_T;
+
+      DispmanUpdate:DISPMANX_UPDATE_HANDLE_T;
+
 begin
  ttt:=gettime;
+  DispmanUpdate:=vc_dispmanx_update_start(10);
+  vc_dispmanx_rect_set(@Dst_Rect,frames mod 540,frames mod 540,960,540);
+  vc_dispmanx_rect_set(@src_Rect,0,0,960 shl 16,540 shl 16);
+  vc_dispmanx_element_change_attributes(DispmanUpdate,element,12,0,0,@dst_rect,@src_rect,0,0);
+  vc_dispmanx_update_submit(DispmanUpdate,nil,0);
  {}
  {Update the position of our 3D cube model, render it and swap buffers
   in order to display it again.
