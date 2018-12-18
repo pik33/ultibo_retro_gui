@@ -33,6 +33,7 @@ const cxres=640;
 
 type cbuffer=array[0..cxres*cyres-1] of byte;
 type cbufferl=array[0..(cxres*cyres div 4)-1] of cardinal;
+type cbuffer2=array[0..2*cxres*cyres-1] of byte;
 
 
 
@@ -50,7 +51,7 @@ type cbufferl=array[0..(cxres*cyres div 4)-1] of cardinal;
       tb4l:cbufferl absolute testbuf4;
       s1:integer=0;
       nFrames:cardinal=0;
-
+      camerabuffer:cbuffer2;
       points:array[0..3900] of TPoint;
       pointnum:integer=0;
       i,j,k,l,m:integer;
@@ -115,7 +116,7 @@ p101:            add r12,r10
 end;
 
 
-procedure soap3(b1,b2,count:integer);
+procedure soap3(b1,b2,count:cardinal);
 
 label p101;
 
@@ -142,7 +143,7 @@ begin
 
 p101:            sub r12,r3
                  ldrb r3,[r0],#1
-                 cmps r3,#192
+                 cmps r3,#128
                  movlt r3,#0
                  add r12,r3
                  lsr r14,r12,#3
@@ -150,7 +151,7 @@ p101:            sub r12,r3
 
                  sub r12,r4
                  ldrb r4,[r0],#1
-                 cmps r4,#192
+                 cmps r4,#128
                  movlt r4,#0
                  add r12,r4
                  lsr r14,r12,#3
@@ -158,7 +159,7 @@ p101:            sub r12,r3
 
                  sub r12,r5
                  ldrb r5,[r0],#1
-                 cmps r5,#192
+                 cmps r5,#128
                  movlt r5,#0
                  add r12,r5
                  lsr r14,r12,#3
@@ -166,7 +167,7 @@ p101:            sub r12,r3
 
                  sub r12,r6
                  ldrb r6,[r0],#1
-                 cmps r6,#192
+                 cmps r6,#128
                  movlt r6,#0
                  add r12,r6
                  lsr r14,r12,#3
@@ -174,7 +175,7 @@ p101:            sub r12,r3
 
                  sub r12,r7
                  ldrb r7,[r0],#1
-                 cmps r7,#192
+                 cmps r7,#128
                  movlt r7,#0
                  add r12,r7
                  lsr r14,r12,#3
@@ -182,7 +183,7 @@ p101:            sub r12,r3
 
                  sub r12,r8
                  ldrb r8,[r0],#1
-                 cmps r8,#192
+                 cmps r8,#128
                  movlt r8,#0
                  add r12,r8
                  lsr r14,r12,#3
@@ -190,7 +191,7 @@ p101:            sub r12,r3
 
                  sub r12,r9
                  ldrb r9,[r0],#1
-                 cmps r9,#192
+                 cmps r9,#128
                  movlt r9,#0
                  add r12,r9
                  lsr r14,r12,#3
@@ -198,7 +199,7 @@ p101:            sub r12,r3
 
                  sub r12,r10
                  ldrb r10,[r0],#1
-                 cmps r10,#192
+                 cmps r10,#128
                  movlt r10,#0
                  add r12,r10
                  lsr r14,r12,#3
@@ -207,13 +208,13 @@ p101:            sub r12,r3
                  subs r2,#8
                  bgt p101
 
-                 pop {r0-r14}
+                 pop {r0-r12,r14}
                  end;
 
 
 end;
 
-procedure soap3v(b1,b2,count:integer);
+procedure soap3v(b1,b2,count:cardinal);
 
 label p101,p102;
 
@@ -337,8 +338,8 @@ p101:            mov r5,r4
                  add r5,r5,r3,lsl #1
                  cmps r5, #1020
 
-                 streq r7,[r6],#4
-                 addeq r2,#1
+                 streq r7,[r6],#4    //streq
+                 addeq r2,#1         //addeq
                  cmps r2,#100
                  bge p102
                  subs r1,#1
@@ -391,9 +392,9 @@ if (s1>0) and (n>60)  then
   begin
   SchedulerPreemptDisable(CPUGetCurrent);
   td:=gettime;
-  diff4(cardinal(@rendertestwindow2.canvas),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,32);
-  pointnum:=findpoints2(cardinal(@testbuf3),cardinal(@testbuf4),cxres*cyres);
-  fastmove(cardinal(@testbuf3),cardinal(miniwindow2.canvas),cxres*cyres);
+//  diff4(cardinal(@rendertestwindow2.canvas),cardinal(@testbuf2),cardinal(@testbuf3),cxres*cyres,32);
+  pointnum:=findpoints2(cardinal(@rendertestwindow2.canvas+1280),cardinal(@testbuf4),cxres*cyres-1280) ;
+//  fastmove(cardinal(@testbuf3),cardinal(miniwindow2.canvas),cxres*cyres);
   td:=gettime-td;
   SchedulerPreemptEnable(CPUGetCurrent);
   td2+=td;
@@ -411,7 +412,7 @@ if (s1>0) and (n>60)  then
     points2a[i][1]:=-1;
     end;
 
-//  camerawindow.println('Point number is '+inttostr(pointnum));
+  camerawindow2.println('Point number is '+inttostr(pointnum));
 
   if pointnum>1 then
     begin
@@ -428,7 +429,7 @@ p101:
             and (yy>points1a[p][2]-4)
               and (yy<points1a[p][3]+4) then // the pixel belongs to the point
           begin
-//          camerawindow.println('point# '+inttostr(p)+' updated: '+inttostr(xx)+'  '+inttostr(yy));
+          camerawindow2.println('point# '+inttostr(p)+' updated: '+inttostr(xx)+'  '+inttostr(yy));
           if xx<points1a[p][0] then points1a[p][0]:=xx
             else if xx>points1a[p][1] then points1a[p][1]:=xx;
           if yy<points1a[p][2] then points1a[p][2]:=yy
@@ -544,7 +545,7 @@ setpallette(grayscalepallette,0);
     miniwindow2.move(100,100,cxres,cyres,0,0);
     end;
 
-buffer:=initcamera(640,480,60);
+buffer:=initcamera(640,480,60,cardinal(@camerabuffer));
 camerawindow2.println ('----- Camera buffer at '+inttohex(buffer,8));
 if buffer<$C0000000 then goto p999;
 startcamera;
@@ -552,13 +553,14 @@ while keypressed do readkey;
 for frames2:=1 to maxframe do
   begin
   repeat threadsleep(1) until filled;
-  t3:=gettime;
-  soap3(buffer,cardinal(@testbuf1),cyres*cxres) ;
-  t3:=gettime-t3;
   filled:=false;
+  t3:=gettime;
+   soap3(cardinal(@camerabuffer),cardinal(@testbuf1),cyres*cxres) ;
+  t3:=gettime-t3;
+
   s1:=(frames mod 2) +1;
     t3:=gettime;
-  soap3v(cardinal(@testbuf1),cardinal(rendertestwindow2.canvas),cxres*cyres);
+   soap3v(cardinal(@testbuf1),cardinal(rendertestwindow2.canvas),cxres*cyres);
     t3:=gettime-t3;
  // t1:=gettime-t1; if frames>1 then begin at+=t1; rendertestwindow2.outtextxyz(4,44,inttostr(at div (frames-1)),255,2,2); end; t1:=gettime;
  // if frames2>1 then begin at3+=t3; rendertestwindow2.outtextxyz(4,124,inttostr(at3 div (frames2-1)),255,2,2); end;

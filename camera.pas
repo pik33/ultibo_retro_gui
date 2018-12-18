@@ -5,7 +5,7 @@ unit camera;
 //------------------------------------------------------------------------------
 //
 // A simple camera unit for Ultibo using pure OMX calls
-// v.0.11 alpha - 20181202
+// v.0.12 alpha - 20181215
 //
 // Piotr Kardasz
 // pik33@o2.pl
@@ -16,7 +16,8 @@ unit camera;
 //------------------------------------------------------------------------------
 // Instructions:
 //
-// - call initcamera with your desired parameters
+// - call initcamera with your desired parameters. You have to provide a buffer
+// for the camera data
 //
 // - check the result: if it is >$C0000000 then all went OK,
 //   the camera is in the idle state, and the result is the address
@@ -78,8 +79,11 @@ var width,height,framerate:cardinal;
     PBuffer: POMX_BUFFERHEADERTYPE;
     cameraworkerthread:TCameraWorkerThread=nil;
     cameraworkerthreadterminate:boolean=false;
+    outputbuffer:cardinal;
+    camerabuffer:cardinal;
+    buffersize:integer=64000; //320x200; will be changed at start
 
-function initcamera(xres,yres,fps:integer):cardinal;
+function initcamera(xres,yres,fps:integer;buffer:cardinal):cardinal;
 function startcamera:cardinal;
 function stopcamera:cardinal;
 function destroycamera:cardinal;
@@ -89,6 +93,47 @@ const logenable=true; // logging disabled
 
 implementation
 uses camera2; //for logging
+
+procedure fastmove(from,too,len:cardinal);
+
+// one loop moves 256 bytes of data
+
+label p101 ;
+
+begin
+     asm
+     push {r0-r12}
+     ldr r12,len
+     ldr r9,from
+     add r12,r9
+     ldr r10,too
+
+
+p101:
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+      ldm r9!, {r0-r7}
+      stm r10!,{r0-r7}
+
+     cmps r9,r12
+     blt p101
+     pop {r0-r12}
+     end;
+
+end;
+
 
 procedure print_log(s:string);  forward;
 
@@ -125,27 +170,16 @@ repeat
 
 if camerabufferfilled then
   begin
- // print_log('******* camera buffer filled, frame '+inttostr(frames));
+  // print_log('******* camera buffer filled, frame '+inttostr(frames));
   frames+=1;
   camerabufferfilled:=false;
-  filled:=true;
   counter:=0;
-  repeat counter+=1; threadsleep(0) until (filled=false) or (counter>1000);
-    if counter>1000 then
-      begin
-      print_log('******* No receiver responding');
-      goto p998;
-      end;
-//  SchedulerPreemptDisable(CPUGetCurrent);
   OMX_FillThisBuffer(pcamera,pCameraOutBuffer);
-//  SchedulerPreemptEnable(CPUGetCurrent);
   end;
 threadsleep(1);
-until terminated or (counter>1000) or cameraworkerthreadterminate;
+until terminated or cameraworkerthreadterminate;
 print_log('Camera worker thread terminated');
 cameraworkerthreadterminate:=false;
-p998:
-if counter>1000 then print_log('Camera worker terminated on receiver timeout');
 end;
 
 
@@ -175,7 +209,9 @@ end;
 function onFillCameraOut(hComponent:OMX_HANDLETYPE; pAppData: OMX_PTR; pBuffer:POMX_BUFFERHEADERTYPE): OMX_ERRORTYPE; cdecl;
 
 begin
+fastmove(camerabuffer,outputbuffer,buffersize);
 camerabufferfilled:=true;
+filled:=true;
 result:=OMX_ErrorNone;
 end;
 
@@ -249,7 +285,7 @@ end;
 //
 //------------------------------------------------------------------------------
 
-function initcamera(xres,yres,fps:integer):cardinal;
+function initcamera(xres,yres,fps:integer;buffer:cardinal):cardinal;
 
 label p999;
 
@@ -257,6 +293,7 @@ begin
 
 // Initialize variables
 
+outputbuffer:=buffer;
 width:=xres;
 height:=yres;
 framerate	:= 60;
@@ -352,6 +389,7 @@ formatVideo := @portDef.format.video;
 sizey := formatVideo^.nFrameWidth * formatVideo^.nSliceHeight;
 sizeu:=sizey div 4;
 sizev:=sizey div 4;
+buffersize:=sizey+sizeu+sizev;
 print_log('Camera slice height is ' + inttostr(formatVideo^.nSliceHeight));
 print_log('Camera buffer size Y: '+inttostr(sizey));
 print_log('Camera buffer size U: '+inttostr(sizeU));
@@ -394,6 +432,7 @@ print_log('Allocated '+inttostr(portDef.nBufferCountActual)+' camera buffers siz
 pY:=pCameraOutBuffer^.pBuffer;
 pU:=pointer(cardinal(pY) + sizey);
 pV:=pointer(cardinal(pU) + sizeu);
+camerabuffer:=cardinal(pY);
 print_log('Y buffer at '+inttohex(cardinal(pY),8));
 print_log('U buffer at '+inttohex(cardinal(pY),8));
 print_log('V buffer at '+inttohex(cardinal(pY),8));

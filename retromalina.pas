@@ -425,6 +425,7 @@ var fh,filetype:integer;                // this needs cleaning...
 
     mp3frames:integer=0;
     debug1,debug2,debug3:cardinal;
+       mmm:integer;
 
 // prototypes
 
@@ -816,7 +817,7 @@ repeat fb:=FramebufferDevicegetdefault until fb<>nil;
 FramebufferDeviceGetProperties(fb,@FramebufferProperties);
 nativex:=FramebufferProperties.PhysicalWidth;
 nativey:=FramebufferProperties.PhysicalHeight;
-
+mmm:=FramebufferProperties.mode;
 FramebufferDeviceRelease(fb);
 
 if (nativex>=1024) and (nativey>=720) then
@@ -835,6 +836,7 @@ FramebufferProperties.PhysicalWidth:=xres;
 FramebufferProperties.PhysicalHeight:=yres;
 FramebufferProperties.VirtualWidth:=xres+64;
 FramebufferProperties.VirtualHeight:=yres*2;
+FramebufferProperties.mode:=0;
 FramebufferDeviceAllocate(fb,@FramebufferProperties);
 threadsleep(300);
 
@@ -852,7 +854,7 @@ systemfont:=st4font;
 sprite7def:=mysz;
 sprite7zoom:=$00010001;
 setpallette(ataripallette,0);
-
+for i:=$10000 to $10000+1023 do if (i mod 4) = 0 then lpoke(base+i,lpeek(base+i) or $FF000000);
 // init sprite data pointers
 for i:=0 to 7 do spritepointers[i]:=base+_sprite0def+4096*i;
 
@@ -899,6 +901,8 @@ amouse.start;
 
 akeyboard:=tkeyboard.create(true);
 akeyboard.start;
+poke(base+$1000,mmm);
+
 end;
 
 
@@ -1533,8 +1537,9 @@ p109:          ldr r5,[r4],#4
                b p106
 
 p102:          ldr r0,[r3]
-               cmp r12,r0,lsr #28
-               strge r5,[r3],#4
+         //      cmp r12,r0,lsr #28
+         //      strge r5,[r3],#4
+               str r5,[r3],#4
                addlt r3,#4
                subs r7,#1
                bne p102

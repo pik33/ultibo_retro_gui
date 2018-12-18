@@ -1,0 +1,56 @@
+# uncomment to increase signal to HDMI, if you have interference, blanking, or
+config_hdmi_boost=4
+
+disable_overscan=1
+
+#Without these setting there are clicks in the audio.
+
+disable_pvt=1
+force_turbo=1
+
+#comment these to disable overclocking. Core and SDRAM speeds have to be >=500 MHz for clear audio playing
+
+arm_freq=1400
+over_voltage=6
+core_freq=560
+sdram_freq=560
+sdram_schmoo=0x02000020
+over_voltage_sdram_p=6
+over_voltage_sdram_i=4
+over_voltage_sdram_c=4
+
+
+# Uncomment some or all of these to enable the optional hardware interfaces
+dtparam=i2c_arm=on
+dtoverlay=i2c-rtc,ds3231
+#dtparam=i2s=on
+#dtparam=spi=on
+
+# Uncomment this to enable the lirc-rpi module
+#dtoverlay=lirc-rpi
+
+# Additional overlays and parameters are documented #/boot/overlays/README
+
+# Enable audio (loads snd_bcm2835)
+dtparam=audio=on
+
+#Uncomment to nearest neighbour HVS scaling
+
+#scaling_kernel=8
+
+#total_mem=1008
+
+#Set your own resolution/framerate here
+
+#hdmi_cvt=1920 1200 50 5 0 0 1
+#hdmi_group=2
+#hdmi_mode=87
+#hdmi_drive=2
+
+# for the camera
+start_x=1
+gpu_mem=256
+
+# transparent framebuffer
+framebuffer_ignore_alpha=0;
+framebuffer_depth=32;
