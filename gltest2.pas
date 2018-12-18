@@ -17,7 +17,7 @@ const matrix4_one:matrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 operator +(a,b:matrix4):matrix4;
 operator *(a,b:matrix4):matrix4;
 
-//function rotate(a:matrix4; x,y,z,angle:glfloat):matrix4;
+procedure gltest2_start;
 
 var programID,vertexID,colorID:GLuint;
     mvpLoc,positionLoc,colorLoc:GLuint;
@@ -65,58 +65,58 @@ FragmentSource:String =
 const Vertices:array[0..(6 * 6 * 3) - 1] of GLfloat = (
 
 // Front
- -0.5,  0.5,  0.5,
- -0.5, -0.5,  0.5,
-  0.5,  0.5,  0.5,
-  0.5,  0.5,  0.5,
- -0.5, -0.5,  0.5,
-  0.5, -0.5,  0.5,
+ -1.0,  1.0,  1.0,
+ -1.0, -1.0,  1.0,
+  1.0,  1.0,  1.0,
+  1.0,  1.0,  1.0,
+ -1.0, -1.0,  1.0,
+  1.0, -1.0,  1.0,
 //Right
-  0.5,  0.5,  0.5,
-  0.5, -0.5,  0.5,
-  0.5,  0.5, -0.5,
-  0.5,  0.5, -0.5,
-  0.5, -0.5,  0.5,
-  0.5, -0.5, -0.5,
+  1.0,  1.0,  1.0,
+  1.0, -1.0,  1.0,
+  1.0,  1.0, -1.0,
+  1.0,  1.0, -1.0,
+  1.0, -1.0,  1.0,
+  1.0, -1.0, -1.0,
 //Back
-  0.5,  0.5, -0.5,
-  0.5, -0.5, -0.5,
- -0.5,  0.5, -0.5,
- -0.5,  0.5, -0.5,
-  0.5, -0.5, -0.5,
- -0.5, -0.5, -0.5,
+  1.0,  1.0, -1.0,
+  1.0, -1.0, -1.0,
+ -1.0,  1.0, -1.0,
+ -1.0,  1.0, -1.0,
+  1.0, -1.0, -1.0,
+ -1.0, -1.0, -1.0,
 //Left
- -0.5,  0.5, -0.5,
- -0.5, -0.5, -0.5,
- -0.5,  0.5,  0.5,
- -0.5,  0.5,  0.5,
- -0.5, -0.5, -0.5,
- -0.5, -0.5,  0.5,
+ -1.0,  1.0, -1.0,
+ -1.0, -1.0, -1.0,
+ -1.0,  1.0,  1.0,
+ -1.0,  1.0,  1.0,
+ -1.0, -1.0, -1.0,
+ -1.0, -1.0,  1.0,
 //Top
- -0.5,  0.5, -0.5,
- -0.5,  0.5,  0.5,
-  0.5,  0.5, -0.5,
-  0.5,  0.5, -0.5,
- -0.5,  0.5,  0.5,
-  0.5,  0.5,  0.5,
+ -1.0,  1.0, -1.0,
+ -1.0,  1.0,  1.0,
+  1.0,  1.0, -1.0,
+  1.0,  1.0, -1.0,
+ -1.0,  1.0,  1.0,
+  1.0,  1.0,  1.0,
 //Bottom
- -0.5, -0.5,  0.5,
- -0.5, -0.5, -0.5,
-  0.5, -0.5,  0.5,
-  0.5, -0.5,  0.5,
- -0.5, -0.5, -0.5,
-  0.5, -0.5, -0.5
+ -1.0, -1.0,  1.0,
+ -1.0, -1.0, -1.0,
+  1.0, -1.0,  1.0,
+  1.0, -1.0,  1.0,
+ -1.0, -1.0, -1.0,
+  1.0, -1.0, -1.0
 );
 
 Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
 
 //Front}
- 1.0,0.521,0.0,1.0,
- 1.0,0.521,0.0,1.0,
- 1.0,0.521,0.0,1.0,
- 1.0,0.521,0.0,1.0,
- 1.0,0.521,0.0,1.0,
- 1.0,0.521,0.0,1.0,
+ 0.0,0.0,1.0,1.0,
+ 0.0,0.0,1.0,1.0,
+ 0.0,0.0,1.0,1.0,
+ 0.0,0.0,1.0,1.0,
+ 0.0,0.0,1.0,1.0,
+ 0.0,0.0,1.0,1.0,
 //Right
  1.0,0.0,0.0,1.0,
  1.0,0.0,0.0,1.0,
@@ -157,6 +157,9 @@ Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
 
 implementation
 
+// matrix
+
+
 //--------------------- Operators overloading ----------------------------------
 
 operator +(a,b:matrix4):matrix4;
@@ -185,7 +188,7 @@ end;
 
 //------------------------ rotate ----------------------------------------------
 
-function rotate(var a:matrix4; x,y,z,angle:glfloat):matrix4;
+function rotate(a:matrix4; x,y,z,angle:glfloat):matrix4;
 
 var
  sinAngle,cosAngle,mag:GLfloat;
@@ -252,7 +255,18 @@ begin
  result:=s*a;
 end;
 
-//------------------------ projection ------------------------------------------
+//----------------------translate ----------------------------------------------
+
+function translate(var a:matrix4;sx,sy,sz:glfloat):matrix4;
+
+var s:matrix4;
+begin
+ s:=matrix4_one;
+ s[3,0]:=sx; s[3,1]:=sy; s[3,2]:=sz;
+ result:=s*a;
+end;
+
+//---------------- frustum projection ------------------------------------------
 
 function projection(var a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
 
@@ -274,25 +288,50 @@ if (n<=0.0) or (f<=0.0) or (dx<=0.0) or (dy<=0.0) or (dz<=0.0) then
   goto p999; // do nothing
   end;
 
-frust[0][0]:=2.0*n/dx;
-frust[0][1]:=0.0;
-frust[0][2]:=0.0;
-frust[0][3]:=0.0;
+frust:=matrix4_zero;
 
-frust[1][0]:=0.0;
-frust[1][1]:=2.0*n/dy;
-frust[1][2]:=0.0;
-frust[1][3]:=0.0;
+frust[0,0]:=2.0*n/dx;
+frust[1,1]:=2.0*n/dy;
+frust[2,0]:=(r+l)/dx;
+frust[2,1]:=(t+b)/dy;
+frust[2,2]:=-(n+f)/dz;
+frust[2,3]:=-1.0;
+frust[3,2]:=-2.0*f*n/dz;
 
-frust[2][0]:=(r+l)/dx;
-frust[2][1]:=(t+b)/dy;
-frust[2][2]:=-(n+f)/dz;
-frust[2][3]:=-1.0;
+result:=frust*a;
+p999:
+end;
 
-frust[3][0]:=0.0;
-frust[3][1]:=0.0;
-frust[3][2]:=-2.0*f*n/dz;
-frust[3][3]:=0.0;
+//---------------- orthogonal projection ---------------------------------------
+// simplified for symmetric top,bottom,left,right
+
+function ortho(var a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
+
+label p999;
+
+var dx,dy,dz:glfloat;
+    frust:matrix4;
+
+
+begin
+dx:=r-l;
+dy:=t-b;
+dz:=f-n;
+
+if (n<=0.0) or (f<=0.0) or (dx<=0.0) or (dy<=0.0) or (dz<=0.0) then
+
+  begin
+  result:=a;
+  goto p999; // do nothing
+  end;
+
+frust:=matrix4_zero;
+
+frust[0,0]:=1/r;
+frust[1,1]:=1/t;
+frust[2,2]:=-2/dz;
+frust[3,3]:=1.0;
+frust[3,2]:=-(f+n)/dz;
 
 result:=frust*a;
 p999:
@@ -306,7 +345,6 @@ procedure gl_init;
 
 var Config:EGLConfig;
     ConfigCount:EGLint;
-    EGLResult:EGLBoolean;
 
     DestRect:VC_RECT_T;
     SourceRect:VC_RECT_T;
@@ -325,7 +363,7 @@ Context:=EGL_NO_CONTEXT;
 //Setup the alpha channel state
 
 Alpha.flags:=DISPMANX_FLAGS_ALPHA_FIXED_ALL_PIXELS;
-Alpha.opacity:=128;
+Alpha.opacity:=255;
 Alpha.mask:=0;
 
 //Setup the EGL configuration attributes
@@ -351,9 +389,9 @@ ContextAttributes[2]:=EGL_NONE;
 // create a context
 
 Display:=eglGetDisplay(EGL_DEFAULT_DISPLAY);
-EGLResult:=eglInitialize(Display,nil,nil);
-EGLResult:=eglChooseConfig(Display,@ConfigAttributes,@Config,1,@ConfigCount);
-EGLResult:=eglBindAPI(EGL_OPENGL_ES_API);
+eglInitialize(Display,nil,nil);
+eglChooseConfig(Display,@ConfigAttributes,@Config,1,@ConfigCount);
+eglBindAPI(EGL_OPENGL_ES_API);
 Context:=eglCreateContext(Display,Config,EGL_NO_CONTEXT,@ContextAttributes);
 
 //Setup the DispmanX source and destination rectangles
@@ -385,14 +423,14 @@ Surface:=eglCreateWindowSurface(Display,Config,@NativeWindow,nil);
 
 //Connect the EGL context to the EGL surface
 
-EGLResult:=eglMakeCurrent(Display,Surface,Surface,Context);
+eglMakeCurrent(Display,Surface,Surface,Context);
 
 end;
 
 
 procedure gl_prepare;
 
-var aspect,n,f,w,h:GLfloat;
+var aspect,n,f,w,h,fov:GLfloat;
     Source:PChar;
     VertexShader:GLuint;
     FragmentShader:GLuint;
@@ -451,15 +489,15 @@ glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors),@Colors,GL_STATIC_DRAW);
 
 aspect:=xres/yres;
 n:=1.0;
-f:=8.0;
-h:=1;
+f:=6.0;
+fov:=30.0;
+h:=tan(2*pi*fov/360)*n;
 w:=h*aspect;
 
 // initialize the projection matrix
 
 projectionMat:=projection(matrix4_one,-w,w,-h,h,n,f);
-
-if w>h then projectionMat:=scale(projectionMat,h/w,1,1) else projectionMat:=scale(projectionMat,1,w/h,1);
+//projectionMat:=ortho(matrix4_one,-w,w,-h,h,n,f);
 
 // initialize the other matrices
 
@@ -472,7 +510,7 @@ procedure gl_draw;
 
 const frames:integer=0;
 
-var modelviewmat2:matrix4;
+var modelviewmat2,translatemat:matrix4;
 
 begin
 glViewport(0,0,xres,yres);                              // full screen OpenGL view;
@@ -489,11 +527,13 @@ glVertexAttribPointer(colorLoc,4,GL_FLOAT,GL_FALSE,4 * SizeOf(GLfloat),nil);
 
 //Rotate the model
 
-modelviewmat2:=rotate(modelviewMat,1.0,-0.374,-0.608,0.923);
+modelviewmat:=rotate(modelviewMat,1.0,-0.374,-0.608,0.923);
+//modelviewmat2:=scale(modelviewmat,0.3,0.3,0.3); // scale for ortho
+modelviewmat2:=translate(modelviewmat,0,0,-4); // negative are far !
 
 // compute mvp
 
-mvpmat:=modelviewmat*projectionmat;
+mvpmat:=projectionmat*modelviewmat2;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 
 //Draw all of our triangles at once}
@@ -511,8 +551,52 @@ frames+=1;
 
 end;
 
+procedure gl_cleanup;
+
+var
+
+ Success:Integer;
+ DispmanUpdate:DISPMANX_UPDATE_HANDLE_T;
+
+begin
+
+// Delete the OpenGL ES buffers
+glDeleteBuffers(1,@vertexID);
+glDeleteBuffers(1,@colorID);
+
+//Delete the OpenGL ES program
+glDeleteProgram(programID);
+
+//Destroy the EGL surface
+eglDestroySurface(Display,Surface);
+
+//Remove the dispmanx layer
+DispmanUpdate:=vc_dispmanx_update_start(0);
+vc_dispmanx_element_remove(DispmanUpdate,DispmanElement);
+vc_dispmanx_update_submit_sync(DispmanUpdate);
+
+//Close the DispmanX display
+vc_dispmanx_display_close(DispmanDisplay);
+
+//Release OpenGL resources and terminate EGL
+eglMakeCurrent(Display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
+eglDestroyContext(Display,Context);
+eglTerminate(Display);
+
+end;
+
+procedure gltest2_start;
 
 
+begin
+BCMHostInit;
+gl_init;
+gl_prepare;
+while keypressed do readkey;
+repeat gl_draw until keypressed;
+gl_cleanup;
+BCMHostDeinit;
+end;
 
 
 end.

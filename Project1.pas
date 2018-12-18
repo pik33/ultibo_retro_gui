@@ -267,8 +267,8 @@ repeat
     basictest.dblclicked:=false;
     threadsetpriority(threadgetcurrent,7);
     threadsleep(2);
-
-    StartGLES2;
+    gltest2_start;
+  //  StartGLES2;
 
         threadsetpriority(threadgetcurrent,4);
         threadsleep(2);
