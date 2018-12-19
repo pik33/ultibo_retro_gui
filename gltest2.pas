@@ -5,7 +5,7 @@ unit gltest2;
 interface
 
 uses
-  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina;
+  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro;
 
 type Pmatrix4=^matrix4;
      matrix4=array[0..3,0..3] of glfloat;
@@ -18,6 +18,15 @@ operator +(a,b:matrix4):matrix4;
 operator *(a,b:matrix4):matrix4;
 
 procedure gltest2_start;
+
+type TOpenGLThread=class (TThread)
+
+     private
+     protected
+       procedure Execute; override;
+     public
+       Constructor Create(CreateSuspended : boolean);
+     end;
 
 var programID,vertexID,colorID:GLuint;
     mvpLoc,positionLoc,colorLoc:GLuint;
@@ -34,9 +43,9 @@ var programID,vertexID,colorID:GLuint;
      //EGL config
     Alpha:VC_DISPMANX_ALPHA_T;
     NativeWindow:EGL_DISPMANX_WINDOW_T;
-    ConfigAttributes:array[0..10] of EGLint;
+    ConfigAttributes:array[0..14] of EGLint;
     ContextAttributes:array[0..2] of EGLint;
-
+    glwindow:TWindow;
 
 //--------------------- Shaders ------------------------------------------------
 
@@ -154,11 +163,93 @@ Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
  0.752,0.752,0.752,1.0
 );
 
+// ---------- test tetrahedron -------------------------------------------------
+
+const Vertices2:array[0..35] of GLfloat = (
+
+// 1
+ -1.0, -1.0,  1.0,
+  -1.0,  1.0, -1.0,
+  1.0,  1.0,  1.0,
+
+
+
+  // 2
+ -1.0,  1.0, -1.0,
+
+ -1.0, -1.0,  1.0,
+   1.0, -1.0, -1.0,
+
+ //3
+ -1.0, -1.0,  1.0,
+   1.0,  1.0,  1.0,
+  1.0, -1.0, -1.0,
+
+
+//4
+  1.0,  1.0,  1.0,
+ -1.0,  1.0, -1.0,
+  1.0, -1.0, -1.0
+
+);
+
+colors2:array[0..47] of GLfloat = (
+
+//1
+1.0,0.0,0.0,1.0,
+0.0,1.0,0.0,1.0,
+0.0,0.0,1.0,1.0,
+
+//2
+1.0,1.0,0.5,1.0,
+0.0,1.0,1.0,1.0,
+1.0,0.0,1.0,1.0,
+
+//3
+1.0,0.5,0.0,1.0,
+0.0,1.0,0.5,1.0,
+0.5,0.0,1.0,1.0,
+
+//4
+1.0,1.0,1.0,1.0,
+0.6,0.6,0.6,1.0,
+0.2,0.2,0.2,1.0
+
+);
+
 
 implementation
 
-// matrix
 
+constructor TOpenGLThread.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+procedure TOpenGLThread.execute;
+
+label p999;
+
+begin
+ThreadSetPriority(ThreadGetCurrent,7);
+threadsleep(1);
+if glwindow=nil then
+  begin
+  glwindow:=TWindow.create(256,256,'OpenGL helper window');
+  glwindow.decoration.hscroll:=false;
+  glwindow.decoration.vscroll:=false;
+  glwindow.resizable:=false;
+  glwindow.cls(0);
+  glwindow.move(300,400,256,256,0,0);
+  end
+else goto p999;
+gltest2_start;
+glwindow.destroy;
+glwindow:=nil;
+p999:
+end;
 
 //--------------------- Operators overloading ----------------------------------
 
@@ -362,9 +453,9 @@ Context:=EGL_NO_CONTEXT;
 
 //Setup the alpha channel state
 
-Alpha.flags:=DISPMANX_FLAGS_ALPHA_FIXED_ALL_PIXELS;
+Alpha.flags:=DISPMANX_FLAGS_ALPHA_FROM_SOURCE;
 Alpha.opacity:=255;
-Alpha.mask:=0;
+Alpha.mask:=255;
 
 //Setup the EGL configuration attributes
 
@@ -378,7 +469,11 @@ ConfigAttributes[6]:=EGL_GREEN_SIZE;
 ConfigAttributes[7]:=8;
 ConfigAttributes[8]:=EGL_RED_SIZE;
 ConfigAttributes[9]:=8;
-ConfigAttributes[10]:=EGL_NONE;
+ConfigAttributes[10]:=EGL_ALPHA_SIZE;
+ConfigAttributes[11]:=8;
+ConfigAttributes[12]:=EGL_DEPTH_SIZE;
+ConfigAttributes[13]:=16;
+ConfigAttributes[14]:=EGL_NONE;
 
 //Setup the EGL context attributes
 
@@ -440,8 +535,11 @@ begin
 //initialize clear and depth values; enable cull_face
 
 glClearDepthf(1.0);
-glClearColor(0.0,0.0,0.0,1.0);
+glClearColor(0.0,0.0,0.0,0.0);
 glEnable(GL_CULL_FACE);
+glEnable(GL_DEPTH_TEST);
+//gldepthfunc(GL_LEQUAL);
+//gldepthmask(1);
 
 //Create, upload and compile the vertex shader
 
@@ -474,22 +572,24 @@ glDeleteShader(VertexShader);
 mvpLoc:=glGetUniformLocation(programID,'u_mvpMat');
 positionLoc:=glGetAttribLocation(programID,'a_position');
 colorLoc:=glGetAttribLocation(programID,'a_color');
+glEnableVertexAttribArray(positionLoc);
+glEnableVertexAttribArray(colorLoc);
 
 //Generate vertex and color buffers and fill them with our cube data
 
 glGenBuffers(1,@vertexID);
-glBindBuffer(GL_ARRAY_BUFFER,vertexID);
-glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@Vertices,GL_STATIC_DRAW);
+//glBindBuffer(GL_ARRAY_BUFFER,vertexID);
+//glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@Vertices,GL_STATIC_DRAW);
 
 glGenBuffers(1,@colorID);
-glBindBuffer(GL_ARRAY_BUFFER,colorID);
-glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors),@Colors,GL_STATIC_DRAW);
+//glBindBuffer(GL_ARRAY_BUFFER,colorID);
+//glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors),@Colors,GL_STATIC_DRAW);
 
 // Calculate the frustum and scale the projection}
 
 aspect:=xres/yres;
 n:=1.0;
-f:=6.0;
+f:=8.0;
 fov:=30.0;
 h:=tan(2*pi*fov/360)*n;
 w:=h*aspect;
@@ -509,27 +609,71 @@ end;
 procedure gl_draw;
 
 const frames:integer=0;
+      angle1:glfloat=0;
+      angle2:glfloat=0;
+      angle3:glfloat=0;
+      angle4:glfloat=0;
+      k:integer=0;
+var   i,j:integer;
+      r,g,b:glfloat;
+
+
 
 var modelviewmat2,translatemat:matrix4;
 
+
 begin
+
+k+=1;
+for i:=0 to 11 do
+  begin
+  j:=(85*i+(k div 3)) mod 256;
+  r:=ataripallette[j] and $FF;
+  g:=(ataripallette[j] and $FF00) shr 8;
+  b:=(ataripallette[j] and $FF0000) shr 16;
+  colors2[4*i]:=r/256;
+  colors2[4*i+1]:=g/256;
+  colors2[4*i]:=b/256;
+  end;
+
 glViewport(0,0,xres,yres);                              // full screen OpenGL view;
 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
 glUseProgram(programID);                                // attach a shader program
 
-glEnableVertexAttribArray(positionLoc);                 // positionloc is a pointer to a_position obtained by glGetAttribLocation while initializing the scene
+//glEnableVertexAttribArray(positionLoc);                 // positionloc is a pointer to a_position obtained by glGetAttribLocation while initializing the scene
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@Vertices,GL_DYNAMIC_DRAW);
 glVertexAttribPointer(positionLoc,3,GL_FLOAT,GL_FALSE,3 * SizeOf(GLfloat),nil); // location and data format of vertex attributes:index.size,type,normalized,stride,offset
 
-glEnableVertexAttribArray(colorLoc);                    // the same for color buffer
+//glEnableVertexAttribArray(colorLoc);                    // the same for color buffer
 glBindBuffer(GL_ARRAY_BUFFER,colorID);
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors),@Colors,GL_DYNAMIC_DRAW);
 glVertexAttribPointer(colorLoc,4,GL_FLOAT,GL_FALSE,4 * SizeOf(GLfloat),nil);
 
-//Rotate the model
+// reduce the model size
 
-modelviewmat:=rotate(modelviewMat,1.0,-0.374,-0.608,0.923);
-//modelviewmat2:=scale(modelviewmat,0.3,0.3,0.3); // scale for ortho
-modelviewmat2:=translate(modelviewmat,0,0,-4); // negative are far !
+modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);
+
+//Rotate the model around the skewed axis
+
+angle1+=1.11;
+if angle1>360 then angle1-=360;
+modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);
+
+// now translate the model one unit away
+
+modelviewmat2:=translate(modelviewmat2,0,0,-2);
+
+// and rotate it again around Y axis
+
+angle2+=0.82;
+if angle2>360 then angle2-=360;
+
+modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);
+
+// then translate the model 4 units away
+
+modelviewmat2:=translate(modelviewmat2,0,0,-5); // negative are far !
 
 // compute mvp
 
@@ -539,9 +683,36 @@ glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 //Draw all of our triangles at once}
 glDrawArrays(GL_TRIANGLES,0,36);
 
+
+// try to draw a tetrahedron
+//glEnableVertexAttribArray(positionLoc);
+glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices2),@Vertices2,GL_DYNAMIC_DRAW);
+glVertexAttribPointer(positionLoc,3,GL_FLOAT,GL_FALSE,3 * SizeOf(GLfloat),nil); // location and data format of vertex attributes:index.size,type,normalized,stride,offset
+//glEnableVertexAttribArray(colorLoc);                    // the same for color buffer
+glBindBuffer(GL_ARRAY_BUFFER,colorID);
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors2),@Colors2,GL_DYNAMIC_DRAW);
+glVertexAttribPointer(colorLoc,4,GL_FLOAT,GL_FALSE,4 * SizeOf(GLfloat),nil);
+
+modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
+angle3+=1.33;
+if angle3>360 then angle3-=360;
+modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle3);
+modelviewmat2:=translate(modelviewmat2,0,0,-2);
+angle4+=0.97;
+if angle4>360 then angle4-=360;
+
+modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
+modelviewmat2:=translate(modelviewmat2,0,0,-5);
+mvpmat:=projectionmat*modelviewmat2;
+glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+
+//Draw all of our triangles at once}
+glDrawArrays(GL_TRIANGLES,0,12);
+
 //Disable the attribute arrays}
-glDisableVertexAttribArray(positionLoc);
-glDisableVertexAttribArray(colorLoc);
+//glDisableVertexAttribArray(positionLoc);
+//glDisableVertexAttribArray(colorLoc);
 
    {Swap the buffers to display the new scene}
 

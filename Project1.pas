@@ -56,6 +56,7 @@ var
     mandelthread:Tmandelthread=nil;
     notepadthread:Tnotepadthread=nil;
     fmthread:TFMSynthThread=nil;
+    glthread:TOpenGLThread=nil;
     oneicon:TIcon ;
     fh,i,j,k:integer;
     message:TWindow;
@@ -265,18 +266,11 @@ repeat
   if (basictest.dblclicked) or (key=ord('g')) then
     begin
     basictest.dblclicked:=false;
-    threadsetpriority(threadgetcurrent,7);
-    threadsleep(2);
-    gltest2_start;
-  //  StartGLES2;
-
-        threadsetpriority(threadgetcurrent,4);
-        threadsleep(2);
- //   if note=nil then
- //     begin
- //     notepadthread:=Tnotepadthread.create(true);
- //     notepadthread.start;
- //     end;
+    if glwindow=nil then
+      begin
+      glthread:=Topenglthread.create(true);
+      glthread.start;
+      end;
     end;
 
   if synth.dblclicked then
