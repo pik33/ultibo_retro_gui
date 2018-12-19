@@ -68,6 +68,30 @@ FragmentSource:String =
  '    gl_FragColor = v_color;' +
  '}';
 
+//--------------------- Shaders with pallette from atari800---------------------
+
+const pallette_vertex_shader =
+        'uniform mat4 u_mvpMat;								\n'+
+	'attribute vec4 a_position;						        \n'+
+	'attribute vec2 a_texcoord;							\n'+
+	'varying mediump vec2 v_texcoord;						\n'+
+	'void main()									\n'+
+	'{										\n'+
+	'	v_texcoord = a_texcoord;						\n'+
+	'	gl_Position = u_vp_matrix * a_position;				        \n'+
+        '}										\n';
+
+const pallette_fragment_shader =
+	'varying mediump vec2 v_texcoord;						\n'+
+	'uniform sampler2D u_texture;							\n'+
+	'uniform sampler2D u_palette;							\n'+
+	'void main()									\n'+
+	'{										\n'+
+	'	vec4 p0 = texture2D(u_texture, v_texcoord);			        \n'+
+	'	vec4 c0 = texture2D(u_palette, vec2((255.0/256.0)*p0.r + 1.0/256.0*0.1, 0.5)); 		\n'+
+	'	gl_FragColor = c0;							\n'+
+	'}                                                                              \n';
+
 
 // -----------------  test cube ------------------------------------------------
 
