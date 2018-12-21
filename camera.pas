@@ -5,7 +5,7 @@ unit camera;
 //------------------------------------------------------------------------------
 //
 // A simple camera unit for Ultibo using pure OMX calls
-// v.0.12 alpha - 20181215
+// v.0.13 alpha - 20181220
 //
 // Piotr Kardasz
 // pik33@o2.pl
@@ -92,7 +92,7 @@ const logenable=true; // logging disabled
 // you have to implement your own print_log function before eneble the logging
 
 implementation
-uses camera2; //for logging
+uses camera2;
 
 procedure fastmove(from,too,len:cardinal);
 
@@ -243,8 +243,7 @@ procedure print_log(s:string);
 begin
   if logenable then
     begin
-     // add your logging code here
-      camerawindow2.println(s);
+    camerawindow2.println(s);
     end;
 end;
 
@@ -278,8 +277,8 @@ end;
 //------------------------------------------------------------------------------
 //
 // Camera initialization.
-// Input: xres, yres, fps
-// Output: buffer address if ok
+// Input: xres, yres, fps, user buffer address
+// Output: OMX camera buffer address if ok
 // low numbers if error
 // After initialization the camera is in idle state and buffers are allocated
 //

@@ -746,7 +746,7 @@ var id:integer;
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
-ThreadSetPriority(ThreadGetCurrent,5);
+ThreadSetPriority(ThreadGetCurrent,4);
 threadsleep(1);
 
 running:=1;

@@ -28,7 +28,7 @@ type TOpenGLThread=class (TThread)
        Constructor Create(CreateSuspended : boolean);
      end;
 
-var programID,vertexID,colorID:GLuint;
+var programID,vertexID,colorID,texcoordID:GLuint;
     mvpLoc,positionLoc,colorLoc:GLuint;
     projectionMat,modelviewMat,mvpMat:matrix4;
 
@@ -46,6 +46,61 @@ var programID,vertexID,colorID:GLuint;
     ConfigAttributes:array[0..14] of EGLint;
     ContextAttributes:array[0..2] of EGLint;
     glwindow:TWindow;
+    texture0:gluint;
+    texture1:gluint;
+    u_vp_matrix:GLint;
+    u_texture:GLint;
+    u_palette:GLint;
+    a_texcoord:GLint;
+
+    uvs:array[0..71] of GLfloat=(
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1
+  );
+
+    pallette:array[0..1023] of byte;
+    pallette2:TPallette absolute pallette;
+
+const kVertexCount = 72;
 
 //--------------------- Shaders ------------------------------------------------
 
@@ -54,18 +109,26 @@ const VertexSource:String =
  'uniform mat4 u_mvpMat;' +
  'attribute vec4 a_position;' +
  'attribute vec4 a_color;' +
+ 'attribute vec2 a_texcoord;' +
  'varying vec4 v_color;' +
+ 'varying mediump vec2 v_texcoord;'+
  'void main()' +
  '{' +
  '    gl_Position = u_mvpMat * a_position;' +
  '    v_color = a_color;' +
+ '    v_texcoord = a_texcoord; '+
  '}';
 
 FragmentSource:String =
  'varying lowp vec4 v_color;' +
+ 'varying mediump vec2 v_texcoord;'+
+ 'uniform sampler2D u_texture;'+
+ 'uniform sampler2D u_palette;'+
  'void main()' +
  '{' +
- '    gl_FragColor = v_color;' +
+ 'vec4 p0 = texture2D(u_texture, v_texcoord);'+
+ 'vec4 c0 = texture2D(u_palette, vec2(p0.r+0.0001,0.5)); '+
+ 'gl_FragColor = c0;'+
  '}';
 
 //--------------------- Shaders with pallette from atari800---------------------
@@ -269,6 +332,14 @@ if glwindow=nil then
   glwindow.move(300,400,256,256,0,0);
   end
 else goto p999;
+glwindow.outtextxyz(0,0,'GL texture test',20,2,2);
+glwindow.outtextxyz(0,32,'GL texture test',36,2,2);
+glwindow.outtextxyz(0,64,'GL texture test',52,2,2);
+glwindow.outtextxyz(0,96,'GL texture test',68,2,2);
+glwindow.outtextxyz(0,128,'GL texture test',84,2,2);
+glwindow.outtextxyz(0,160,'GL texture test',100,2,2);
+glwindow.outtextxyz(0,192,'GL texture test',116,2,2);
+glwindow.outtextxyz(0,224,'GL texture test',132,2,2);
 gltest2_start;
 glwindow.destroy;
 glwindow:=nil;
@@ -556,6 +627,11 @@ var aspect,n,f,w,h,fov:GLfloat;
 
 begin
 
+pallette2:=ataripallette;
+//for i:=0 to 1023 do pallette[i]:=i mod 256;
+
+for i:=0 to 255 do pallette[4*i+3]:=$FF;
+
 //initialize clear and depth values; enable cull_face
 
 glClearDepthf(1.0);
@@ -598,6 +674,10 @@ positionLoc:=glGetAttribLocation(programID,'a_position');
 colorLoc:=glGetAttribLocation(programID,'a_color');
 glEnableVertexAttribArray(positionLoc);
 glEnableVertexAttribArray(colorLoc);
+u_vp_matrix:=glGetUniformLocation(programID,'u_vp_matrix');
+u_texture:=glGetUniformLocation(programID,'u_texture');
+u_palette:=glGetUniformLocation(programID,'u_palette');
+a_texcoord:=glGetAttribLocation(programID,'a_texcoord');
 
 //Generate vertex and color buffers and fill them with our cube data
 
@@ -609,7 +689,40 @@ glGenBuffers(1,@colorID);
 //glBindBuffer(GL_ARRAY_BUFFER,colorID);
 //glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors),@Colors,GL_STATIC_DRAW);
 
+glGenBuffers(1,@texcoordID);
+glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
+glVertexAttribPointer(a_texcoord, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nil);
+glEnableVertexAttribArray(a_texcoord);
+glBufferData(GL_ARRAY_BUFFER, kVertexCount * sizeof(GLfloat) * 2, @uvs[0], GL_STATIC_DRAW);
+
+
+glGenTextures(1, @texture0);
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, texture0);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, glwindow.canvas);
+
+glGenTextures(1, @texture1);
+glActiveTexture(GL_TEXTURE1);
+glBindTexture(GL_TEXTURE_2D, texture1); 	// color palette
+glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, 256, 1, 0, GL_BGRA, GL_UNSIGNED_BYTE, @pallette);
+//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA, GL_UNSIGNED_BYTE, @pallette);
+
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, texture0);
+glUniform1i(u_texture,0);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //@note : GL_LINEAR must be implemented in shader because of palette indexes in texture
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+glActiveTexture(GL_TEXTURE1);
+glBindTexture(GL_TEXTURE_2D, texture1);
+glUniform1i(u_palette, 1);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
 // Calculate the frustum and scale the projection}
+
+
+
 
 aspect:=xres/yres;
 n:=1.0;
@@ -648,21 +761,24 @@ var modelviewmat2,translatemat:matrix4;
 
 begin
 
-k+=1;
-for i:=0 to 11 do
-  begin
-  j:=(85*i+(k div 3)) mod 256;
-  r:=ataripallette[j] and $FF;
-  g:=(ataripallette[j] and $FF00) shr 8;
-  b:=(ataripallette[j] and $FF0000) shr 16;
-  colors2[4*i]:=r/256;
-  colors2[4*i+1]:=g/256;
-  colors2[4*i]:=b/256;
-  end;
+//k+=1;
+//for i:=0 to 11 do
+//  begin
+//  j:=(85*i+(k div 3)) mod 256;
+//  r:=ataripallette[j] and $FF;
+//  g:=(ataripallette[j] and $FF00) shr 8;
+//  b:=(ataripallette[j] and $FF0000) shr 16;
+//  colors2[4*i]:=r/256;
+//  colors2[4*i+1]:=g/256;
+//  colors2[4*i]:=b/256;
+//  end;
 
 glViewport(0,0,xres,yres);                              // full screen OpenGL view;
 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
 glUseProgram(programID);                                // attach a shader program
+
+glUniform1i(u_texture,0);
+glUniform1i(u_palette,1);
 
 //glEnableVertexAttribArray(positionLoc);                 // positionloc is a pointer to a_position obtained by glGetAttribLocation while initializing the scene
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
@@ -703,6 +819,18 @@ modelviewmat2:=translate(modelviewmat2,0,0,-5); // negative are far !
 
 mvpmat:=projectionmat*modelviewmat2;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+
+// try to texture this
+
+
+
+//	glBindBuffer(GL_ARRAY_BUFFER, buffers[1]); SHOW_ERROR
+//	glVertexAttribPointer(sh->a_texcoord, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), NULL); SHOW_ERROR
+//	glEnableVertexAttribArray(sh->a_texcoord); SHOW_ERROR
+
+//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[2]); SHOW_ERROR
+
+//	glDrawElements(GL_TRIANGLES, kIndexCount, GL_UNSIGNED_SHORT, 0); SHOW_ERROR
 
 //Draw all of our triangles at once}
 glDrawArrays(GL_TRIANGLES,0,36);
