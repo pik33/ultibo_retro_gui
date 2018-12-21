@@ -761,6 +761,9 @@ var modelviewmat2,translatemat:matrix4;
 
 begin
 
+glwindow.tc:=frames mod 256;
+glwindow.println('OpenGL ES 2.0 frame '+inttostr(frames));
+
 //k+=1;
 //for i:=0 to 11 do
 //  begin
@@ -779,6 +782,11 @@ glUseProgram(programID);                                // attach a shader progr
 
 glUniform1i(u_texture,0);
 glUniform1i(u_palette,1);
+
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, texture0);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, glwindow.canvas);
+
 
 //glEnableVertexAttribArray(positionLoc);                 // positionloc is a pointer to a_position obtained by glGetAttribLocation while initializing the scene
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
