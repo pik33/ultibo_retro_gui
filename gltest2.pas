@@ -11,13 +11,37 @@ type Pmatrix4=^matrix4;
      matrix4=array[0..3,0..3] of glfloat;
 type vector4=array[0..3] of glfloat;
 
+type T3dflavor=(cube,tetrahedron,octahedron,dodecahedron,icosahedron,sphere,custom);
+    {
+type T3dobject=class
+     vertices:pointer;
+     vnum:cardinal;
+     indices:pointer;
+     inum:cardinal;
+     normals:pointer;
+     nnum:cardinal;
+     uvs:pointer;
+     unum:cardinal;
+     texture:pointer;
+     flavor:T3dflavor;
+     constructor create(flavor:T3dflavor)
+     destructor destroy;
+     procedure translate(x,y,z:glfloat);
+     procedure rotate(x,y,z,a:glfloat);
+     procedure scale(x,y,z:glfloat);
+     end;
+     }
+
 const matrix4_zero:matrix4=((0,0,0,0),(0,0,0,0),(0,0,0,0),(0,0,0,0));
 const matrix4_one:matrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+
 
 operator +(a,b:matrix4):matrix4;
 operator *(a,b:matrix4):matrix4;
 
 procedure gltest2_start;
+
+
 
 type TOpenGLThread=class (TThread)
 
@@ -53,7 +77,7 @@ var programID,vertexID,colorID,texcoordID:GLuint;
     u_palette:GLint;
     a_texcoord:GLint;
 
-    uvs:array[0..71] of GLfloat=(
+    uvs:array[0..179] of GLfloat=(
      0, 0,
      0, 1,
      1, 0,
@@ -88,6 +112,78 @@ var programID,vertexID,colorID,texcoordID:GLuint;
      1, 0,
      0, 1,
      1, 1,
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
+
+     0, 0,
+     0, 1,
+     1, 0,
+     1, 0,
+     0, 1,
+     1, 1,
+
 
      0, 0,
      0, 1,
@@ -95,12 +191,14 @@ var programID,vertexID,colorID,texcoordID:GLuint;
      1, 0,
      0, 1,
      1, 1
+
+
   );
 
     pallette:array[0..1023] of byte;
     pallette2:TPallette absolute pallette;
 
-const kVertexCount = 72;
+const kVertexCount = 180;
 
 //--------------------- Shaders ------------------------------------------------
 
@@ -127,33 +225,9 @@ FragmentSource:String =
  'void main()' +
  '{' +
  'vec4 p0 = texture2D(u_texture, v_texcoord);'+
- 'vec4 c0 = texture2D(u_palette, vec2(p0.r+0.0001,0.5)); '+
- 'gl_FragColor = c0;'+
+ 'vec4 c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5)); '+
+ 'if (v_color.a==0.0) {gl_FragColor = c0;} else {gl_FragColor = v_color;} '+
  '}';
-
-//--------------------- Shaders with pallette from atari800---------------------
-
-const pallette_vertex_shader =
-        'uniform mat4 u_mvpMat;								\n'+
-	'attribute vec4 a_position;						        \n'+
-	'attribute vec2 a_texcoord;							\n'+
-	'varying mediump vec2 v_texcoord;						\n'+
-	'void main()									\n'+
-	'{										\n'+
-	'	v_texcoord = a_texcoord;						\n'+
-	'	gl_Position = u_vp_matrix * a_position;				        \n'+
-        '}										\n';
-
-const pallette_fragment_shader =
-	'varying mediump vec2 v_texcoord;						\n'+
-	'uniform sampler2D u_texture;							\n'+
-	'uniform sampler2D u_palette;							\n'+
-	'void main()									\n'+
-	'{										\n'+
-	'	vec4 p0 = texture2D(u_texture, v_texcoord);			        \n'+
-	'	vec4 c0 = texture2D(u_palette, vec2((255.0/256.0)*p0.r + 1.0/256.0*0.1, 0.5)); 		\n'+
-	'	gl_FragColor = c0;							\n'+
-	'}                                                                              \n';
 
 
 // -----------------  test cube ------------------------------------------------
@@ -206,7 +280,15 @@ const Vertices:array[0..(6 * 6 * 3) - 1] of GLfloat = (
 
 Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
 
-//Front}
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+);
+{
+//Front
  0.0,0.0,1.0,1.0,
  0.0,0.0,1.0,1.0,
  0.0,0.0,1.0,1.0,
@@ -249,10 +331,11 @@ Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
  0.752,0.752,0.752,1.0,
  0.752,0.752,0.752,1.0
 );
+ }
 
 // ---------- test tetrahedron -------------------------------------------------
 
-const Vertices2:array[0..35] of GLfloat = (
+const Vertices2a:array[0..35] of GLfloat = (
 
 // 1
  -1.0, -1.0,  1.0,
@@ -280,32 +363,126 @@ const Vertices2:array[0..35] of GLfloat = (
 
 );
 
-colors2:array[0..47] of GLfloat = (
+var colors2:array[0..65535] of GLfloat;
 
-//1
-1.0,0.0,0.0,1.0,
-0.0,1.0,0.0,1.0,
-0.0,0.0,1.0,1.0,
-
-//2
-1.0,1.0,0.5,1.0,
-0.0,1.0,1.0,1.0,
-1.0,0.0,1.0,1.0,
-
-//3
-1.0,0.5,0.0,1.0,
-0.0,1.0,0.5,1.0,
-0.5,0.0,1.0,1.0,
-
-//4
-1.0,1.0,1.0,1.0,
-0.6,0.6,0.6,1.0,
-0.2,0.2,0.2,1.0
-
-);
+var vertices1: array[0..1023] of glfloat;
+    vertices2: array[0..16384] of glfloat;
 
 
 implementation
+
+procedure makesphere(precision:integer);
+
+var rr,x,y,z,qq:glfloat;
+
+    vertex,vertex2,r,s:integer;
+
+begin
+for r:=0 to 255 do
+  begin
+  colors2[4*r]:=random;
+  colors2[4*r+1]:=random;
+  colors2[4*r+2]:=random;
+  colors2[4*r+3]:=0;
+  end;
+rr:=1/precision;
+vertex:=0;
+for r:=0 to precision do
+  begin
+  if r=0 then
+    begin
+    y:=-1.0; x:=0; z:=0;
+    vertices1[vertex]:=x;
+    vertices1[vertex+1]:=y;
+    vertices1[vertex+2]:=z;
+    vertex+=3;
+    end
+
+  else if r=precision then
+    begin
+    y:=-1.0; x:=0; z:=0;
+    vertices1[vertex]:=x;
+    vertices1[vertex+1]:=y;
+    vertices1[vertex+2]:=z;
+    vertex+=3;
+    end
+
+  else for s:=0 to precision-1 do
+    begin
+    qq:=0; //(r mod 2)*rr/2;
+    y:=sin(-pi/2+pi*r*rr);
+    x:=cos(2*pi*(s*rr+qq))*sin(pi*r*rr);
+    z:=sin(2*pi*(s*rr+qq))*sin(pi*r*rr);
+    vertices1[vertex]:=x;
+    vertices1[vertex+1]:=y;
+    vertices1[vertex+2]:=z;
+    vertex+=3;
+    end;
+  end;
+
+//retromalina.outtextxyz(0,0,inttostr(vertex),40,5,5);
+// now there is (precision*precision-1) +2 vertices
+// make precision*precision-1 triangles
+vertex:=0; vertex2:=0; //todo: indices
+for r:=1 to precision do
+  begin
+  if r=1 then     // make a triangle fan     precision+2 vertices
+    begin
+    for s:=0 to (3*precision)+2 do
+      begin
+      vertices2[vertex2]:=vertices1[vertex];
+      vertex+=1; vertex2+=1;
+      end;
+
+    vertices2[vertex2]:=vertices2[vertex2-3*precision];
+    vertices2[vertex2+1]:=vertices2[vertex2-3*precision+1];
+    vertices2[vertex2+2]:=vertices2[vertex2-3*precision+2];
+    vertex2+=3;
+    end
+
+  else if r=precision then
+    begin
+    vertices2[vertex2]:=0;
+    vertices2[vertex2+1]:=1;
+    vertices2[vertex2+2]:=0;
+    vertex2+=3;
+    for s:=precision downto 1 do
+      begin
+      vertices2[vertex2]:=vertices2[3*s];
+      vertices2[vertex2+1]:=-vertices2[3*s+1];
+      vertices2[vertex2+2]:=vertices2[3*s+2];
+      vertex2+=3;
+      end;
+    end
+
+
+  else if (r>1) and (r<precision) then  // make a triangle strip with 2*precision+1 vertices
+    begin
+    for s:=0 to precision-1 do
+      begin
+      vertices2[vertex2+3]:=vertices1[vertex];
+      vertices2[vertex2+4]:=vertices1[vertex+1];
+      vertices2[vertex2+5]:=vertices1[vertex+2];
+      vertices2[vertex2+0]:=vertices1[(vertex-3*precision)];
+      vertices2[vertex2+1]:=vertices1[(vertex+1-3*precision)];
+      vertices2[vertex2+2]:=vertices1[(vertex+2-3*precision)];
+      vertex+=3;
+      vertex2+=6;
+      end;
+    vertices2[vertex2+0]:=vertices2[vertex2-6*precision];
+    vertices2[vertex2+1]:=vertices2[vertex2-6*precision+1];
+    vertices2[vertex2+2]:=vertices2[vertex2-6*precision+2];
+    vertices2[vertex2+3]:=vertices2[(vertex2-6*precision+3)];
+    vertices2[vertex2+4]:=vertices2[(vertex2-6*precision+4)];
+    vertices2[vertex2+5]:=vertices2[(vertex2-6*precision+5)];
+    vertex2+=6;
+    end;
+  end;
+
+background.tc:=15;
+//for s:=0 to 59 do background.println(floattostr(vertices2[3*s])+' '+floattostr(vertices2[3*s+1])+' '+floattostr(vertices2[3*s+2])+' ');
+
+end;
 
 
 constructor TOpenGLThread.create(CreateSuspended : boolean);
@@ -710,14 +887,14 @@ glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, 256, 1, 0, GL_BGRA, GL_UNSIGNED_BYTE, @p
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
 glUniform1i(u_texture,0);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //@note : GL_LINEAR must be implemented in shader because of palette indexes in texture
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_nearest); //@note : GL_LINEAR must be implemented in shader because of palette indexes in texture
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_nearest);
 
 glActiveTexture(GL_TEXTURE1);
 glBindTexture(GL_TEXTURE_2D, texture1);
 glUniform1i(u_palette, 1);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_nearest);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_nearest);
 
 // Calculate the frustum and scale the projection}
 
@@ -726,7 +903,7 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 aspect:=xres/yres;
 n:=1.0;
-f:=8.0;
+f:=10.0;
 fov:=30.0;
 h:=tan(2*pi*fov/360)*n;
 w:=h*aspect;
@@ -740,6 +917,11 @@ projectionMat:=projection(matrix4_one,-w,w,-h,h,n,f);
 
 modelviewMat:=matrix4_one;
 mvpMat:=matrix4_one;
+for i:=0 to 15 do
+  for j:=0 to 15 do
+    glwindow.box(16*i,16*j,16,16,16*j+i);
+glwindow.outtextxyz(0,104,'OpenGLES 2',15,3,3);
+makesphere(12);
 end;
 
 
@@ -761,8 +943,15 @@ var modelviewmat2,translatemat:matrix4;
 
 begin
 
-glwindow.tc:=frames mod 256;
-glwindow.println('OpenGL ES 2.0 frame '+inttostr(frames));
+
+for i:=0 to 15 do
+  for j:=0 to 15 do
+    glwindow.box(16*i,16*j,16,16,16*j+i);
+glwindow.outtextxyz(0,frames mod 208,'OpenGLES 2',(frames div 16) mod 256,3,3);
+
+//glwindow.tc:=frames mod 256;
+//glwindow.bg:=(frames div 256) mod 256;
+//glwindow.println('OpenGL ES 2.0 frame '+inttostr(frames));
 
 //k+=1;
 //for i:=0 to 11 do
@@ -804,17 +993,17 @@ modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);
 
 //Rotate the model around the skewed axis
 
-angle1+=1.11;
+angle1+=1.11/10;
 if angle1>360 then angle1-=360;
 modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);
 
 // now translate the model one unit away
 
-modelviewmat2:=translate(modelviewmat2,0,0,-2);
+modelviewmat2:=translate(modelviewmat2,0,0,-3);
 
 // and rotate it again around Y axis
 
-angle2+=0.82;
+angle2+=0.82/10;
 if angle2>360 then angle2-=360;
 
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);
@@ -846,20 +1035,17 @@ glDrawArrays(GL_TRIANGLES,0,36);
 
 // try to draw a tetrahedron
 //glEnableVertexAttribArray(positionLoc);
-glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
-glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices2),@Vertices2,GL_DYNAMIC_DRAW);
-glVertexAttribPointer(positionLoc,3,GL_FLOAT,GL_FALSE,3 * SizeOf(GLfloat),nil); // location and data format of vertex attributes:index.size,type,normalized,stride,offset
 //glEnableVertexAttribArray(colorLoc);                    // the same for color buffer
 glBindBuffer(GL_ARRAY_BUFFER,colorID);
-glBufferData(GL_ARRAY_BUFFER,SizeOf(Colors2),@Colors2,GL_DYNAMIC_DRAW);
+glBufferData(GL_ARRAY_BUFFER,1024,@Colors2,GL_DYNAMIC_DRAW);
 glVertexAttribPointer(colorLoc,4,GL_FLOAT,GL_FALSE,4 * SizeOf(GLfloat),nil);
 
 modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
-angle3+=1.33;
+angle3+=1.33/5;
 if angle3>360 then angle3-=360;
 modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle3);
-modelviewmat2:=translate(modelviewmat2,0,0,-2);
-angle4+=0.97;
+modelviewmat2:=translate(modelviewmat2,0,0,-3);
+angle4+=0.97/5;
 if angle4>360 then angle4-=360;
 
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
@@ -867,8 +1053,37 @@ modelviewmat2:=translate(modelviewmat2,0,0,-5);
 mvpmat:=projectionmat*modelviewmat2;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 
+glBindBuffer(GL_ARRAY_BUFFER,vertexID);                 // vertexID is a buffer generated and filled at init by vertices
+glBufferData(GL_ARRAY_BUFFER,168,@Vertices2[0],GL_DYNAMIC_DRAW);
+glVertexAttribPointer(positionLoc,3,GL_FLOAT,GL_FALSE,3 * SizeOf(GLfloat),nil); // location and data format of vertex attributes:index.size,type,normalized,stride,offset
+
+
+
 //Draw all of our triangles at once}
-glDrawArrays(GL_TRIANGLES,0,12);
+glDrawArrays(GL_TRIANGLE_FAN,0,14);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[42],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[120],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+3*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+6*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+9*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+12*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+15*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+18*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,312,@Vertices2[198+21*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_STRIP,0,26);
+glBufferData(GL_ARRAY_BUFFER,168,@Vertices2[198+24*26],GL_DYNAMIC_DRAW);
+glDrawArrays(GL_TRIANGLE_FAN,0,14);
+
 
 //Disable the attribute arrays}
 //glDisableVertexAttribArray(positionLoc);
