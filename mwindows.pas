@@ -431,7 +431,7 @@ begin
 Arectangle.handle:=-1;
 q:=0;
 scr:=mainscreen+$800000;
-ThreadSetAffinity(ThreadGetCurrent,4);
+ThreadSetAffinity(ThreadGetCurrent,3);
 threadsleep(1);
 cls(100);
 
