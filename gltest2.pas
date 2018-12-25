@@ -5,7 +5,7 @@ unit gltest2;
 interface
 
 uses
-  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform;
+  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit;
 
 type Pmatrix4=^matrix4;
      matrix4=array[0..3,0..3] of glfloat;
@@ -36,7 +36,8 @@ type T3dobject=class
 
 const matrix4_zero:matrix4=((0,0,0,0),(0,0,0,0),(0,0,0,0),(0,0,0,0));
 const matrix4_one:matrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-
+const precision=30;  // for a sphere generator
+const svertex=2*precision*(precision+1); // vertices count for sphere
 
 operator +(a,b:matrix4):matrix4;
 operator *(a,b:matrix4):matrix4;
@@ -85,135 +86,19 @@ var programID,vertexID,colorID,texcoordID:GLuint;
     u_vp_matrix:GLint;
     u_texture:GLint;
     u_palette:GLint;
+    u_scale:GLint;
     a_texcoord:GLint;
 
-    uvs:array[0..179] of GLfloat=(
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1,
-
-
-     0, 0,
-     0, 1,
-     1, 0,
-     1, 0,
-     0, 1,
-     1, 1
-
-
-  );
+    vertices1,vertices2: array[0..svertex-1] of vector3; //sphere generator vars
+    suvs,suvs2:array[0..svertex-1] of vector2;
 
     pallette:array[0..1023] of byte;
     pallette2:TPallette absolute pallette;
 
-const kVertexCount = 180;
-
 //--------------------- Shaders ------------------------------------------------
 
 const VertexSource:String =
- 'precision mediump float;' +
+ 'precision highp float;' +
  'uniform mat4 u_mvpMat;' +
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
@@ -228,6 +113,7 @@ FragmentSource:String =
  'varying mediump vec2 v_texcoord;'+
  'uniform sampler2D u_texture;'+
  'uniform sampler2D u_palette;'+
+ 'uniform vec2 u_scale;'+
  'void main()' +
  '{' +
  'vec4 p0 = texture2D(u_texture, v_texcoord);'+
@@ -238,160 +124,40 @@ FragmentSource:String =
 
 // -----------------  test cube ------------------------------------------------
 
-const Vertices:array[0..(6 * 6 * 3) - 1] of GLfloat = (
-
-// Front
- -1.0,  1.0,  1.0,
- -1.0, -1.0,  1.0,
-  1.0,  1.0,  1.0,
-  1.0,  1.0,  1.0,
- -1.0, -1.0,  1.0,
-  1.0, -1.0,  1.0,
-//Right
-  1.0,  1.0,  1.0,
-  1.0, -1.0,  1.0,
-  1.0,  1.0, -1.0,
-  1.0,  1.0, -1.0,
-  1.0, -1.0,  1.0,
-  1.0, -1.0, -1.0,
-//Back
-  1.0,  1.0, -1.0,
-  1.0, -1.0, -1.0,
- -1.0,  1.0, -1.0,
- -1.0,  1.0, -1.0,
-  1.0, -1.0, -1.0,
- -1.0, -1.0, -1.0,
-//Left
- -1.0,  1.0, -1.0,
- -1.0, -1.0, -1.0,
- -1.0,  1.0,  1.0,
- -1.0,  1.0,  1.0,
- -1.0, -1.0, -1.0,
- -1.0, -1.0,  1.0,
-//Top
- -1.0,  1.0, -1.0,
- -1.0,  1.0,  1.0,
-  1.0,  1.0, -1.0,
-  1.0,  1.0, -1.0,
- -1.0,  1.0,  1.0,
-  1.0,  1.0,  1.0,
-//Bottom
- -1.0, -1.0,  1.0,
- -1.0, -1.0, -1.0,
-  1.0, -1.0,  1.0,
-  1.0, -1.0,  1.0,
- -1.0, -1.0, -1.0,
-  1.0, -1.0, -1.0
+var vertices:array[0..107] of GLfloat = (               // 6*6*3-1
+ -1.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0, 1.0, 1.0,          // Front
+  1.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0, 1.0,
+  1.0, 1.0, 1.0, 1.0,-1.0, 1.0, 1.0, 1.0,-1.0,          //Right
+  1.0, 1.0,-1.0, 1.0,-1.0, 1.0, 1.0,-1.0,-1.0,
+  1.0, 1.0,-1.0, 1.0,-1.0,-1.0,-1.0, 1.0,-1.0,          //Back
+ -1.0, 1.0,-1.0, 1.0,-1.0,-1.0,-1.0,-1.0,-1.0,
+ -1.0, 1.0,-1.0,-1.0,-1.0,-1.0,-1.0, 1.0, 1.0,          //Left
+ -1.0, 1.0, 1.0,-1.0,-1.0,-1.0,-1.0,-1.0, 1.0,
+ -1.0, 1.0,-1.0,-1.0, 1.0, 1.0, 1.0, 1.0,-1.0,          //Top
+  1.0, 1.0,-1.0,-1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+ -1.0,-1.0, 1.0,-1.0,-1.0,-1.0, 1.0,-1.0, 1.0,          //Bottom
+  1.0,-1.0, 1.0,-1.0,-1.0,-1.0, 1.0,-1.0,-1.0
 );
 
-Colors:array[0..(6 * 6 * 4) - 1] of GLfloat = (
+uvs:array[0..71] of GLfloat=(
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1
+ );
 
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
-);
-{
-//Front
- 0.0,0.0,1.0,1.0,
- 0.0,0.0,1.0,1.0,
- 0.0,0.0,1.0,1.0,
- 0.0,0.0,1.0,1.0,
- 0.0,0.0,1.0,1.0,
- 0.0,0.0,1.0,1.0,
-//Right
- 1.0,0.0,0.0,1.0,
- 1.0,0.0,0.0,1.0,
- 1.0,0.0,0.0,1.0,
- 1.0,0.0,0.0,1.0,
- 1.0,0.0,0.0,1.0,
- 1.0,0.0,0.0,1.0,
-//Back
- 1.0,1.0,1.0,1.0,
- 1.0,1.0,1.0,1.0,
- 1.0,1.0,1.0,1.0,
- 1.0,1.0,1.0,1.0,
- 1.0,1.0,1.0,1.0,
- 1.0,1.0,1.0,1.0,
-//Left
- 1.0,1.0,0.0,1.0,
- 1.0,1.0,0.0,1.0,
- 1.0,1.0,0.0,1.0,
- 1.0,1.0,0.0,1.0,
- 1.0,1.0,0.0,1.0,
- 1.0,1.0,0.0,1.0,
-//Top
- 0.0,0.7333,0.0,1.0,
- 0.0,0.7333,0.0,1.0,
- 0.0,0.7333,0.0,1.0,
- 0.0,0.7333,0.0,1.0,
- 0.0,0.7333,0.0,1.0,
- 0.0,0.7333,0.0,1.0,
-//Bottom
- 0.752,0.752,0.752,1.0,
- 0.752,0.752,0.752,1.0,
- 0.752,0.752,0.752,1.0,
- 0.752,0.752,0.752,1.0,
- 0.752,0.752,0.752,1.0,
- 0.752,0.752,0.752,1.0
-);
- }
-
-// ---------- test tetrahedron -------------------------------------------------
-
-const Vertices2a:array[0..35] of GLfloat = (
-
-// 1
- -1.0, -1.0,  1.0,
-  -1.0,  1.0, -1.0,
-  1.0,  1.0,  1.0,
-
-
-
-  // 2
- -1.0,  1.0, -1.0,
-
- -1.0, -1.0,  1.0,
-   1.0, -1.0, -1.0,
-
- //3
- -1.0, -1.0,  1.0,
-   1.0,  1.0,  1.0,
-  1.0, -1.0, -1.0,
-
-
-//4
-  1.0,  1.0,  1.0,
- -1.0,  1.0, -1.0,
-  1.0, -1.0, -1.0
-
-);
-
-var colors2:array[0..65535] of GLfloat;
-
-
-var vertices1: array[0..1023] of vector3;
-    vertices2: array[0..2047] of vector3;
-    suvs,suvs2:array[0..2047] of vector2;
+//---------------- end of the cube definition
 
 implementation
 
 procedure makesphere(precision:integer);
 
 var rr,x,y,z,qq:glfloat;
-
-    i, vertex,vertex2,r,s,suv,suv2:integer;
+    i, vertex,vertex2,r,s:integer;
 
 begin
-for r:=0 to 1024 do
-  begin
-  colors2[4*r]:=random;
-  colors2[4*r+1]:=random;
-  colors2[4*r+2]:=random;
-  colors2[4*r+3]:=0;
-  end;
 
 // Pass 1. Compute all vertices and uvs. Todo: normals.
 
@@ -415,13 +181,13 @@ for r:=0 to precision do
     vertices1[vertex,0]:=x;
     vertices1[vertex,1]:=y;
     vertices1[vertex,2]:=z;
-    suvs[vertex,0]:=0.5; suvs[vertex,1]:=1; suv+=1;
+    suvs[vertex,0]:=0.5; suvs[vertex,1]:=1;
     vertex+=1;
     end
 
   else for s:=0 to precision-1 do
     begin
-    qq:=0; //(r mod 2)*rr/2;
+    qq:=0;
     y:=sin(-pi/2+pi*r*rr);
     x:=cos(2*pi*(s*rr+qq))*sin(pi*r*rr);
     z:=sin(2*pi*(s*rr+qq))*sin(pi*r*rr);
@@ -434,15 +200,13 @@ for r:=0 to precision do
     end;
   end;
 
-retromalina.outtextxyz(0,0,inttostr(vertex),40,5,5);
-
 // Pass 2. Prepare a triangle strip
 
 vertex:=1; vertex2:=0;
 for r:=1 to precision do
   begin
-  if r=1 then     // make a triangle strip with degenerated triangles.
-    begin         // instead of triangle fan to draw the sphere in one pass
+  if r=1 then         // make a triangle strip with degenerated triangles
+    begin             // instead of a triangle fan to draw the sphere in one pass
     for s:=0 to precision-1 do
       begin
       vertices2[vertex2+1]:=vertices1[vertex];
@@ -460,17 +224,17 @@ for r:=1 to precision do
     suvs2[vertex2+1,0]:=1;
     vertex2+=2;
     end
-//todo
+
    else if r=precision then
     begin
-    i:=vertex;   outtextxyz(0,200,inttostr(i),154,3,3);
+    i:=vertex;  vertex:=i-1;
     for s:=0 to precision-1 do
       begin
       vertices2[vertex2]:=vertices1[i];
-      vertices2[vertex2+1]:=vertices1[vertex-precision];
+      vertices2[vertex2+1]:=vertices1[vertex];   //-precision];
       suvs2[vertex2]:=suvs[i];
-      suvs2[vertex2+1]:=suvs[vertex-precision];
-      vertex+=1;
+      suvs2[vertex2+1]:=suvs[vertex];        // -precision];
+      vertex-=1;
       vertex2+=2;
       end;
     vertices2[vertex2]:=vertices1[i];
@@ -502,10 +266,6 @@ for r:=1 to precision do
     vertex2+=2;
     end;
   end;
-retromalina.outtextxyz(0,100,inttostr(vertex2),40,5,5);
-background.tc:=15;
-//for s:=0 to 59 do background.println(floattostr(vertices2[3*s])+' '+floattostr(vertices2[3*s+1])+' '+floattostr(vertices2[3*s+2])+' ');
-
 end;
 
 constructor TOpenGLHelperThread.create(CreateSuspended : boolean);
@@ -531,7 +291,6 @@ repeat
 until terminated;
 end;
 
-
 constructor TOpenGLThread.create(CreateSuspended : boolean);
 
 begin
@@ -549,12 +308,12 @@ ThreadSetPriority(ThreadGetCurrent,7);
 threadsleep(1);
 if glwindow=nil then
   begin
-  glwindow:=TWindow.create(256,256,'OpenGL helper window');
+  glwindow:=TWindow.create(256 ,256 ,'OpenGL helper window');
   glwindow.decoration.hscroll:=false;
   glwindow.decoration.vscroll:=false;
   glwindow.resizable:=false;
   glwindow.cls(0);
-  glwindow.move(300,400,256,256,0,0);
+  glwindow.move(100,100,1024,1024,0,0);
   end
 else goto p999;
 helper:=TOpenGLHelperThread.create(true);
@@ -653,7 +412,7 @@ end;
 
 //------------------------ scale -----------------------------------------------
 
-function scale(var a:matrix4;sx,sy,sz:glfloat):matrix4;
+function scale(a:matrix4;sx,sy,sz:glfloat):matrix4;
 
 var s:matrix4;
 begin
@@ -664,7 +423,7 @@ end;
 
 //----------------------translate ----------------------------------------------
 
-function translate(var a:matrix4;sx,sy,sz:glfloat):matrix4;
+function translate(a:matrix4;sx,sy,sz:glfloat):matrix4;
 
 var s:matrix4;
 begin
@@ -675,7 +434,7 @@ end;
 
 //---------------- frustum projection ------------------------------------------
 
-function projection(var a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
+function projection(a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
 
 label p999;
 
@@ -712,7 +471,7 @@ end;
 //---------------- orthogonal projection ---------------------------------------
 // simplified for symmetric top,bottom,left,right
 
-function ortho(var a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
+function ortho(a:matrix4;l,r,b,t,n,f:glfloat):matrix4;
 
 label p999;
 
@@ -835,7 +594,6 @@ Surface:=eglCreateWindowSurface(Display,Config,@NativeWindow,nil);
 //Connect the EGL context to the EGL surface
 
 eglMakeCurrent(Display,Surface,Surface,Context);
-
 end;
 
 
@@ -848,19 +606,16 @@ var aspect,n,f,w,h,fov:GLfloat;
 
 begin
 
+// initialize a pallette
 pallette2:=ataripallette;
-//for i:=0 to 1023 do pallette[i]:=i mod 256;
-
 for i:=0 to 255 do pallette[4*i+3]:=$FF;
 
 //initialize clear and depth values; enable cull_face
 
 glClearDepthf(1.0);
 glClearColor(0.0,0.0,0.0,0.0);
-//glEnable(GL_CULL_FACE);
+glEnable(GL_CULL_FACE);
 glEnable(GL_DEPTH_TEST);
-//gldepthfunc(GL_LEQUAL);
-//gldepthmask(1);
 
 //Create, upload and compile the vertex shader
 
@@ -881,7 +636,7 @@ glCompileShader(FragmentShader);
 programID:=glCreateProgram;                     // todo: check if it is not 0?
 glAttachShader(programID,VertexShader);
 glAttachShader(programID,FragmentShader);
-glLinkProgram(programID);                 // todo: check a linkstatus with glGetprogramiv
+glLinkProgram(programID);                       // todo: check a linkstatus with glGetprogramiv
 
 //Discard the shaders as they are linked to the program
 
@@ -892,12 +647,11 @@ glDeleteShader(VertexShader);
 
 mvpLoc:=glGetUniformLocation(programID,'u_mvpMat');
 positionLoc:=glGetAttribLocation(programID,'a_position');
-//colorLoc:=glGetAttribLocation(programID,'a_color');
 glEnableVertexAttribArray(positionLoc);
-//glEnableVertexAttribArray(colorLoc);
 u_vp_matrix:=glGetUniformLocation(programID,'u_vp_matrix');
 u_texture:=glGetUniformLocation(programID,'u_texture');
 u_palette:=glGetUniformLocation(programID,'u_palette');
+u_scale:=glGetUniformLocation(programID,'u_scale');   // to do: use it for UV scaling
 a_texcoord:=glGetAttribLocation(programID,'a_texcoord');
 
 //Generate vertex and color buffers and fill them with our cube data
@@ -910,13 +664,13 @@ glGenBuffers(1,@texcoordID);
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
 glVertexAttribPointer(a_texcoord, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nil);
 glEnableVertexAttribArray(a_texcoord);
-glBufferData(GL_ARRAY_BUFFER, kVertexCount * sizeof(GLfloat) * 2, @uvs[0], GL_STATIC_DRAW);
+//glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_STATIC_DRAW);
 
 
 glGenTextures(1, @texture0);
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
-glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, glwindow.canvas);
+glTexImage2D(GL_TEXTURE_2D, 0, gl_luminance, 256, 256, 0, gl_luminance, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
 
 glGenTextures(1, @texture1);
 glActiveTexture(GL_TEXTURE1);
@@ -939,8 +693,6 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_nearest);
 // Calculate the frustum and scale the projection}
 
 
-
-
 aspect:=xres/yres;
 n:=1.0;
 f:=10.0;
@@ -948,20 +700,16 @@ fov:=30.0;
 h:=tan(2*pi*fov/360)*n;
 w:=h*aspect;
 
-// initialize the projection matrix
+// initialize the projection matrix- uncomment one of them
 
-projectionMat:=projection(matrix4_one,-w,w,-h,h,n,f);
-//projectionMat:=ortho(matrix4_one,-w,w,-h,h,n,f);
+projectionMat:=projection(matrix4_one,-w,w,-h,h,n,f);   //frustum
+//projectionMat:=ortho(matrix4_one,-w,w,-h,h,n,f);      //orho
 
 // initialize the other matrices
 
 modelviewMat:=matrix4_one;
 mvpMat:=matrix4_one;
-for i:=0 to 15 do
-  for j:=0 to 15 do
-    glwindow.box(16*i,16*j,16,16,16*j+i);
-glwindow.outtextxyz(0,104,'OpenGLES 2',15,3,3);
-makesphere(20);
+makesphere(precision);
 end;
 
 
@@ -973,9 +721,9 @@ const angle1:glfloat=0;
       angle4:glfloat=0;
       speed:integer=1;
 
-var   i,j:integer;
-
 var modelviewmat2:matrix4;
+          t:int64;
+
 
 begin
 glViewport(0,0,xres,yres);                              // full screen OpenGL view;
@@ -984,8 +732,7 @@ glUseProgram(programID);                                // attach a shader progr
 glUniform1i(u_texture,0);                               // tell the shader what is the texture numbers
 glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
 glActiveTexture(GL_TEXTURE0);                           // select a texture #0
-
-glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
 // ------------------- Draw a cube --------------------------------------------
 
@@ -1006,7 +753,7 @@ glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
-glBufferData(GL_ARRAY_BUFFER, 36*8, @uvs[0], GL_dynamic_DRAW);
+glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_dynamic_DRAW);
 
 //Vertices
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);
@@ -1025,7 +772,8 @@ if angle4>360 then angle4-=360;
 
 // transform the model
 modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
-modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle3);
+modelviewmat2:=rotate(modelviewmat2,0,1,0,angle3);
+modelviewmat2:=rotate(modelviewmat2,1,0,0,150);
 modelviewmat2:=translate(modelviewmat2,0,0,-3);
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
 modelviewmat2:=translate(modelviewmat2,0,0,-5);
@@ -1035,21 +783,19 @@ glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
-glBufferData(GL_ARRAY_BUFFER, 6720, @suvs2[0], GL_dynamic_DRAW);
+glBufferData(GL_ARRAY_BUFFER, svertex*8, @suvs2[0], GL_dynamic_DRAW);
 
 //Vertices
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);
-glBufferData(GL_ARRAY_BUFFER,20*504,@Vertices2[0],GL_DYNAMIC_DRAW);
+glBufferData(GL_ARRAY_BUFFER,svertex*12,@Vertices2[0],GL_DYNAMIC_DRAW);
 
 // Draw it!
-glDrawArrays(GL_TRIANGLE_STRIP,0,20*42);
+glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
 
 //------------------------------------------------------------------------------
 
 eglSwapBuffers(Display,Surface);
-
 frames+=1;
-
 end;
 
 procedure gl_cleanup;
@@ -1087,7 +833,6 @@ eglTerminate(Display);
 end;
 
 procedure gltest2_start;
-
 
 begin
 BCMHostInit;
