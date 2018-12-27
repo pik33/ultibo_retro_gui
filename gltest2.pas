@@ -62,9 +62,9 @@ type TOpenGLHelperThread=class (TThread)
        Constructor Create(CreateSuspended : boolean);
      end;
 
-var programID,vertexID,colorID,texcoordID:GLuint;
-    mvpLoc,positionLoc,colorLoc:GLuint;
-    projectionMat,modelviewMat,mvpMat:matrix4;
+var programID,vertexID,colorID,texcoordID,normalID:GLuint;
+    mvpLoc,positionLoc,colorLoc,lightloc:GLuint;
+    projectionMat,modelviewMat,mvpMat,lightmat:matrix4;
     frames:integer;
 
      //DispmanX window
@@ -88,10 +88,11 @@ var programID,vertexID,colorID,texcoordID:GLuint;
     u_palette:GLint;
     u_scale:GLint;
     a_texcoord:GLint;
+    a_normal:GLint;
 
     vertices1,vertices2: array[0..svertex-1] of vector3; //sphere generator vars
     suvs,suvs2:array[0..svertex-1] of vector2;
-
+    snormals,snormals2:array[0..svertex-1] of vector3;
     pallette:array[0..1023] of byte;
     pallette2:TPallette absolute pallette;
 
@@ -100,25 +101,35 @@ var programID,vertexID,colorID,texcoordID:GLuint;
 const VertexSource:String =
  'precision highp float;' +
  'uniform mat4 u_mvpMat;' +
+ 'uniform mat4 u_lightMat;' +
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
+ 'attribute vec4 a_normal;' +
  'varying mediump vec2 v_texcoord;'+
+ 'varying mediump vec4 v_normal;'+
  'void main()' +
  '{' +
  '    gl_Position = u_mvpMat * a_position;' +
  '    v_texcoord = a_texcoord; '+
+ '    v_normal = u_lightMat* a_normal; '+
  '}';
 
 FragmentSource:String =
  'varying mediump vec2 v_texcoord;'+
+ 'varying mediump vec4 v_normal;'+
  'uniform sampler2D u_texture;'+
  'uniform sampler2D u_palette;'+
  'uniform vec2 u_scale;'+
  'void main()' +
  '{' +
+ 'vec4 l = vec4 (0.5/1.1225, 0.1/1.1225, 1.0/1.1225, 0.0); '+
+ 'vec4 q0 = v_normal;'+
+ 'float cosTheta = dot(q0, l); '+
+ 'if (cosTheta <0.0) {cosTheta = 0.0;} '+
  'vec4 p0 = texture2D(u_texture, v_texcoord);'+
  'vec4 c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5)); '+
- 'gl_FragColor = c0; '+
+ 'gl_FragColor = vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
+// 'gl_FragColor = q0; '+
   '}';
 
 
@@ -137,6 +148,20 @@ var vertices:array[0..107] of GLfloat = (               // 6*6*3-1
   1.0, 1.0,-1.0,-1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
  -1.0,-1.0, 1.0,-1.0,-1.0,-1.0, 1.0,-1.0, 1.0,          //Bottom
   1.0,-1.0, 1.0,-1.0,-1.0,-1.0, 1.0,-1.0,-1.0
+);
+var normals:array[0..107] of GLfloat = (               // 6*6*3-1
+  0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,          // Front
+  0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+  1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0,          //Right
+  1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+  0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0,          //Back
+  0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0,
+ -1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,          //Left
+ -1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,
+  0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,          //Top
+  0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,
+  0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0,          //Bottom
+  0.0,-1.0, 0.0, 0.0,-1.0, 0.0, 0.0,-1.0, 0.0
 );
 
 uvs:array[0..71] of GLfloat=(
@@ -266,6 +291,9 @@ for r:=1 to precision do
     vertex2+=2;
     end;
   end;
+// a sphere with r=1 has normals=points!
+snormals2:=vertices2;
+
 end;
 
 constructor TOpenGLHelperThread.create(CreateSuspended : boolean);
@@ -282,9 +310,14 @@ var i,j:integer;
 begin
 frames:=0;
 repeat
-  for i:=0 to 15 do
-    for j:=0 to 15 do
-      glwindow.box(16*i,16*j,16,16,16*j+i);
+//  for i:=0 to 15 do
+//    for j:=0 to 15 do
+//      glwindow.box(16*i,16*j,16,16,16*j+i);
+  glwindow.box(0,0,128,128,40);
+  glwindow.box(0,128,128,128,120);
+  glwindow.box(128,0,128,128,200);
+  glwindow.box(128,128,128,128,232);
+
   glwindow.outtextxyz(0,frames mod 208,'OpenGLES 2',(frames div 16) mod 256,3,3);
   glwindow.outtextxyz(0,(frames+64) mod 208,'Frame# '+inttostr(frames),(frames div 8) mod 256,2,2);
   waitvbl;
@@ -646,6 +679,7 @@ glDeleteShader(VertexShader);
 //Obtain the locations of some uniforms and attributes from our shaders
 
 mvpLoc:=glGetUniformLocation(programID,'u_mvpMat');
+lightLoc:=glGetUniformLocation(programID,'u_lightMat');
 positionLoc:=glGetAttribLocation(programID,'a_position');
 glEnableVertexAttribArray(positionLoc);
 u_vp_matrix:=glGetUniformLocation(programID,'u_vp_matrix');
@@ -653,6 +687,7 @@ u_texture:=glGetUniformLocation(programID,'u_texture');
 u_palette:=glGetUniformLocation(programID,'u_palette');
 u_scale:=glGetUniformLocation(programID,'u_scale');   // to do: use it for UV scaling
 a_texcoord:=glGetAttribLocation(programID,'a_texcoord');
+a_normal:=glGetAttribLocation(programID,'a_normal');
 
 //Generate vertex and color buffers and fill them with our cube data
 
@@ -666,6 +701,10 @@ glVertexAttribPointer(a_texcoord, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), ni
 glEnableVertexAttribArray(a_texcoord);
 //glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_STATIC_DRAW);
 
+glGenBuffers(1,@normalID);
+glBindBuffer(GL_ARRAY_BUFFER,normalID);
+glVertexAttribPointer(a_normal, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), nil);
+glEnableVertexAttribArray(a_normal);
 
 glGenTextures(1, @texture0);
 glActiveTexture(GL_TEXTURE0);
@@ -709,6 +748,7 @@ projectionMat:=projection(matrix4_one,-w,w,-h,h,n,f);   //frustum
 
 modelviewMat:=matrix4_one;
 mvpMat:=matrix4_one;
+lightMat:=matrix4_one;
 makesphere(precision);
 end;
 
@@ -743,6 +783,9 @@ angle2+=0.82*speed;
 if angle2>360 then angle2-=360;
 
 // transform the model
+lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
+lightmat:=rotate(lightmat,0,1,0,angle2);
+
 modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
 modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (around the axis)
 modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
@@ -750,6 +793,7 @@ modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);              // rotate again
 modelviewmat2:=translate(modelviewmat2,0,0,-5);                  // push it 5 units again or you will not see it
 mvpmat:=projectionmat*modelviewmat2;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
@@ -758,6 +802,10 @@ glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_dynamic_DRAW);
 //Vertices
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);
 glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@Vertices,GL_DYNAMIC_DRAW);
+
+//Normals
+glBindBuffer(GL_ARRAY_BUFFER,normalID);
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@normals,GL_DYNAMIC_DRAW);
 
 // Draw it
 glDrawArrays(GL_TRIANGLES,0,36);
@@ -771,6 +819,10 @@ angle4+=0.378*speed;
 if angle4>360 then angle4-=360;
 
 // transform the model
+
+lightmat:=rotate(modelviewmat,0,1,0,angle3);
+lightmat:=rotate(lightmat,1,0,0,150);
+
 modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
 modelviewmat2:=rotate(modelviewmat2,0,1,0,angle3);
 modelviewmat2:=rotate(modelviewmat2,1,0,0,150);
@@ -781,6 +833,7 @@ modelviewmat2:=translate(modelviewmat2,0,0,-5);
 mvpmat:=projectionmat*modelviewmat2;
 
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
@@ -790,6 +843,9 @@ glBufferData(GL_ARRAY_BUFFER, svertex*8, @suvs2[0], GL_dynamic_DRAW);
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);
 glBufferData(GL_ARRAY_BUFFER,svertex*12,@Vertices2[0],GL_DYNAMIC_DRAW);
 
+//Normals
+glBindBuffer(GL_ARRAY_BUFFER,normalID);
+glBufferData(GL_ARRAY_BUFFER,svertex*12,@snormals2[0],GL_DYNAMIC_DRAW);
 // Draw it!
 glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
 
