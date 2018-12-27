@@ -65,6 +65,7 @@ var
     clock:string;
     testptr:pointer;
 
+
 //------------------- The main program
 
 begin
@@ -188,6 +189,7 @@ repeat
 
   if testicon.dblclicked then
     begin
+    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
     testicon.dblclicked:=false;
     end;
 

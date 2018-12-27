@@ -13,7 +13,7 @@ unit mwindows;
 interface
 
 uses
-  Classes, SysUtils, threads, retro, icons, retromalina, platform, vc4;
+  Classes, SysUtils, threads, retro, icons, platform, vc4, retromalina;
 
 const mapbase=mainscreen+$800000;
       framewidth=4;
@@ -397,7 +397,7 @@ procedure gpouttextxy(g:pointer;x,y:integer; t:string;c,pitch:integer);
 procedure gpputpixel(g:pointer; x,y,color,pitch:integer); inline;
 procedure makeicon;
 procedure getrectanglelist;
-
+var mousedebugwindow:TWindow=nil;
 
 implementation
 
@@ -431,7 +431,7 @@ begin
 Arectangle.handle:=-1;
 q:=0;
 scr:=mainscreen+$800000;
-ThreadSetAffinity(ThreadGetCurrent,3);
+ThreadSetAffinity(ThreadGetCurrent,4);
 threadsleep(1);
 cls(100);
 

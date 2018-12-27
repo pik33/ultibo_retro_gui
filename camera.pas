@@ -89,7 +89,7 @@ function stopcamera:cardinal;
 function destroycamera:cardinal;
 
 const logenable=true; // logging disabled
-// you have to implement your own print_log function before eneble the logging
+// you have to implement your own print_log function before enable the logging
 
 implementation
 uses camera2;

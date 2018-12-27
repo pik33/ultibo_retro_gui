@@ -480,6 +480,7 @@ procedure scrconvertnative(src,screen:pointer);
 procedure print(line:string);
 procedure println(line:string);
 
+
 implementation
 
 uses blitter, mwindows;
@@ -525,6 +526,16 @@ mousetype:=0;
   repeat
     p102:
     repeat m:=getmousereport; threadsleep(2); until m[0]<>255;
+    if mousedebugwindow<>nil then
+      begin
+      for i:=0 to 7 do mousedebugwindow.print(inttohex(m[i],2)+' ');
+      mousedebugwindow.println(' ');
+      if mousedebugwindow.needclose then
+        begin
+        mousedebugwindow.destroy;
+        mousedebugwindow:=nil;
+        end;
+      end;
     if (mousetype=1) and (m=mousereports[7]) and (m[0]=1) and (m[2]=0) and (m[3]=0) and (m[4]=0) and (m[5]=0) then goto p102; //ignore empty M1 records
 
     mousecount+=1;
@@ -541,7 +552,9 @@ mousetype:=0;
     for i:=0 to 6 do if mousereports[i,6]<>m[6]  then j+=1;
     for i:=0 to 6 do if mousereports[i,5]<>m[5]  then j+=1;
     for i:=0 to 6 do if mousereports[i,4]<>m[4]  then j+=1;
-    if j=0 then begin mousetype:=0; goto p101; end;
+    for i:=0 to 6 do if (mousereports[i,2]>$F0) and (mousereports[i,3]=$FF) then j+=1;   // 16 bit mouse slowing run at x
+    for i:=0 to 6 do if (mousereports[i,4]>$F0) and (mousereports[i,5]=$FF) then j+=1;   // 16 bit mouse slowing run at x
+    if (j=0) then begin mousetype:=0; goto p101; end;
 
     j:=0;
     for i:=0 to 6 do begin j+=mousereports[i,1]; j+=mousereports[i,7]; end;
@@ -746,7 +759,7 @@ var id:integer;
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
 ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
-ThreadSetPriority(ThreadGetCurrent,3);
+ThreadSetPriority(ThreadGetCurrent,5);
 threadsleep(1);
 
 running:=1;

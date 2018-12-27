@@ -765,15 +765,16 @@ glDrawArrays(GL_TRIANGLES,0,36);
 //--------------------------------- Draw a sphere -----------------------------
 
 // compute rotate angles
-angle3+=1.33*speed;
+angle3+=3.33*speed;
 if angle3>360 then angle3-=360;
-angle4+=0.978*speed;
+angle4+=0.378*speed;
 if angle4>360 then angle4-=360;
 
 // transform the model
 modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
 modelviewmat2:=rotate(modelviewmat2,0,1,0,angle3);
 modelviewmat2:=rotate(modelviewmat2,1,0,0,150);
+modelviewmat2:=rotate(modelviewmat2,0,1,-0,-angle4);
 modelviewmat2:=translate(modelviewmat2,0,0,-3);
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
 modelviewmat2:=translate(modelviewmat2,0,0,-5);
