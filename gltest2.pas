@@ -64,7 +64,8 @@ type TOpenGLHelperThread=class (TThread)
 
 var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     mvpLoc,positionLoc,colorLoc,lightloc:GLuint;
-    projectionMat,modelviewMat,mvpMat,lightmat:matrix4;
+    mvLoc,lightsourceloc:GLuint;
+    projectionMat,modelviewMat,mvpMat,lightmat,mvmat,lightsourcemat:matrix4;
     frames:integer;
 
      //DispmanX window
@@ -89,6 +90,8 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     u_scale:GLint;
     a_texcoord:GLint;
     a_normal:GLint;
+    u_mvmat:GLint;
+    u_lightsourcemat:GLInt;
 
     vertices1,vertices2: array[0..svertex-1] of vector3; //sphere generator vars
     suvs,suvs2:array[0..svertex-1] of vector2;
@@ -101,34 +104,56 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
 const VertexSource:String =
  'precision highp float;' +
  'uniform mat4 u_mvpMat;' +
+ 'uniform mat4 u_mvMat;' +
  'uniform mat4 u_lightMat;' +
+ 'uniform mat4 u_lightsourceMat;' +
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
  'attribute vec4 a_normal;' +
- 'varying mediump vec2 v_texcoord;'+
- 'varying mediump vec4 v_normal;'+
+ 'varying highp vec2 v_texcoord;'+
+ 'varying highp vec4 v_normal;'+
+ 'varying highp vec4 v_lightpos;'+
+ 'varying highp vec4 v_vertexpos;'+
  'void main()' +
  '{' +
- '    gl_Position = u_mvpMat * a_position;' +
+ '    gl_Position = u_mvpMat * a_position; ' +
+ '     vec4 vp = u_mvMat * a_position;  '+
+ '     v_vertexpos = vp;  '+
+  '    v_lightpos = u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp; ' +
+// '    v_lightpos = vec4(0.0,1.0,0.0,1.0); ' +
  '    v_texcoord = a_texcoord; '+
  '    v_normal = u_lightMat* a_normal; '+
  '}';
 
 FragmentSource:String =
- 'varying mediump vec2 v_texcoord;'+
- 'varying mediump vec4 v_normal;'+
+ 'precision highp float;' +
+ 'varying highp vec2 v_texcoord;'+
+ 'varying highp vec4 v_normal;'+
+ 'varying highp vec4 v_lightpos;'+
+ 'varying highp vec4 v_vertexpos;'+
  'uniform sampler2D u_texture;'+
  'uniform sampler2D u_palette;'+
  'uniform vec2 u_scale;'+
  'void main()' +
  '{' +
- 'vec4 l = vec4 (0.5/1.1225, 0.1/1.1225, 1.0/1.1225, 0.0); '+
- 'vec4 q0 = v_normal;'+
+// 'vec4 l = vec4 (0.5/1.1225, 0.1/1.1225, 1.0/1.1225, 0.0); '+
+ 'vec3 l = normalize(v_lightpos.xyz); '+
+ 'vec3 q0 = v_normal.xyz;'+
+ 'vec3 r=normalize(reflect(l,q0)); '+
+ 'vec3 e=normalize(v_vertexpos.xyz); '+
+ 'float cosAlpha = dot( e,r ) - 0.01; '+
+ 'cosAlpha = clamp(cosAlpha, 0.0, 1.0); ' +
+ 'cosAlpha = pow(cosAlpha,25.0); '+
+ 'vec4 coscolor= vec4(cosAlpha,cosAlpha, cosAlpha,0.0); '+
+// 'if (cosAlpha < 0.0) {cosAlpha = 0.0;} '+
  'float cosTheta = dot(q0, l); '+
  'if (cosTheta <0.0) {cosTheta = 0.0;} '+
  'vec4 p0 = texture2D(u_texture, v_texcoord);'+
  'vec4 c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5)); '+
- 'gl_FragColor = vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
+// 'gl_FragColor = vec4(l.xyz,1); '+
+ 'gl_FragColor = coscolor+vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
+// 'gl_FragColor = coscolor+vec4(0.2,0.2,0.2,1.0); '+
+// 'gl_FragColor = vec4((c0*(cosAlpha)).xyz,1); '+
 // 'gl_FragColor = q0; '+
   '}';
 
@@ -679,7 +704,9 @@ glDeleteShader(VertexShader);
 //Obtain the locations of some uniforms and attributes from our shaders
 
 mvpLoc:=glGetUniformLocation(programID,'u_mvpMat');
+mvLoc:=glGetUniformLocation(programID,'u_mvMat');
 lightLoc:=glGetUniformLocation(programID,'u_lightMat');
+lightsourceLoc:=glGetUniformLocation(programID,'u_lightsourceMat');
 positionLoc:=glGetAttribLocation(programID,'a_position');
 glEnableVertexAttribArray(positionLoc);
 u_vp_matrix:=glGetUniformLocation(programID,'u_vp_matrix');
@@ -755,10 +782,15 @@ end;
 
 procedure gl_draw;
 
+// The procedure draws a sphere and a cube lighted by a light source
+
+
 const angle1:glfloat=0;
       angle2:glfloat=0;
       angle3:glfloat=0;
       angle4:glfloat=0;
+      angle5:glfloat=0;
+      angle6:glfloat=0;
       speed:integer=1;
 
 var modelviewmat2:matrix4;
@@ -774,6 +806,15 @@ glUniform1i(u_palette,1);                               // this is a pallette so
 glActiveTexture(GL_TEXTURE0);                           // select a texture #0
 glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
+// We need a moving light source
+
+angle5+=0.05*speed;
+if angle5>360 then angle5:=0;
+lightsourcemat:=translate(matrix4_one,25,0.1,0);
+lightsourcemat:=rotate(lightsourcemat,0,1,0,angle5);
+lightsourcemat:=translate(lightsourcemat,0,0,-5);
+
+
 // ------------------- Draw a cube --------------------------------------------
 
 // compute rotate angles
@@ -783,6 +824,10 @@ angle2+=0.82*speed;
 if angle2>360 then angle2-=360;
 
 // transform the model
+
+// A transform matrix for lighting. As it will transform normals only
+// the scale and translate transforms are omitted
+
 lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
 lightmat:=rotate(lightmat,0,1,0,angle2);
 
@@ -791,9 +836,12 @@ modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (arou
 modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);              // rotate again, now all modell will rotate around the center of the scene
 modelviewmat2:=translate(modelviewmat2,0,0,-5);                  // push it 5 units again or you will not see it
-mvpmat:=projectionmat*modelviewmat2;
+mvmat:=modelviewmat2;                                  // todo: moving camera
+mvpmat:=projectionmat*mvmat;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
+glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
+glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
@@ -830,10 +878,13 @@ modelviewmat2:=rotate(modelviewmat2,0,1,-0,-angle4);
 modelviewmat2:=translate(modelviewmat2,0,0,-3);
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
 modelviewmat2:=translate(modelviewmat2,0,0,-5);
-mvpmat:=projectionmat*modelviewmat2;
+mvmat:=modelviewmat2;                                  // todo: moving camera
+mvpmat:=projectionmat*mvmat;
 
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
+glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
+glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
