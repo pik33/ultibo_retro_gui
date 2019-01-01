@@ -69,7 +69,6 @@ var
 //------------------- The main program
 
 begin
-
 initmachine(144);     // 16+128=hi, double buffered TODO init @19
 threadsleep(1);
 while not DirectoryExists('C:\') do
@@ -264,7 +263,7 @@ repeat
       end;
     end;
 
-  if (basictest.dblclicked) or (key=ord('g')) then
+  if (basictest.dblclicked) then
     begin
     basictest.dblclicked:=false;
     if glwindow=nil then
@@ -308,7 +307,7 @@ closefile(f);
       end;
     end;
 
-  if (raspbian.dblclicked) or (key=ord('r')) then
+  if (raspbian.dblclicked) or (key=197) then
     begin
     raspbian.dblclicked:=false;
     if fileexists(drive+'\ultibo\Raspbian.u') then

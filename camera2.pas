@@ -1,7 +1,9 @@
 unit camera2;
 
-// Testing unit for different camera picture filters, recognition, etc
-
+// A sandbox for picture filtering and recognition
+// pik33@o2.pl
+// gpl >=2.0
+// 20181230
 
 {$mode objfpc}{$H+}
 
@@ -38,18 +40,16 @@ type cbuffer=array[0..cxres*cyres-1] of byte;
 type cbufferl=array[0..(cxres*cyres div 4)-1] of cardinal;
 type cbuffer2=array[0..2*cxres*cyres-1] of byte;
 
+type TPoint=array[0..2] of integer;                           //x,y,diameter
+     TMinMaxPoint=array[0..3] of integer;
 
-
-  type TPoint=array[0..2] of integer;
-       TMinMaxPoint=array[0..3] of integer;
-
-  var camerathread2:TCameraThread2;
-      PAthread2:TPAThread2;
+var camerathread2:TCameraThread2;
+    PAthread2:TPAThread2;
       cmw2:pointer=nil;
       camerawindow2:TWindow=nil;
       rendertestwindow2:TWindow=nil;
       miniwindow2:TWindow=nil;
-      at,at1,at2,at3,t1,t2,t3,t4:int64;
+      at,at1,at2,at3,at4,t1,t2,t3,t4:int64;
       testbuf1, testbuf2, testbuf3, testbuf4: cbuffer;
       tb4l:cbufferl absolute testbuf4;
       s1:integer=0;
@@ -58,6 +58,7 @@ type cbuffer2=array[0..2*cxres*cyres-1] of byte;
       points:array[0..3900] of TPoint;
       pointnum:integer=0;
       i,j,k,l,m:integer;
+      processed:boolean=false;
 
   const maxpoint=5;
 
@@ -66,20 +67,13 @@ type cbuffer2=array[0..2*cxres*cyres-1] of byte;
         points2: array[0..2*maxpoint-1] of integer;
         points2a:array[0..maxpoint-1] of TPoint absolute points2;
 
-procedure scale4(from,too,length,bpl:integer);
-procedure scale4b(from,too,length,bpl:integer);
-procedure scale4c(from,too,lines,bpl:integer);
-procedure diff(b1,b2,b3,count:cardinal);
-procedure diff2(b1,b2,b3,count,t:cardinal);
-procedure diff3(b1,b2,b3,count,t:cardinal);
-procedure diff4(b1,b2,b3,count,t:cardinal);
 
 implementation
 
 uses playerunit; // for sprites :)
 
 // ----------------------------------------------------------------------------
-// ---  procedures creating differential pictures -----------------------------
+// ---  procedures for creating differential pictures -------------------------
 // ----------------------------------------------------------------------------
 
 
@@ -96,7 +90,6 @@ procedure diff(b1,b2,b3,count:cardinal);
 label p101;
 
 begin
-
 
                   asm
                   push {r0-r6}
@@ -162,7 +155,7 @@ p101:             ldrb r4,[r0],#1
                   end;
 end;
 
- procedure diff3(b1,b2,b3,count,t:cardinal);
+procedure diff3(b1,b2,b3,count,t:cardinal);
 
  // --- rev 20181226
  // --- create differential picture from 2 frames
@@ -246,29 +239,24 @@ p101:            ldrb r4,[r0],#1
                  add r6,r4
                  lsr r6,#4
                  strb r6,[r1],#1
-
-//                 cmps r4,r6
                  sub r6,r4,r5
-//                 sublt r6,r5,r4
                  cmps r6,r8
                  movge r4,#255
                  movlt r4,#0
                  strb r4,[r2],#1
 
-
                  subs r3,#1
                  bgt  p101
                  pop {r0-r8}
                  end;
-
-
 end;
 
 
 procedure scale4(from,too,length,bpl:integer);
 
-// --- rev 20181013
-
+// --- rev 20181230
+// Shrink the picture 4:1 using 4x4 pixel average
+// Not optimized!
 
 label p101,p102,p999;
 var lines:integer;
@@ -340,10 +328,6 @@ p101:             mov r12,#0
                   add r0,r0,r3
                   add r0,r0,r3
 
-
-
-                //  sub r0,#4
-
                   subs r2,#1
                   bgt p102
                   pop {r0-r12}
@@ -354,13 +338,12 @@ end;
 
 procedure scale4c(from,too,lines,bpl:integer);
 
-// --- rev 20181014
-
+// --- rev 20181230
+// --- shrink the picture 4:1 without any averaging
 
 label p101,p102;
 
 begin
-
 
                   asm
                   push {r0-r12}
@@ -383,8 +366,6 @@ p101:             mov r12,#0
                   add r0,r0,r3
                   add r0,r0,r3
 
-                //  sub r0,#4
-
                   subs r2,#1
                   bgt p102
                   pop {r0-r12}
@@ -396,10 +377,10 @@ end;
 procedure scale4b(from,too,length,bpl:integer);
 
 // --- rev 20181013
-
+// USAD8 can help here!
 
 label p101,p102,p999, p998, p997, temp1,temp2,temp3;
-//label t1,t2,t3,t4,t5,t6;
+
 var lines:integer;
 
 begin
@@ -415,9 +396,6 @@ lines:=(length div bpl) div 4;
 p102:             mov r14,r3
 
 p101:             ldm r0,{r4-r7}  // 16 pixels
-                //  mov r12,#0
-
-
 
                   mov r8,r4,  lsr #8
                   mov r9,r4,  lsr #16
@@ -473,8 +451,6 @@ p101:             ldm r0,{r4-r7}  // 16 pixels
 
 
                   str r12,temp1
-
-
 
                   // line #2
 
@@ -762,7 +738,10 @@ end;
 
 
 
-procedure soap2(b1,b2,count:integer);
+procedure blur2(b1,b2,count:integer);
+
+// 4x2 pixel averaging
+// rev 20181230
 
 label p101;
 
@@ -816,7 +795,7 @@ procedure blur3u(b1,b2,count:cardinal);
 label p101;
 
 // Make an average of 8 pixels using USAD8 instruction
-
+// rev 20181230
 
 begin
 
@@ -855,8 +834,8 @@ procedure blur3(b1,b2,count:cardinal);
 
 label p101;
 
-// Make an average of 8 pixels
-
+// Make an average of 8 pixels, optimized
+// rev 20181230
 
 begin
 
@@ -933,12 +912,11 @@ p101:            sub r12,r3
 
 end;
 
-procedure soap3v(b1,b2,count:cardinal);
+procedure blur3v(b1,b2,count:cardinal);
 
 label p101,p102;
 
-// Make an average of 8 pixels
-
+// Make an average of 8 pixels, vertically
 
 begin
 
@@ -967,66 +945,48 @@ p101:            sub r12,r3
                  ldrb r3,[r0],#640
                  add r12,r3
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
                  strb r14,[r1],#640
 
                  sub r12,r4
                  ldrb r4,[r0],#640
                  add r12,r4
                  lsr r14,r12,#3
-//                 cmps r14,#160
- //                movlt r14,#0
                  strb r14,[r1],#640
 
                  sub r12,r5
                  ldrb r5,[r0],#640
                  add r12,r5
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
                  strb r14,[r1],#640
 
                  sub r12,r6
                  ldrb r6,[r0],#640
                  add r12,r6
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
                  strb r14,[r1],#640
 
                  sub r12,r7
                  ldrb r7,[r0],#640
                  add r12,r7
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
                  strb r14,[r1],#640
 
                  sub r12,r8
                  ldrb r8,[r0],#640
                  add r12,r8
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
-
                  strb r14,[r1],#640
 
                  sub r12,r9
                  ldrb r9,[r0],#640
                  add r12,r9
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
-
                  strb r14,[r1],#640
 
                  sub r12,r10
                  ldrb r10,[r0],#640
                  add r12,r10
                  lsr r14,r12,#3
-//                 cmps r14,#160
-//                 movlt r14,#0
                  strb r14,[r1],#640
 
                  subs r2,#1
@@ -1081,7 +1041,7 @@ p101:            mov r5,r4
 
                  streq r7,[r6],#4    //streq
                  addeq r2,#1         //addeq
-                 cmps r2,#1000
+                 cmps r2,#4096
                  bge p102
                  subs r1,#1
                  bne p101
@@ -1110,6 +1070,11 @@ end;
 
 procedure TPAThread2.execute;
 
+// todo @20181230
+// persistent found points list
+// check if point active using unprocessed image; if not active, delete it from the list
+// attach new points to the old list; if move<delta, updae point else create new one.
+
 label p101,p102;
 
 var td:int64;
@@ -1124,16 +1089,22 @@ var td:int64;
 // the thread detects light spots
 
 begin
+at1:=0;
 ThreadSetpriority(ThreadGetCurrent,5);
 threadsleep(1);
 prepare_sprites;
 repeat
-  threadsleep(1);
-  if (n>60)  then
+  repeat threadsleep(1) until processed or terminated;
+  processed:=false;
+  if (n>300)  then
     begin
     SchedulerPreemptDisable(CPUGetCurrent);
+    t1:=gettime;
     pointnum:=findpoints2(cardinal(miniwindow2.canvas),cardinal(@testbuf4),cxres*cyres) ;
+    t1:=gettime-t1; at1+=t1;
     SchedulerPreemptEnable(CPUGetCurrent);
+    box(0,0,100,100,0); outtextxy(0,0,inttostr(t1),255);
+
 
 //  initialize minmax and points tables
 //  camerawindow.println('Initializing tables') ;
@@ -1191,7 +1162,6 @@ p101:
           end;
 p102:
         end;
-
 // now compute position and diameter of found points
       p:=0;
 
@@ -1212,7 +1182,7 @@ p102:
           end;
         end;
 
-      waitvbl;
+ //     waitvbl;
       for i:=0 to p-1 do
         begin
         d:=points2a[i][2];
@@ -1228,7 +1198,9 @@ p102:
       xx:=points2a[0][0];
       end;
     s1:=0;
-    end;
+    end
+  else         camerawindow2.println(inttostr(n));
+
   n+=1;
 until terminated;
 camerawindow2.println('PAThread terminating;');
@@ -1247,7 +1219,7 @@ var frames2:integer;
 begin
 ThreadSetpriority(ThreadGetCurrent,7);
 threadsleep(1);
-
+at1:=0; at2:=0; at3:=0; at4:=0;
 setpallette(grayscalepallette,0);
   if camerawindow2=nil then
     begin
@@ -1291,11 +1263,22 @@ for frames2:=1 to maxframe do
   begin
   repeat threadsleep(1) until filled;
   filled:=false;
-
+//  SchedulerPreemptDisable(CPUGetCurrent);
+//  t1:=gettime;
   blur3 (cardinal(@camerabuffer),cardinal(@testbuf1),cyres*cxres) ;
-  soap3v(cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres);
+//  t1:=gettime-t1; at1+=t1;
+//  t2:=gettime;
+  blur3v(cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres);
+//  t2:=gettime-t2;  at2+=t2;
+//  t3:=gettime;
   diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,32);
+  processed:=true;
+//  t3:=gettime-t3;  at3+=t3;
+//  t4:=gettime;
   fastmove(cardinal(@camerabuffer),cardinal(rendertestwindow2.canvas), cxres*cyres);
+//  t4:=gettime-t4;  at4+=t4;
+//  SchedulerPreemptenable(CPUGetCurrent);
+//  box(0,0,100,100,0); outtextxy(0,0,inttostr(at1 div frames),255); outtextxy(0,20,inttostr(at2 div frames),255); outtextxy(0,40,inttostr(at3 div frames),255);outtextxy(0,60,inttostr(at4 div frames),255);
   if keypressed then goto p998;
   end;
 
@@ -1325,7 +1308,7 @@ camerawindow2.println ('----- mini window destroyed ');
 threadsleep(2000);
 camerawindow2.destroy;
 camerawindow2:=nil;
-self.Terminate;
+threadsleep(100);
 end;
 
 initialization

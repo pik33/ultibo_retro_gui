@@ -5,7 +5,7 @@ unit gltest2;
 interface
 
 uses
-  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit;
+  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit,blitter;
 
 type Pmatrix4=^matrix4;
      matrix4=array[0..3,0..3] of glfloat;
@@ -98,6 +98,9 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     snormals,snormals2:array[0..svertex-1] of vector3;
     pallette:array[0..1023] of byte;
     pallette2:TPallette absolute pallette;
+
+    texaddr:cardinal;
+
 
 //--------------------- Shaders ------------------------------------------------
 
@@ -331,13 +334,23 @@ end;
 procedure TOpenGLHelperThread.execute;
 
 var i,j:integer;
+    f:TWindow;
+    k:cardinal;
+
 
 begin
 frames:=0;
+//f:=TWindow.create(256,256,'Trick');
+//f.move(200,200,256,256,0,0);
+//k:=$30000000;
 repeat
 //  for i:=0 to 15 do
 //    for j:=0 to 15 do
 //      glwindow.box(16*i,16*j,16,16,16*j+i);
+//  fastmove(k,cardinal(f.canvas),65536);
+//  f.outtextxy(0,0,inttohex(k,8),15);
+//  k+=65536;
+//  if k>$3EFFFFFF then k:=$30000000;
   glwindow.box(0,0,128,128,40);
   glwindow.box(0,128,128,128,120);
   glwindow.box(128,0,128,128,200);
@@ -661,6 +674,7 @@ var aspect,n,f,w,h,fov:GLfloat;
     Source:PChar;
     VertexShader:GLuint;
     FragmentShader:GLuint;
+    i,j,k:integer;
 
 begin
 
@@ -736,7 +750,34 @@ glEnableVertexAttribArray(a_normal);
 glGenTextures(1, @texture0);
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
-glTexImage2D(GL_TEXTURE_2D, 0, gl_luminance, 256, 256, 0, gl_luminance, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
+glTexImage2D(GL_TEXTURE_2D, 0, gl_luminance, 256,256, 0, gl_luminance, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
+glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+
+//i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$28282828) and (lpeek(i+4)=$28282828)) or (i>$3F000000) ;
+//texaddr:=i;
+//outtextxyz(0,0,inttohex(i,8),40,3,3);
+//glwindow.canvas:=pointer(i);
+
+//i:=$30000000; repeat i:=i+4 until (lpeek(i)=$c8c8c8c8) or (i>$3F000000) ;
+//outtextxyz(0,50,inttohex(i,8),120,3,3);
+
+//for j:=0 to 255 do lpoke(i+4*j,j);
+//for j:=0 to 255 do lpoke(1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(2*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(3*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(4*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(5*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(6*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(7*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+//for j:=0 to 255 do lpoke(8*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
+
+//for j:=32 to 63 do lpoke(i+4*j,$28282828);
+
+//for j:=64 to 95 do lpoke(i+4*j,$78787878);
+
+//for j:=96 to 127 do lpoke(i+4*j,$b8b8b8b8);
+
+//for j:=128 to 159 do lpoke(i+4*j,$44444444);
 
 glGenTextures(1, @texture1);
 glActiveTexture(GL_TEXTURE1);
@@ -795,7 +836,7 @@ const angle1:glfloat=0;
 
 var modelviewmat2:matrix4;
           t:int64;
-
+const     k:integer=0;
 
 begin
 glViewport(0,0,xres,yres);                              // full screen OpenGL view;
@@ -805,6 +846,10 @@ glUniform1i(u_texture,0);                               // tell the shader what 
 glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
 glActiveTexture(GL_TEXTURE0);                           // select a texture #0
 glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+
+//lpoke (texaddr+k,$0f0f0f0f);
+//k+=4 ;
+//if k>4*65535 then k:=0;
 
 // We need a moving light source
 
@@ -830,7 +875,7 @@ if angle2>360 then angle2-=360;
 
 lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
 lightmat:=rotate(lightmat,0,1,0,angle2);
-
+// lightmat:=matrix4_one ;
 modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
 modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (around the axis)
 modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen

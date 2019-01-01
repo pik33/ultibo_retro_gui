@@ -862,8 +862,8 @@ framecnt:=0;                              // frame counter
 
 // init pallette, font and mouse cursor
 
+//systemfont:=amigafont8;
 systemfont:=st4font;
-//systemfont:=st4font;
 sprite7def:=mysz;
 sprite7zoom:=$00010001;
 setpallette(ataripallette,0);
