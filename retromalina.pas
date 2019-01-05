@@ -782,6 +782,7 @@ repeat
   FramebufferDeviceSetOffset(fb,0,0,True);
   FramebufferDeviceWaitSync(fb);
 
+
   vblank1:=0;
   t:=gettime;
 
@@ -798,6 +799,7 @@ repeat
 
   FramebufferDeviceSetOffset(fb,0,yres,True);
   FramebufferDeviceWaitSync(fb);
+
 
   end;
 until terminated;

@@ -432,6 +432,7 @@ Arectangle.handle:=-1;
 q:=0;
 scr:=mainscreen+$800000;
 ThreadSetAffinity(ThreadGetCurrent,4);
+ThreadSetpriority(ThreadGetCurrent,5);
 threadsleep(1);
 cls(100);
 

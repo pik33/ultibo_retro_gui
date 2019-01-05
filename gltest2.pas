@@ -62,6 +62,12 @@ type TOpenGLHelperThread=class (TThread)
        Constructor Create(CreateSuspended : boolean);
      end;
 
+type TTexturebitmap=object     // test!!
+   address:cardinal;
+   w,l:integer;
+   procedure putpixel(x,y:cardinal;color:byte);
+   end;
+
 var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     mvpLoc,positionLoc,colorLoc,lightloc:GLuint;
     mvLoc,lightsourceloc:GLuint;
@@ -100,6 +106,7 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     pallette2:TPallette absolute pallette;
 
     texaddr:cardinal;
+    testbitmap:TTexturebitmap;
 
 
 //--------------------- Shaders ------------------------------------------------
@@ -120,10 +127,9 @@ const VertexSource:String =
  'void main()' +
  '{' +
  '    gl_Position = u_mvpMat * a_position; ' +
- '     vec4 vp = u_mvMat * a_position;  '+
- '     v_vertexpos = vp;  '+
-  '    v_lightpos = u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp; ' +
-// '    v_lightpos = vec4(0.0,1.0,0.0,1.0); ' +
+ '    vec4 vp = u_mvMat * a_position;  '+
+ '    v_vertexpos = vp;  '+
+ '    v_lightpos = u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp; ' +
  '    v_texcoord = a_texcoord; '+
  '    v_normal = u_lightMat* a_normal; '+
  '}';
@@ -139,25 +145,35 @@ FragmentSource:String =
  'uniform vec2 u_scale;'+
  'void main()' +
  '{' +
-// 'vec4 l = vec4 (0.5/1.1225, 0.1/1.1225, 1.0/1.1225, 0.0); '+
+
  'vec3 l = normalize(v_lightpos.xyz); '+
  'vec3 q0 = v_normal.xyz;'+
  'vec3 r=normalize(reflect(l,q0)); '+
  'vec3 e=normalize(v_vertexpos.xyz); '+
+
  'float cosAlpha = dot( e,r ) - 0.01; '+
  'cosAlpha = clamp(cosAlpha, 0.0, 1.0); ' +
  'cosAlpha = pow(cosAlpha,25.0); '+
  'vec4 coscolor= vec4(cosAlpha,cosAlpha, cosAlpha,0.0); '+
-// 'if (cosAlpha < 0.0) {cosAlpha = 0.0;} '+
+
  'float cosTheta = dot(q0, l); '+
  'if (cosTheta <0.0) {cosTheta = 0.0;} '+
- 'vec4 p0 = texture2D(u_texture, v_texcoord);'+
- 'vec4 c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5)); '+
-// 'gl_FragColor = vec4(l.xyz,1); '+
+ 'vec2 scaled = v_texcoord*u_scale; '+
+
+ 'float mtu = 4.0*fract(2048.0*scaled.x); '     +
+ 'int mti = int(floor(mtu)); ' +
+
+ 'vec4 p0 = texture2D(u_texture, scaled);'+
+
+ 'vec4 c0;'  +
+ 'if      (mti==0) {c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5));} '+
+ 'else if (mti==1) {c0 = texture2D(u_palette, vec2(p0.g*(255.0/256.0)+0.0001,0.5));} '+
+ 'else if (mti==2) {c0 = texture2D(u_palette, vec2(p0.b*(255.0/256.0)+0.0001,0.5));} '+
+ 'else             {c0 = texture2D(u_palette, vec2(p0.a*(255.0/256.0)+0.0001,0.5));} '+
+
  'gl_FragColor = coscolor+vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
-// 'gl_FragColor = coscolor+vec4(0.2,0.2,0.2,1.0); '+
-// 'gl_FragColor = vec4((c0*(cosAlpha)).xyz,1); '+
-// 'gl_FragColor = q0; '+
+// 'gl_FragColor = c0; '+
+
   '}';
 
 
@@ -204,6 +220,48 @@ uvs:array[0..71] of GLfloat=(
 //---------------- end of the cube definition
 
 implementation
+
+procedure putpixel1(x,y:cardinal;color:byte); // test procedure
+
+var a,b,c:byte;
+
+begin
+
+
+a:=(x  and %00000111)+((y and %00000111) shl 3)+(x and %00011000) shl 3;
+b:=((y and %00011000) shr 3)+(y and %11000000);
+b+=((x and %00100000) xor (y and %00100000)) shr 3;
+//c:=(x  and %00100000) shr 2;
+c:=(x and %11100000) shr 2;
+if (y and %01000000) >0 then c:=not c;
+b+=(c and %00111000);
+
+
+//poke(address+a+256*b,color);
+end;
+
+procedure TTexturebitmap.putpixel(x,y:cardinal;color:byte); // test procedure
+
+// for 2048x2048 32bit
+
+var a,b:byte;
+    c:byte;
+
+begin
+
+a:=(x and %00001111)+ ((y and %00000011) shl 4) + ((x and %00110000) shl 2);     //x5 x4 y1 y0 x3 x2 x1 x0
+b:=((y and %00001100) shr 2);                                                    //                  y3 y2 // 64x16
+b+=(((x and %01000000) shr 2) xor (y and %00010000)) shr 2;                      //               xor
+                                                                                 //                        the rest of x
+c:=(x and %11111000000) shr 3;
+if (y and %00100000) >0 then c:=not c;
+b+=c and %11111000;                                                              //x10 x9 x8 x7 x6
+c:=(x and %1100000000000) shr 11;
+if (y and %00100000) >0 then c:=(not c) and %11;
+c+=(y shr 3) and %11111100;
+
+poke(address+a+256*b+65536*c,color);
+end;
 
 procedure makesphere(precision:integer);
 
@@ -339,6 +397,8 @@ var i,j:integer;
 
 
 begin
+ThreadSetPriority(ThreadGetCurrent,6);
+threadsleep(10);
 frames:=0;
 //f:=TWindow.create(256,256,'Trick');
 //f.move(200,200,256,256,0,0);
@@ -351,13 +411,15 @@ repeat
 //  f.outtextxy(0,0,inttohex(k,8),15);
 //  k+=65536;
 //  if k>$3EFFFFFF then k:=$30000000;
+//  SchedulerPreemptdisable(CPUGetCurrent);
+//  glwindow.cls(frames mod 256);
   glwindow.box(0,0,128,128,40);
   glwindow.box(0,128,128,128,120);
   glwindow.box(128,0,128,128,200);
   glwindow.box(128,128,128,128,232);
-
   glwindow.outtextxyz(0,frames mod 208,'OpenGLES 2',(frames div 16) mod 256,3,3);
   glwindow.outtextxyz(0,(frames+64) mod 208,'Frame# '+inttostr(frames),(frames div 8) mod 256,2,2);
+//  SchedulerPreemptEnable(CPUGetCurrent);
   waitvbl;
 until terminated;
 end;
@@ -375,8 +437,8 @@ label p999;
 var helper:TOpenglHelperThread;
 
 begin
-ThreadSetPriority(ThreadGetCurrent,7);
-threadsleep(1);
+ThreadSetPriority(ThreadGetCurrent,6);
+threadsleep(10);
 if glwindow=nil then
   begin
   glwindow:=TWindow.create(256 ,256 ,'OpenGL helper window');
@@ -385,6 +447,7 @@ if glwindow=nil then
   glwindow.resizable:=false;
   glwindow.cls(0);
   glwindow.move(100,100,1024,1024,0,0);
+  glwindow.cls(147);
   end
 else goto p999;
 helper:=TOpenGLHelperThread.create(true);
@@ -649,6 +712,7 @@ DispmanDisplay:=vc_dispmanx_display_open(DISPMANX_ID_MAIN_LCD);
 DispmanUpdate:=vc_dispmanx_update_start(0);
 DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,DispmanDisplay,0 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
 
+
 //Define an EGL DispmanX native window structure
 
 NativeWindow.Element:=DispmanElement;
@@ -750,12 +814,29 @@ glEnableVertexAttribArray(a_normal);
 glGenTextures(1, @texture0);
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
-glTexImage2D(GL_TEXTURE_2D, 0, gl_luminance, 256,256, 0, gl_luminance, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
-glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+glTexImage2D(GL_TEXTURE_2D, 0, gl_rgba, 2048, 2048, 0, gl_rgba, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
+glwindow.putpixel(0,0,$11);
+glwindow.putpixel(1,0,$11);
+glwindow.putpixel(2,0,$11);
+glwindow.putpixel(3,0,$11);
+glwindow.putpixel(4,0,$12);
+glwindow.putpixel(5,0,$12);
+glwindow.putpixel(6,0,$12);
+glwindow.putpixel(7,0,$12);
+glwindow.putpixel(8,0,$13);
+glwindow.putpixel(9,0,$13);
+glwindow.putpixel(10,0,$13);
+glwindow.putpixel(11,0,$13);
+glwindow.putpixel(12,0,$14);
+glwindow.putpixel(13,0,$14);
+glwindow.putpixel(14,0,$14);
+glwindow.putpixel(15,0,$14);
+glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0, 64 ,256 ,GL_rgba, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
-//i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$28282828) and (lpeek(i+4)=$28282828)) or (i>$3F000000) ;
-//texaddr:=i;
-//outtextxyz(0,0,inttohex(i,8),40,3,3);
+i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$11111111) and (lpeek(i+4)=$12121212) and (lpeek(i+8)=$13131313) and (lpeek(i+12)=$14141414)) or (i>$3F000000) ;
+testbitmap.address:=i;testbitmap.w:=256; testbitmap.l:=256;
+texaddr:=i;
+outtextxyz(0,0,inttohex(i,8),40,3,3);
 //glwindow.canvas:=pointer(i);
 
 //i:=$30000000; repeat i:=i+4 until (lpeek(i)=$c8c8c8c8) or (i>$3F000000) ;
@@ -818,6 +899,11 @@ modelviewMat:=matrix4_one;
 mvpMat:=matrix4_one;
 lightMat:=matrix4_one;
 makesphere(precision);
+glViewport(0,0,xres,yres);                              // full screen OpenGL view;
+
+glUseProgram(programID);                                // attach a shader program
+glUniform1i(u_texture,0);                               // tell the shader what is the texture numbers
+glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
 end;
 
 
@@ -835,21 +921,42 @@ const angle1:glfloat=0;
       speed:integer=1;
 
 var modelviewmat2:matrix4;
+    tb:array[0..187*885] of byte;
+
+    tscale:array[0..1] of glfloat=(1.0,1.0);
+
           t:int64;
 const     k:integer=0;
 
-begin
-glViewport(0,0,xres,yres);                              // full screen OpenGL view;
-glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
-glUseProgram(programID);                                // attach a shader program
-glUniform1i(u_texture,0);                               // tell the shader what is the texture numbers
-glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
-glActiveTexture(GL_TEXTURE0);                           // select a texture #0
-glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
-//lpoke (texaddr+k,$0f0f0f0f);
-//k+=4 ;
-//if k>4*65535 then k:=0;
+begin
+glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
+
+//glActiveTexture(GL_TEXTURE0);                           // select a texture #0
+{if sc<>nil then
+  begin
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,884 ,187 ,GL_luminance, GL_unsigned_BYTE, sc.canvas);
+  tscale[0]:=884/1024;
+  tscale[1]:=187/256;
+  end
+else
+  begin
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,64 ,256 ,GL_rgba, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+  tscale[0]:=64/2048;
+  tscale[1]:=256/2048;
+  end;
+    }
+  tscale[0]:=64/2048;
+  tscale[1]:=256/2048;
+  gluniform2fv(u_scale,1,@tscale);
+
+//   if frames<65536 THEN lpoke(testbitmap.address+ 4*frames ,$FFFFFFFF);
+//    k:=frames;// div 6;
+    testbitmap.putpixel(k mod 256, (k div 256) mod 256, k mod 256);
+
+//poke (texaddr+k,15);
+k+=1;
+if k>65535 then k:=0;
 
 // We need a moving light source
 
@@ -875,7 +982,7 @@ if angle2>360 then angle2-=360;
 
 lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
 lightmat:=rotate(lightmat,0,1,0,angle2);
-// lightmat:=matrix4_one ;
+
 modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
 modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (around the axis)
 modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen

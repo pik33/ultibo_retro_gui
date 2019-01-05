@@ -60,13 +60,13 @@ var camerathread2:TCameraThread2;
       i,j,k,l,m:integer;
       processed:boolean=false;
 
-  const maxpoint=5;
+  const maxpoint=6;
 
   var   points1: array[0..4*maxpoint-1] of integer;
         points1a:array[0..maxpoint-1] of TMinMaxPoint absolute points1;
         points2: array[0..2*maxpoint-1] of integer;
         points2a:array[0..maxpoint-1] of TPoint absolute points2;
-
+        points3: array[0..maxpoint-1] of TPoint;
 
 implementation
 
@@ -1178,6 +1178,11 @@ p102:
           points2a[i][2]:=d;
           xx:=points2a[i][0];
           yy:=points2a[i][1];
+
+          // check if the point is in the table
+          //for j:=0 to maxpoint-1 do if
+
+
           camerawindow2.println(inttostr(i)+' '+inttostr(xx)+' '+inttostr(yy)+' '+inttostr(d));
           end;
         end;
@@ -1217,7 +1222,7 @@ var frames2:integer;
     buffer:cardinal;
 
 begin
-ThreadSetpriority(ThreadGetCurrent,7);
+ThreadSetpriority(ThreadGetCurrent,6);
 threadsleep(1);
 at1:=0; at2:=0; at3:=0; at4:=0;
 setpallette(grayscalepallette,0);
@@ -1271,7 +1276,7 @@ for frames2:=1 to maxframe do
   blur3v(cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres);
 //  t2:=gettime-t2;  at2+=t2;
 //  t3:=gettime;
-  diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,32);
+  diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,24);
   processed:=true;
 //  t3:=gettime-t3;  at3+=t3;
 //  t4:=gettime;
