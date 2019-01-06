@@ -40,7 +40,7 @@ type cbuffer=array[0..cxres*cyres-1] of byte;
 type cbufferl=array[0..(cxres*cyres div 4)-1] of cardinal;
 type cbuffer2=array[0..2*cxres*cyres-1] of byte;
 
-type TPoint=array[0..2] of integer;                           //x,y,diameter
+type TPoint=array[0..4] of integer;                           //x,y,diameter,brightness
      TMinMaxPoint=array[0..3] of integer;
 
 var camerathread2:TCameraThread2;
@@ -64,17 +64,333 @@ var camerathread2:TCameraThread2;
 
   var   points1: array[0..4*maxpoint-1] of integer;
         points1a:array[0..maxpoint-1] of TMinMaxPoint absolute points1;
-        points2: array[0..2*maxpoint-1] of integer;
-        points2a:array[0..maxpoint-1] of TPoint absolute points2;
+//        points2: array[0..6*maxpoint-1] of integer;
+        points2a:array[0..maxpoint-1] of TPoint; // absolute points2;
         points3: array[0..maxpoint-1] of TPoint;
+
+        maxpoint3:integer=0;
+
+procedure diff(b1,b2,b3,count:cardinal);
+procedure diff2(b1,b2,b3,count,t:cardinal);
+procedure diff3(b1,b2,b3,count,t:cardinal);
+procedure diff4(b1,b2,b3,count,t:cardinal);
+procedure scale4(from,too,length,bpl:integer);
+procedure scale4c(from,too,lines,bpl:integer);
+procedure scale4b(from,too,length,bpl:integer);
+procedure blur2(b1,b2,count:integer);
+procedure blur3u(b1,b2,count:cardinal);
+procedure blur3(b1,b2,count:cardinal);
+procedure blur3v(b1,b2,count:cardinal);
+function findpoints2(b1,b2,count:integer):integer;
 
 implementation
 
 uses playerunit; // for sprites :)
 
-// ----------------------------------------------------------------------------
-// ---  procedures for creating differential pictures -------------------------
-// ----------------------------------------------------------------------------
+constructor TPAThread2.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+constructor TCameraThread2.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+
+end;
+
+procedure TPAThread2.execute;
+
+// todo @20181230
+// persistent found points list
+// check if point active using unprocessed image; if not active, delete it from the list
+// attach new points to the old list; if move<delta, updae point else create new one.
+
+label p101,p102,p103,p104, p105;
+
+const delta=72;  // max distance
+      delta2=48; // min brightness
+
+var td:int64;
+    td2:int64=0;
+    i,j,k:integer;
+    p:integer;
+    maxx,minx,maxy,miny,xx,yy:integer;
+    tf:textfile;
+    n:integer=1;
+    d1,d2,d:integer;
+
+// the thread detects light spots
+
+begin
+at1:=0;
+ThreadSetpriority(ThreadGetCurrent,5);
+threadsleep(1);
+prepare_sprites;
+for i:=0 to maxpoint-1 do for j:=0 to 3 do points3[i,j]:=0;
+repeat
+  repeat threadsleep(1) until processed or terminated;
+  processed:=false;
+  if n<180 then goto p104;    // wait 3 seconds to establish background picture
+
+  SchedulerPreemptDisable(CPUGetCurrent);
+  pointnum:=findpoints2(cardinal(miniwindow2.canvas),cardinal(@testbuf4),cxres*cyres) ;
+  SchedulerPreemptEnable(CPUGetCurrent);
+
+  if pointnum=0 then begin     box(0,200,200,200,80);  goto p104; end;  //no points found, nothing to do
+
+  for i:=0 to maxpoint-1 do       // clear the temporary table
+    begin
+    points1a[i][0]:=32767; //minx
+    points1a[i][1]:=-1;    //maxx
+    points1a[i][2]:=32767; //miny
+    points1a[i][3]:=-1;    //maxy
+    points2a[i][0]:=-1;
+    points2a[i][1]:=-1;
+    end;
+
+  for i:=0 to pointnum-1 do
+    begin
+    xx:=tb4l[i] mod 640;                    // compute x,y from the address
+    yy:=tb4l[i] div 640;                    // todo: use xres, yres instead of consts
+    p:=0;
+
+p101:
+
+    if points2a[p][0]<>-1 then              // the point is in the table
+      begin
+      if (xx>points1a[p][0]-6)
+       and (xx<points1a[p][1]+6)
+        and (yy>points1a[p][2]-6)
+         and (yy<points1a[p][3]+6) then   // the pixel belongs to the point
+
+        begin
+        if xx<points1a[p][0] then points1a[p][0]:=xx          // update min and max values for the point
+        else if xx>points1a[p][1] then points1a[p][1]:=xx;
+        if yy<points1a[p][2] then points1a[p][2]:=yy
+        else if yy>points1a[p][3] then points1a[p][3]:=yy;
+        end
+
+      else                      //  the pixel doesn't belong to point #p
+        begin
+        p+=1;                   //  check the next point or end the process if max number of allowed points reached
+        if p<maxpoint then goto p101 else goto p102;
+        end;
+      end
+    else                        // We are here if the pixel doesn't belong to any existent pointa and the max point number is not reached
+      begin                   // so we have to add a new point to the list
+      points1a[p][0]:=xx;
+      points1a[p][1]:=xx;
+      points1a[p][2]:=yy;
+      points1a[p][3]:=yy;
+      points2a[p][0]:=xx;
+      points2a[p][1]:=yy;
+      end;
+
+p102:
+    end;
+
+// now compute position and diameter of found points
+  p:=0;
+  for i:=0 to maxpoint-1 do
+    begin
+    if points2a[i][1]>-1 then
+      begin
+      p+=1;
+      d1:=points1a[i,1]-points1a[i,0];
+      d2:=points1a[i,3]-points1a[i,2];
+      d:=(d1+d2) div 2;
+      xx:=(points1a[i][0]+points1a[i][1]) div 2;
+      yy:=(points1a[i][2]+points1a[i][3]) div 2;
+      points2a[i][0]:=xx;
+      points2a[i][1]:=yy;
+      points2a[i][2]:=d;
+      points2a[i][3]:=testbuf3[xx+640*yy];
+      end;
+    end;
+
+  if p>0 then for i:=0 to p-1 do
+    begin
+
+  // check if the point is in the table
+
+    if maxpoint3=0 then // no points in the table
+      begin
+      points3[0]:=points2a[i];
+      maxpoint3:=1;
+      goto p103;
+      end;
+    for j:=0 to maxpoint3-1 do
+      begin
+      if (abs(points3[j,0]-points2a[i,0])<delta) and (abs(points3[j,1]-points2a[i,1])<delta) then // point found
+        begin
+        points3[j]:=points2a[i];
+        goto p103
+        end;
+      end;
+                                               // if we are here, no existing point found
+    if maxpoint3=maxpoint then goto p103; // no place for new points
+    points3[maxpoint3]:=points2a[i];
+    maxpoint3+=1;
+                                             // add a point
+p103:
+    end;
+
+
+
+
+
+p104:
+
+  if n<180 then camerawindow2.println(inttostr(n));
+  n+=1;
+
+
+  // we have to control all points and remove if not active.
+    if maxpoint3>0 then
+       for j:=0 to maxpoint3-1 do
+         begin
+         if testbuf3[640*points3[j,1]+points3[j,0]]<delta2 then //delete a point
+           begin
+           for k:=j to maxpoint3-1 do points3[k]:=points3[k+1];
+           for k:=0 to 3 do points3[maxpoint3-1,k]:=0;
+           maxpoint3-=1;
+           goto p105 // one point at once
+           end;
+         end;
+  // display the points
+ p105:
+
+  if maxpoint3>0 then begin
+  box(0,0,300,200,0);
+  for j:=0 to maxpoint3-1 do outtextxy(0,j*16,inttostr(j)+' '+inttostr(points3[j,0])+' '+inttostr(points3[j,1])+' '+inttostr(points3[j,2])+' '+inttostr(points3[j,3])+' '+inttostr(testbuf3[640*points3[j,1]+points3[j,0]]),255);
+  outtextxy(0,180,inttostr(maxpoint3),255);
+  outtextxy(0,160,inttostr(p),255);
+  end else box(0,0,300,200,80);
+
+    for i:=0 to maxpoint3-1 do
+      begin
+      d:=points3[i][2];
+      dpoke(base+_spritebase+8*i,miniwindow2.x-32+points3[i][0]);
+      dpoke(base+_spritebase+8*i+2,miniwindow2.y-32+points3[i][1]);
+      end;
+    for i:=maxpoint3 to 6 do
+      begin
+      dpoke(base+_spritebase+8*i,2048);
+      dpoke(base+_spritebase+8*i+2,2048);
+      end;
+
+until terminated;
+camerawindow2.println('PAThread terminating;');
+//closefile(tf);
+end;
+
+procedure TCameraThread2.execute;
+
+label p999,p998;
+
+const maxframe=360000;  //1 minute
+
+var frames2:integer;
+    buffer:cardinal;
+
+begin
+ThreadSetpriority(ThreadGetCurrent,6);
+threadsleep(1);
+at1:=0; at2:=0; at3:=0; at4:=0;
+setpallette(grayscalepallette,0);
+  if camerawindow2=nil then
+    begin
+    camerawindow2:=TWindow.create(480,600,'Camera log 2');
+    camerawindow2.decoration.hscroll:=true;
+    camerawindow2.decoration.vscroll:=true;
+    camerawindow2.resizable:=true;
+    camerawindow2.cls(0);
+    camerawindow2.tc:=252;
+    camerawindow2.move(1200,64,480,600,0,0);
+    cmw2:=camerawindow2;
+    end
+  else goto p999;
+  if rendertestwindow2=nil then
+    begin
+    rendertestwindow2:=TWindow.create(cxres,cyres,'Camera render');
+    rendertestwindow2.decoration.hscroll:=false;
+    rendertestwindow2.decoration.vscroll:=false;
+    rendertestwindow2.resizable:=true;
+    rendertestwindow2.cls(0);
+    rendertestwindow2.tc:=15;
+    rendertestwindow2.move(500,400,cxres,cyres,0,0);
+    end;
+  if miniwindow2=nil then
+    begin
+    miniwindow2:=TWindow.create(cxres,cyres,'Camera processed');
+    miniwindow2.decoration.hscroll:=false;
+    miniwindow2.decoration.vscroll:=false;
+    miniwindow2.resizable:=true;
+    miniwindow2.cls(0);
+    miniwindow2.tc:=15;
+    miniwindow2.move(100,100,cxres,cyres,0,0);
+    end;
+
+buffer:=initcamera(640,480,60,cardinal(@camerabuffer));
+camerawindow2.println ('----- Camera buffer at '+inttohex(buffer,8));
+if buffer<$C0000000 then goto p999;
+startcamera;
+while keypressed do readkey;
+for frames2:=1 to maxframe do
+  begin
+  repeat threadsleep(1) until filled;
+  filled:=false;
+//  SchedulerPreemptDisable(CPUGetCurrent);
+//  t1:=gettime;
+  blur3 (cardinal(@camerabuffer),cardinal(@testbuf1),cyres*cxres) ;
+//  t1:=gettime-t1; at1+=t1;
+//  t2:=gettime;
+  blur3v(cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres);
+//  t2:=gettime-t2;  at2+=t2;
+//  t3:=gettime;
+  diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,32);
+  processed:=true;
+//  t3:=gettime-t3;  at3+=t3;
+//  t4:=gettime;
+  fastmove(cardinal(@camerabuffer),cardinal(rendertestwindow2.canvas), cxres*cyres);
+//  t4:=gettime-t4;  at4+=t4;
+//  SchedulerPreemptenable(CPUGetCurrent);
+//  box(0,0,100,100,0); outtextxy(0,0,inttostr(at1 div frames),255); outtextxy(0,20,inttostr(at2 div frames),255); outtextxy(0,40,inttostr(at3 div frames),255);outtextxy(0,60,inttostr(at4 div frames),255);
+  if keypressed then goto p998;
+  end;
+
+p998:
+ThreadSetpriority(ThreadGetCurrent,1);
+threadsleep(1);
+stopcamera;
+camerawindow2.println ('----- Camera stopped ');
+camerawindow2.println ('----- Main loop ended ');
+setpallette(ataripallette,0);
+repeat threadsleep(100) until camerawindow2.needclose;
+camerawindow2.println ('----- Close button clicked ');
+
+p999:
+destroycamera;
+camerawindow2.println ('----- Camera destroyed ');
+setpallette(ataripallette,0);
+rendertestwindow2.destroy;
+rendertestwindow2:=nil;
+camerawindow2.println ('----- render window destroyed ');
+cmw2:=nil;
+PAThread2.terminate;
+PAThread2.destroy;
+miniwindow2.destroy;
+miniwindow2:=nil;
+camerawindow2.println ('----- mini window destroyed ');
+threadsleep(2000);
+camerawindow2.destroy;
+camerawindow2:=nil;
+threadsleep(100);
+end;
 
 
 procedure diff(b1,b2,b3,count:cardinal);
@@ -1041,7 +1357,7 @@ p101:            mov r5,r4
 
                  streq r7,[r6],#4    //streq
                  addeq r2,#1         //addeq
-                 cmps r2,#4096
+                 cmps r2,#8192
                  bge p102
                  subs r1,#1
                  bne p101
@@ -1053,268 +1369,6 @@ p102:            str r2,result
 
 end;
 
-constructor TPAThread2.create(CreateSuspended : boolean);
-
-begin
-FreeOnTerminate := True;
-inherited Create(CreateSuspended);
-end;
-
-constructor TCameraThread2.create(CreateSuspended : boolean);
-
-begin
-FreeOnTerminate := True;
-inherited Create(CreateSuspended);
-
-end;
-
-procedure TPAThread2.execute;
-
-// todo @20181230
-// persistent found points list
-// check if point active using unprocessed image; if not active, delete it from the list
-// attach new points to the old list; if move<delta, updae point else create new one.
-
-label p101,p102;
-
-var td:int64;
-    td2:int64=0;
-    i:integer;
-    p:integer;
-    maxx,minx,maxy,miny,xx,yy:integer;
-    tf:textfile;
-    n:integer=1;
-    d1,d2,d:integer;
-
-// the thread detects light spots
-
-begin
-at1:=0;
-ThreadSetpriority(ThreadGetCurrent,5);
-threadsleep(1);
-prepare_sprites;
-repeat
-  repeat threadsleep(1) until processed or terminated;
-  processed:=false;
-  if (n>300)  then
-    begin
-    SchedulerPreemptDisable(CPUGetCurrent);
-    t1:=gettime;
-    pointnum:=findpoints2(cardinal(miniwindow2.canvas),cardinal(@testbuf4),cxres*cyres) ;
-    t1:=gettime-t1; at1+=t1;
-    SchedulerPreemptEnable(CPUGetCurrent);
-    box(0,0,100,100,0); outtextxy(0,0,inttostr(t1),255);
-
-
-//  initialize minmax and points tables
-//  camerawindow.println('Initializing tables') ;
-
-    for i:=0 to maxpoint-1 do
-      begin
-      points1a[i][0]:=32767; //minx
-      points1a[i][1]:=-1;    //maxx
-      points1a[i][2]:=32767; //miny
-      points1a[i][3]:=-1;    //maxy
-      points2a[i][0]:=-1;
-      points2a[i][1]:=-1;
-      end;
-
-    if pointnum>1 then                          // points found
-      begin
-      for i:=0 to pointnum-1 do
-        begin
-        xx:=tb4l[i] mod 640;                    // compute x,y from the address
-        yy:=tb4l[i] div 640;                    // todo: use xres, yres instead of consts
-        p:=0;
-p101:
-        if points2a[p][0]<>-1 then              // the point is in the table
-          begin
-          if (xx>points1a[p][0]-6)
-            and (xx<points1a[p][1]+6)
-              and (yy>points1a[p][2]-6)
-                and (yy<points1a[p][3]+6) then   // the pixel belongs to the point
-
-
-            begin
-            if xx<points1a[p][0] then points1a[p][0]:=xx          // update min and max values for the point
-              else if xx>points1a[p][1] then points1a[p][1]:=xx;
-            if yy<points1a[p][2] then points1a[p][2]:=yy
-              else if yy>points1a[p][3] then points1a[p][3]:=yy;
-            end
-
-          else                      //  the pixel doesn't belong to point #p
-            begin
-            p+=1;                   //  check the next point
-            if p<maxpoint then
-              goto p101
-            else
-              goto p102;            // or end the process if max number of allowed points reached
-            end;
-          end
-        else                        // We are here if the pixel doesn't belong to any existent pointa and the max point number is not reached
-          begin                     // so we have to add a new point to the list
-          points1a[p][0]:=xx;
-          points1a[p][1]:=xx;
-          points1a[p][2]:=yy;
-          points1a[p][3]:=yy;
-          points2a[p][0]:=xx;
-          points2a[p][1]:=yy;
-          end;
-p102:
-        end;
-// now compute position and diameter of found points
-      p:=0;
-
-      for i:=0 to maxpoint-1 do
-        begin
-        if points2a[i][0]>-1 then
-          begin
-          p+=1;
-          d1:=points1a[i,1]-points1a[i,0];
-          d2:=points1a[i,3]-points1a[i,2];
-          d:=(d1+d2) div 2;
-          points2a[i][0]:=(points1a[i][0]+points1a[i][1]) div 2;
-          points2a[i][1]:=(points1a[i][2]+points1a[i][3]) div 2;
-          points2a[i][2]:=d;
-          xx:=points2a[i][0];
-          yy:=points2a[i][1];
-
-          // check if the point is in the table
-          //for j:=0 to maxpoint-1 do if
-
-
-          camerawindow2.println(inttostr(i)+' '+inttostr(xx)+' '+inttostr(yy)+' '+inttostr(d));
-          end;
-        end;
-
- //     waitvbl;
-      for i:=0 to p-1 do
-        begin
-        d:=points2a[i][2];
-        dpoke(base+_spritebase+8*i,miniwindow2.x-32+points2a[i][0]);
-        dpoke(base+_spritebase+8*i+2,miniwindow2.y-32+points2a[i][1]);
-        end;
-      for i:=p to 6 do
-        begin
-        dpoke(base+_spritebase+8*i,2048);
-        dpoke(base+_spritebase+8*i+2,2048);
-        end;
-      yy:=points2a[0][1];
-      xx:=points2a[0][0];
-      end;
-    s1:=0;
-    end
-  else         camerawindow2.println(inttostr(n));
-
-  n+=1;
-until terminated;
-camerawindow2.println('PAThread terminating;');
-//closefile(tf);
-end;
-
-procedure TCameraThread2.execute;
-
-label p999,p998;
-
-const maxframe=360000;  //1 minute
-
-var frames2:integer;
-    buffer:cardinal;
-
-begin
-ThreadSetpriority(ThreadGetCurrent,6);
-threadsleep(1);
-at1:=0; at2:=0; at3:=0; at4:=0;
-setpallette(grayscalepallette,0);
-  if camerawindow2=nil then
-    begin
-    camerawindow2:=TWindow.create(480,600,'Camera log 2');
-    camerawindow2.decoration.hscroll:=true;
-    camerawindow2.decoration.vscroll:=true;
-    camerawindow2.resizable:=true;
-    camerawindow2.cls(0);
-    camerawindow2.tc:=252;
-    camerawindow2.move(1200,64,480,600,0,0);
-    cmw2:=camerawindow2;
-    end
-  else goto p999;
-  if rendertestwindow2=nil then
-    begin
-    rendertestwindow2:=TWindow.create(cxres,cyres,'Camera render');
-    rendertestwindow2.decoration.hscroll:=false;
-    rendertestwindow2.decoration.vscroll:=false;
-    rendertestwindow2.resizable:=true;
-    rendertestwindow2.cls(0);
-    rendertestwindow2.tc:=15;
-    rendertestwindow2.move(500,400,cxres,cyres,0,0);
-    end;
-  if miniwindow2=nil then
-    begin
-    miniwindow2:=TWindow.create(cxres,cyres,'Camera processed');
-    miniwindow2.decoration.hscroll:=false;
-    miniwindow2.decoration.vscroll:=false;
-    miniwindow2.resizable:=true;
-    miniwindow2.cls(0);
-    miniwindow2.tc:=15;
-    miniwindow2.move(100,100,cxres,cyres,0,0);
-    end;
-
-buffer:=initcamera(640,480,60,cardinal(@camerabuffer));
-camerawindow2.println ('----- Camera buffer at '+inttohex(buffer,8));
-if buffer<$C0000000 then goto p999;
-startcamera;
-while keypressed do readkey;
-for frames2:=1 to maxframe do
-  begin
-  repeat threadsleep(1) until filled;
-  filled:=false;
-//  SchedulerPreemptDisable(CPUGetCurrent);
-//  t1:=gettime;
-  blur3 (cardinal(@camerabuffer),cardinal(@testbuf1),cyres*cxres) ;
-//  t1:=gettime-t1; at1+=t1;
-//  t2:=gettime;
-  blur3v(cardinal(@testbuf1),cardinal(@testbuf3),cxres*cyres);
-//  t2:=gettime-t2;  at2+=t2;
-//  t3:=gettime;
-  diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,24);
-  processed:=true;
-//  t3:=gettime-t3;  at3+=t3;
-//  t4:=gettime;
-  fastmove(cardinal(@camerabuffer),cardinal(rendertestwindow2.canvas), cxres*cyres);
-//  t4:=gettime-t4;  at4+=t4;
-//  SchedulerPreemptenable(CPUGetCurrent);
-//  box(0,0,100,100,0); outtextxy(0,0,inttostr(at1 div frames),255); outtextxy(0,20,inttostr(at2 div frames),255); outtextxy(0,40,inttostr(at3 div frames),255);outtextxy(0,60,inttostr(at4 div frames),255);
-  if keypressed then goto p998;
-  end;
-
-p998:
-ThreadSetpriority(ThreadGetCurrent,1);
-threadsleep(1);
-stopcamera;
-camerawindow2.println ('----- Camera stopped ');
-camerawindow2.println ('----- Main loop ended ');
-setpallette(ataripallette,0);
-repeat threadsleep(100) until camerawindow2.needclose;
-camerawindow2.println ('----- Close button clicked ');
-
-p999:
-destroycamera;
-camerawindow2.println ('----- Camera destroyed ');
-setpallette(ataripallette,0);
-rendertestwindow2.destroy;
-rendertestwindow2:=nil;
-camerawindow2.println ('----- render window destroyed ');
-cmw2:=nil;
-PAThread2.terminate;
-PAThread2.destroy;
-miniwindow2.destroy;
-miniwindow2:=nil;
-camerawindow2.println ('----- mini window destroyed ');
-threadsleep(2000);
-camerawindow2.destroy;
-camerawindow2:=nil;
-threadsleep(100);
-end;
 
 initialization
 
