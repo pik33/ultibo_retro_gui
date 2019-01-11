@@ -5,42 +5,9 @@ unit gltest2;
 interface
 
 uses
-  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit,blitter;
+  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit,blitter, simplegl;
 
-type Pmatrix4=^matrix4;
-     matrix4=array[0..3,0..3] of glfloat;
-type vector4=array[0..3] of glfloat;
-type vector3=array[0..2] of glfloat;
-type vector2=array[0..1] of glfloat;
 
-type T3dflavor=(cube,tetrahedron,octahedron,dodecahedron,icosahedron,sphere,custom);
-    {
-type T3dobject=class
-     vertices:pointer;
-     vnum:cardinal;
-     indices:pointer;
-     inum:cardinal;
-     normals:pointer;
-     nnum:cardinal;
-     uvs:pointer;
-     unum:cardinal;
-     texture:pointer;
-     flavor:T3dflavor;
-     constructor create(flavor:T3dflavor)
-     destructor destroy;
-     procedure translate(x,y,z:glfloat);
-     procedure rotate(x,y,z,a:glfloat);
-     procedure scale(x,y,z:glfloat);
-     end;
-     }
-
-const matrix4_zero:matrix4=((0,0,0,0),(0,0,0,0),(0,0,0,0),(0,0,0,0));
-const matrix4_one:matrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-const precision=30;  // for a sphere generator
-const svertex=2*precision*(precision+1); // vertices count for sphere
-
-operator +(a,b:matrix4):matrix4;
-operator *(a,b:matrix4):matrix4;
 
 procedure gltest2_start;
 
@@ -53,20 +20,8 @@ type TOpenGLThread=class (TThread)
        Constructor Create(CreateSuspended : boolean);
      end;
 
-type TOpenGLHelperThread=class (TThread)
 
-     private
-     protected
-       procedure Execute; override;
-     public
-       Constructor Create(CreateSuspended : boolean);
-     end;
 
-type TTexturebitmap=object     // test!!
-   address:cardinal;
-   w,l:integer;
-   procedure putpixel(x,y:cardinal;color:byte);
-   end;
 
 var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     mvpLoc,positionLoc,colorLoc,lightloc:GLuint;
@@ -94,19 +49,19 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     u_texture:GLint;
     u_palette:GLint;
     u_scale:GLint;
+    u_delta:GLint;
     a_texcoord:GLint;
     a_normal:GLint;
     u_mvmat:GLint;
     u_lightsourcemat:GLInt;
 
-    vertices1,vertices2: array[0..svertex-1] of vector3; //sphere generator vars
-    suvs,suvs2:array[0..svertex-1] of vector2;
-    snormals,snormals2:array[0..svertex-1] of vector3;
+
     pallette:array[0..1023] of byte;
     pallette2:TPallette absolute pallette;
 
     texaddr:cardinal;
     testbitmap:TTexturebitmap;
+
 
 
 //--------------------- Shaders ------------------------------------------------
@@ -117,65 +72,55 @@ const VertexSource:String =
  'uniform mat4 u_mvMat;' +
  'uniform mat4 u_lightMat;' +
  'uniform mat4 u_lightsourceMat;' +
+ 'uniform vec2 u_scale;'+
+ 'uniform vec2 u_delta;'+
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
  'attribute vec4 a_normal;' +
  'varying highp vec2 v_texcoord;'+
- 'varying highp vec4 v_normal;'+
- 'varying highp vec4 v_lightpos;'+
- 'varying highp vec4 v_vertexpos;'+
+ 'varying highp vec3 v_normal;'+
+ 'varying highp vec3 v_lightpos;'+
+ 'varying highp vec3 v_vertexpos;'+
  'void main()' +
  '{' +
  '    gl_Position = u_mvpMat * a_position; ' +
  '    vec4 vp = u_mvMat * a_position;  '+
- '    v_vertexpos = vp;  '+
- '    v_lightpos = u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp; ' +
- '    v_texcoord = a_texcoord; '+
- '    v_normal = u_lightMat* a_normal; '+
+ '    v_vertexpos = normalize(vp.xyz);  '+
+ '    v_lightpos = normalize((u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp).xyz); ' +
+ '    v_texcoord = a_texcoord*u_scale+u_delta;  '+
+ '    v_normal = (u_lightMat* a_normal).xyz; '+
  '}';
 
 FragmentSource:String =
  'precision highp float;' +
  'varying highp vec2 v_texcoord;'+
- 'varying highp vec4 v_normal;'+
- 'varying highp vec4 v_lightpos;'+
- 'varying highp vec4 v_vertexpos;'+
- 'uniform sampler2D u_texture;'+
- 'uniform sampler2D u_palette;'+
- 'uniform vec2 u_scale;'+
+ 'varying highp vec3 v_normal;'+
+ 'varying highp vec3 v_lightpos;'+
+ 'varying highp vec3 v_vertexpos;'+
+ 'uniform highp sampler2D u_texture;'+
+ 'uniform highp sampler2D u_palette;'+
+
  'void main()' +
  '{' +
 
- 'vec3 l = normalize(v_lightpos.xyz); '+
- 'vec3 q0 = v_normal.xyz;'+
- 'vec3 r=normalize(reflect(l,q0)); '+
- 'vec3 e=normalize(v_vertexpos.xyz); '+
-
- 'float cosAlpha = dot( e,r ) - 0.01; '+
- 'cosAlpha = clamp(cosAlpha, 0.0, 1.0); ' +
+// specular lighting
+ 'vec3 r=normalize(reflect(v_lightpos,v_normal)); '+
+ 'float cosAlpha = clamp (dot(v_vertexpos,r ) - 0.01, 0.0, 1.0); '+
  'cosAlpha = pow(cosAlpha,25.0); '+
- 'vec4 coscolor= vec4(cosAlpha,cosAlpha, cosAlpha,0.0); '+
+ 'vec4 coscolor= vec4(cosAlpha, cosAlpha, cosAlpha, 0.0); '+
 
- 'float cosTheta = dot(q0, l); '+
- 'if (cosTheta <0.0) {cosTheta = 0.0;} '+
- 'vec2 scaled = v_texcoord*u_scale; '+
+ // diffuse lighting
+ 'float cosTheta = clamp(dot(v_normal, v_lightpos), 0.0, 1.0); '+
 
- 'float mtu = 4.0*fract(2048.0*scaled.x); '     +
- 'int mti = int(floor(mtu)); ' +
-
- 'vec4 p0 = texture2D(u_texture, scaled);'+
-
- 'vec4 c0;'  +
- 'if      (mti==0) {c0 = texture2D(u_palette, vec2(p0.r*(255.0/256.0)+0.0001,0.5));} '+
- 'else if (mti==1) {c0 = texture2D(u_palette, vec2(p0.g*(255.0/256.0)+0.0001,0.5));} '+
- 'else if (mti==2) {c0 = texture2D(u_palette, vec2(p0.b*(255.0/256.0)+0.0001,0.5));} '+
- 'else             {c0 = texture2D(u_palette, vec2(p0.a*(255.0/256.0)+0.0001,0.5));} '+
-
+// texture
+ 'float mti = floor(4.0*fract(2048.0*v_texcoord.x)); ' +
+ 'vec4 p0 = texture2D(u_texture, v_texcoord)*0.996; '+
+// if avoiding hack
+ 'float p0f=(1.0-abs(sign(mti)))*p0.r+(1.0-abs(sign(mti-1.0)))*p0.g+(1.0-abs(sign(mti-2.0)))*p0.b+(1.0-abs(sign(mti-3.0)))*p0.a; '+
+ 'vec4 c0 = texture2D(u_palette, vec2(p0f+0.0001,0.5)); '+
  'gl_FragColor = coscolor+vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
-// 'gl_FragColor = c0; '+
 
   '}';
-
 
 // -----------------  test cube ------------------------------------------------
 
@@ -221,208 +166,7 @@ uvs:array[0..71] of GLfloat=(
 
 implementation
 
-procedure putpixel1(x,y:cardinal;color:byte); // test procedure
 
-var a,b,c:byte;
-
-begin
-
-
-a:=(x  and %00000111)+((y and %00000111) shl 3)+(x and %00011000) shl 3;
-b:=((y and %00011000) shr 3)+(y and %11000000);
-b+=((x and %00100000) xor (y and %00100000)) shr 3;
-//c:=(x  and %00100000) shr 2;
-c:=(x and %11100000) shr 2;
-if (y and %01000000) >0 then c:=not c;
-b+=(c and %00111000);
-
-
-//poke(address+a+256*b,color);
-end;
-
-procedure TTexturebitmap.putpixel(x,y:cardinal;color:byte); // test procedure
-
-// for 2048x2048 32bit
-
-var a,b:byte;
-    c:byte;
-
-begin
-
-a:=(x and %00001111)+ ((y and %00000011) shl 4) + ((x and %00110000) shl 2);     //x5 x4 y1 y0 x3 x2 x1 x0
-b:=((y and %00001100) shr 2);                                                    //                  y3 y2 // 64x16
-b+=(((x and %01000000) shr 2) xor (y and %00010000)) shr 2;                      //               xor
-                                                                                 //                        the rest of x
-c:=(x and %11111000000) shr 3;
-if (y and %00100000) >0 then c:=not c;
-b+=c and %11111000;                                                              //x10 x9 x8 x7 x6
-c:=(x and %1100000000000) shr 11;
-if (y and %00100000) >0 then c:=(not c) and %11;
-c+=(y shr 3) and %11111100;
-
-poke(address+a+256*b+65536*c,color);
-end;
-
-procedure makesphere(precision:integer);
-
-var rr,x,y,z,qq:glfloat;
-    i, vertex,vertex2,r,s:integer;
-
-begin
-
-// Pass 1. Compute all vertices and uvs. Todo: normals.
-
-rr:=1/precision;
-vertex:=0;
-for r:=0 to precision do
-  begin
-  if r=0 then
-    begin
-    y:=-1.0; x:=0; z:=0;
-    vertices1[vertex,0]:=x;
-    vertices1[vertex,1]:=y;
-    vertices1[vertex,2]:=z;
-    suvs[vertex,0]:=0.5; suvs[vertex,1]:=0;
-    vertex+=1;
-    end
-
-  else if r=precision then
-    begin
-    y:=1.0; x:=0; z:=0;
-    vertices1[vertex,0]:=x;
-    vertices1[vertex,1]:=y;
-    vertices1[vertex,2]:=z;
-    suvs[vertex,0]:=0.5; suvs[vertex,1]:=1;
-    vertex+=1;
-    end
-
-  else for s:=0 to precision-1 do
-    begin
-    qq:=0;
-    y:=sin(-pi/2+pi*r*rr);
-    x:=cos(2*pi*(s*rr+qq))*sin(pi*r*rr);
-    z:=sin(2*pi*(s*rr+qq))*sin(pi*r*rr);
-    suvs[vertex,0]:=s*rr; suvs[vertex,1]:=r*rr;
-
-    vertices1[vertex,0]:=x;
-    vertices1[vertex,1]:=y;
-    vertices1[vertex,2]:=z;
-    vertex+=1;
-    end;
-  end;
-
-// Pass 2. Prepare a triangle strip
-
-vertex:=1; vertex2:=0;
-for r:=1 to precision do
-  begin
-  if r=1 then         // make a triangle strip with degenerated triangles
-    begin             // instead of a triangle fan to draw the sphere in one pass
-    for s:=0 to precision-1 do
-      begin
-      vertices2[vertex2+1]:=vertices1[vertex];
-      vertices2[vertex2]:=vertices1[0];
-      suvs2[vertex2+1]:=suvs[vertex];
-      suvs2[vertex2]:=suvs[0];
-      vertex+=1;
-      vertex2+=2;
-      end;
-    vertices2[vertex2]:=vertices2[vertex2-2*precision];
-    vertices2[vertex2+1]:=vertices2[(vertex2-2*precision+1)];
-    suvs2[vertex2]:=suvs2[vertex2-2*precision];
-    suvs2[vertex2+1]:=suvs2[(vertex2-2*precision+1)];
-    suvs2[vertex2,0]:=1;
-    suvs2[vertex2+1,0]:=1;
-    vertex2+=2;
-    end
-
-   else if r=precision then
-    begin
-    i:=vertex;  vertex:=i-1;
-    for s:=0 to precision-1 do
-      begin
-      vertices2[vertex2]:=vertices1[i];
-      vertices2[vertex2+1]:=vertices1[vertex];   //-precision];
-      suvs2[vertex2]:=suvs[i];
-      suvs2[vertex2+1]:=suvs[vertex];        // -precision];
-      vertex-=1;
-      vertex2+=2;
-      end;
-    vertices2[vertex2]:=vertices1[i];
-    vertices2[vertex2+1]:=vertices2[vertex2-2*precision+1];
-    suvs2[vertex2]:=suvs2[vertex2-2*precision];
-    suvs2[vertex2+1]:=suvs2[(vertex2-2*precision+1)];
-    suvs2[vertex2,0]:=1;
-    suvs2[vertex2+1,0]:=1;
-    vertex2+=2;
-    end
-
-  else if (r>1) and (r<precision) then  // make a triangle strip with 2*precision+1 vertices
-    begin
-    for s:=0 to precision-1 do
-      begin
-      vertices2[vertex2+1]:=vertices1[vertex];
-      vertices2[vertex2]:=vertices1[vertex-precision];
-      suvs2[vertex2+1]:=suvs[vertex];
-      suvs2[vertex2]:=suvs[vertex-precision];
-      vertex+=1;
-      vertex2+=2;
-      end;
-    vertices2[vertex2]:=vertices2[vertex2-2*precision];
-    vertices2[vertex2+1]:=vertices2[(vertex2-2*precision+1)];
-    suvs2[vertex2]:=suvs2[vertex2-2*precision];
-    suvs2[vertex2+1]:=suvs2[(vertex2-2*precision+1)];
-    suvs2[vertex2,0]:=1;
-    suvs2[vertex2+1,0]:=1;
-    vertex2+=2;
-    end;
-  end;
-// a sphere with r=1 has normals=points!
-snormals2:=vertices2;
-
-end;
-
-constructor TOpenGLHelperThread.create(CreateSuspended : boolean);
-
-begin
-FreeOnTerminate := True;
-inherited Create(CreateSuspended);
-end;
-
-procedure TOpenGLHelperThread.execute;
-
-var i,j:integer;
-    f:TWindow;
-    k:cardinal;
-
-
-begin
-ThreadSetPriority(ThreadGetCurrent,6);
-threadsleep(10);
-frames:=0;
-//f:=TWindow.create(256,256,'Trick');
-//f.move(200,200,256,256,0,0);
-//k:=$30000000;
-repeat
-//  for i:=0 to 15 do
-//    for j:=0 to 15 do
-//      glwindow.box(16*i,16*j,16,16,16*j+i);
-//  fastmove(k,cardinal(f.canvas),65536);
-//  f.outtextxy(0,0,inttohex(k,8),15);
-//  k+=65536;
-//  if k>$3EFFFFFF then k:=$30000000;
-//  SchedulerPreemptdisable(CPUGetCurrent);
-//  glwindow.cls(frames mod 256);
-  glwindow.box(0,0,128,128,40);
-  glwindow.box(0,128,128,128,120);
-  glwindow.box(128,0,128,128,200);
-  glwindow.box(128,128,128,128,232);
-  glwindow.outtextxyz(0,frames mod 208,'OpenGLES 2',(frames div 16) mod 256,3,3);
-  glwindow.outtextxyz(0,(frames+64) mod 208,'Frame# '+inttostr(frames),(frames div 8) mod 256,2,2);
-//  SchedulerPreemptEnable(CPUGetCurrent);
-  waitvbl;
-until terminated;
-end;
 
 constructor TOpenGLThread.create(CreateSuspended : boolean);
 
@@ -434,53 +178,37 @@ end;
 procedure TOpenGLThread.execute;
 
 label p999;
-var helper:TOpenglHelperThread;
 
 begin
 ThreadSetPriority(ThreadGetCurrent,6);
+ThreadSetAffinity(ThreadGetCurrent,4);
 threadsleep(10);
 if glwindow=nil then
   begin
-  glwindow:=TWindow.create(256 ,256 ,'OpenGL helper window');
-  glwindow.decoration.hscroll:=false;
-  glwindow.decoration.vscroll:=false;
-  glwindow.resizable:=false;
-  glwindow.cls(0);
-  glwindow.move(100,100,1024,1024,0,0);
-  glwindow.cls(147);
+  glwindow:=TWindow.create(256 ,16 ,'');
+  glwindow.putpixel(0,0,$11);
+  glwindow.putpixel(1,0,$11);
+  glwindow.putpixel(2,0,$11);
+  glwindow.putpixel(3,0,$11);
+  glwindow.putpixel(4,0,$12);
+  glwindow.putpixel(5,0,$12);
+  glwindow.putpixel(6,0,$12);
+  glwindow.putpixel(7,0,$12);
+  glwindow.putpixel(8,0,$13);
+  glwindow.putpixel(9,0,$13);
+  glwindow.putpixel(10,0,$13);
+  glwindow.putpixel(11,0,$13);
+  glwindow.putpixel(12,0,$14);
+  glwindow.putpixel(13,0,$14);
+  glwindow.putpixel(14,0,$14);
+  glwindow.putpixel(15,0,$14);
   end
 else goto p999;
-helper:=TOpenGLHelperThread.create(true);
-helper.Start;
 gltest2_start;
-helper.terminate;
-helper.destroy;
-glwindow.destroy;
 glwindow:=nil;
 p999:
 end;
 
-//--------------------- Operators overloading ----------------------------------
-
-operator +(a,b:matrix4):matrix4;
-
-var i,j:integer;
-
-begin
-for i:=0 to 3 do
-  for j:=0 to 3 do
-    result[i,j]:=a[i,j]+b[i,j];
-end;
-
-operator *(a,b:matrix4):matrix4;
-
-var i,j:integer;
-
-begin
-for i:=0 to 3 do
-  for j:=0 to 3 do
-    result[i,j]:=a[0,j]*b[i,0]+a[1,j]*b[i,1]+a[2,j]*b[i,2]+a[3,j]*b[i,3];
-end;
 
 //------------------------------------------------------------------------------
 //---------------------- Helper functions --------------------------------------
@@ -790,7 +518,8 @@ glEnableVertexAttribArray(positionLoc);
 u_vp_matrix:=glGetUniformLocation(programID,'u_vp_matrix');
 u_texture:=glGetUniformLocation(programID,'u_texture');
 u_palette:=glGetUniformLocation(programID,'u_palette');
-u_scale:=glGetUniformLocation(programID,'u_scale');   // to do: use it for UV scaling
+u_scale:=glGetUniformLocation(programID,'u_scale');
+u_delta:=glGetUniformLocation(programID,'u_delta');
 a_texcoord:=glGetAttribLocation(programID,'a_texcoord');
 a_normal:=glGetAttribLocation(programID,'a_normal');
 
@@ -804,7 +533,7 @@ glGenBuffers(1,@texcoordID);
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
 glVertexAttribPointer(a_texcoord, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nil);
 glEnableVertexAttribArray(a_texcoord);
-//glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_STATIC_DRAW);
+glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @uvs[0], GL_STATIC_DRAW);
 
 glGenBuffers(1,@normalID);
 glBindBuffer(GL_ARRAY_BUFFER,normalID);
@@ -815,56 +544,21 @@ glGenTextures(1, @texture0);
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
 glTexImage2D(GL_TEXTURE_2D, 0, gl_rgba, 2048, 2048, 0, gl_rgba, GL_UNSIGNED_BYTE,nil); // glwindow.canvas);
-glwindow.putpixel(0,0,$11);
-glwindow.putpixel(1,0,$11);
-glwindow.putpixel(2,0,$11);
-glwindow.putpixel(3,0,$11);
-glwindow.putpixel(4,0,$12);
-glwindow.putpixel(5,0,$12);
-glwindow.putpixel(6,0,$12);
-glwindow.putpixel(7,0,$12);
-glwindow.putpixel(8,0,$13);
-glwindow.putpixel(9,0,$13);
-glwindow.putpixel(10,0,$13);
-glwindow.putpixel(11,0,$13);
-glwindow.putpixel(12,0,$14);
-glwindow.putpixel(13,0,$14);
-glwindow.putpixel(14,0,$14);
-glwindow.putpixel(15,0,$14);
-glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0, 64 ,256 ,GL_rgba, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
+glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0, 64 ,16 ,GL_rgba, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
+
+//Find the testure pointer
 i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$11111111) and (lpeek(i+4)=$12121212) and (lpeek(i+8)=$13131313) and (lpeek(i+12)=$14141414)) or (i>$3F000000) ;
-testbitmap.address:=i;testbitmap.w:=256; testbitmap.l:=256;
+testbitmap.address:=i;testbitmap.w:=8192; testbitmap.l:=2048;
 texaddr:=i;
-outtextxyz(0,0,inttohex(i,8),40,3,3);
-//glwindow.canvas:=pointer(i);
+glwindow.destroy;
 
-//i:=$30000000; repeat i:=i+4 until (lpeek(i)=$c8c8c8c8) or (i>$3F000000) ;
-//outtextxyz(0,50,inttohex(i,8),120,3,3);
-
-//for j:=0 to 255 do lpoke(i+4*j,j);
-//for j:=0 to 255 do lpoke(1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(2*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(3*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(4*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(5*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(6*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(7*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-//for j:=0 to 255 do lpoke(8*1024+i+4*j,j+j shl 8+ j shl 16 + j shl 24);
-
-//for j:=32 to 63 do lpoke(i+4*j,$28282828);
-
-//for j:=64 to 95 do lpoke(i+4*j,$78787878);
-
-//for j:=96 to 127 do lpoke(i+4*j,$b8b8b8b8);
-
-//for j:=128 to 159 do lpoke(i+4*j,$44444444);
 
 glGenTextures(1, @texture1);
 glActiveTexture(GL_TEXTURE1);
 glBindTexture(GL_TEXTURE_2D, texture1); 	// color palette
 glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, 256, 1, 0, GL_BGRA, GL_UNSIGNED_BYTE, @pallette);
-//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA, GL_UNSIGNED_BYTE, @pallette);
+
 
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, texture0);
@@ -882,7 +576,7 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_nearest);
 
 
 aspect:=xres/yres;
-n:=1.0;
+n:=1;
 f:=10.0;
 fov:=30.0;
 h:=tan(2*pi*fov/360)*n;
@@ -904,6 +598,7 @@ glViewport(0,0,xres,yres);                              // full screen OpenGL vi
 glUseProgram(programID);                                // attach a shader program
 glUniform1i(u_texture,0);                               // tell the shader what is the texture numbers
 glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
+
 end;
 
 
@@ -921,51 +616,27 @@ const angle1:glfloat=0;
       speed:integer=1;
 
 var modelviewmat2:matrix4;
-    tb:array[0..187*885] of byte;
-
     tscale:array[0..1] of glfloat=(1.0,1.0);
-
-          t:int64;
-const     k:integer=0;
-
+    tdelta:array[0..1] of glfloat=(0.0,0.0);
 
 begin
+
 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
 
-//glActiveTexture(GL_TEXTURE0);                           // select a texture #0
-{if sc<>nil then
-  begin
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,884 ,187 ,GL_luminance, GL_unsigned_BYTE, sc.canvas);
-  tscale[0]:=884/1024;
-  tscale[1]:=187/256;
-  end
-else
-  begin
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0,64 ,256 ,GL_rgba, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
-  tscale[0]:=64/2048;
-  tscale[1]:=256/2048;
-  end;
-    }
-  tscale[0]:=64/2048;
-  tscale[1]:=256/2048;
-  gluniform2fv(u_scale,1,@tscale);
+tscale[0]:=64/2048;
+tscale[1]:=256/2048;
+tdelta[0]:=0;
+tdelta[1]:=0;
+gluniform2fv(u_scale,1,@tscale);
+gluniform2fv(u_delta,1,@tdelta);
 
-//   if frames<65536 THEN lpoke(testbitmap.address+ 4*frames ,$FFFFFFFF);
-//    k:=frames;// div 6;
-    testbitmap.putpixel(k mod 256, (k div 256) mod 256, k mod 256);
-
-//poke (texaddr+k,15);
-k+=1;
-if k>65535 then k:=0;
-
-// We need a moving light source
+// A moving light source
 
 angle5+=0.05*speed;
 if angle5>360 then angle5:=0;
 lightsourcemat:=translate(matrix4_one,25,0.1,0);
 lightsourcemat:=rotate(lightsourcemat,0,1,0,angle5);
 lightsourcemat:=translate(lightsourcemat,0,0,-5);
-
 
 // ------------------- Draw a cube --------------------------------------------
 
@@ -988,7 +659,7 @@ modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (arou
 modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
 modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);              // rotate again, now all modell will rotate around the center of the scene
 modelviewmat2:=translate(modelviewmat2,0,0,-5);                  // push it 5 units again or you will not see it
-mvmat:=modelviewmat2;                                  // todo: moving camera
+mvmat:=modelviewmat2;                                            // todo: moving camera
 mvpmat:=projectionmat*mvmat;
 glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
 glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
@@ -1009,6 +680,8 @@ glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@normals,GL_DYNAMIC_DRAW);
 
 // Draw it
 glDrawArrays(GL_TRIANGLES,0,36);
+
+
 
 //--------------------------------- Draw a sphere -----------------------------
 
@@ -1044,17 +717,28 @@ glBufferData(GL_ARRAY_BUFFER, svertex*8, @suvs2[0], GL_dynamic_DRAW);
 
 //Vertices
 glBindBuffer(GL_ARRAY_BUFFER,vertexID);
+
 glBufferData(GL_ARRAY_BUFFER,svertex*12,@Vertices2[0],GL_DYNAMIC_DRAW);
 
 //Normals
 glBindBuffer(GL_ARRAY_BUFFER,normalID);
 glBufferData(GL_ARRAY_BUFFER,svertex*12,@snormals2[0],GL_DYNAMIC_DRAW);
 // Draw it!
+
 glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
 
 //------------------------------------------------------------------------------
+// Update the texture
+
+testbitmap.box(0,0,128,128,40);
+testbitmap.box(0,128,128,128,120);
+testbitmap.box(128,0,128,128,200);
+testbitmap.box(128,128,128,128,232);
+testbitmap.outtextxyz(0,frames mod 208,' Frame# '+inttostr(frames),(frames div 16) mod 256,2,2);
+cleandatacacherange(testbitmap.address,131072*32);
 
 eglSwapBuffers(Display,Surface);
+
 frames+=1;
 end;
 

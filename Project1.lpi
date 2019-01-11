@@ -31,7 +31,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="23">
+    <Units Count="25">
       <Unit0>
         <Filename Value="Project1.pas"/>
         <IsPartOfProject Value="True"/>
@@ -127,6 +127,15 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="GLTest"/>
       </Unit22>
+      <Unit23>
+        <Filename Value="glwindows.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit23>
+      <Unit24>
+        <Filename Value="simplegl.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="SimpleGL"/>
+      </Unit24>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

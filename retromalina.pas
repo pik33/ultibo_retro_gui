@@ -758,8 +758,8 @@ var id:integer;
 
 begin
 ThreadSetCPU(ThreadGetCurrent,CPU_ID_3);
-ThreadSetAffinity(ThreadGetCurrent,CPU_AFFINITY_3);
-ThreadSetPriority(ThreadGetCurrent,5);
+ThreadSetAffinity(ThreadGetCurrent,1);
+ThreadSetPriority(ThreadGetCurrent,4);
 threadsleep(1);
 
 running:=1;
@@ -864,7 +864,7 @@ framecnt:=0;                              // frame counter
 
 // init pallette, font and mouse cursor
 
-//systemfont:=amigafont8;
+//systemfont:=vgafont;
 systemfont:=st4font;
 sprite7def:=mysz;
 sprite7zoom:=$00010001;
