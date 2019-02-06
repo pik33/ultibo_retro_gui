@@ -11,7 +11,7 @@ interface
 
 uses
   classes,sysutils, threads,
-  retromalina, mwindows, blitter, retro, platform, camera;
+  retromalina, mwindows, blitter, retro, platform, camera, simpleaudio;
 
 type TCameraThread2=class (TThread)
 
@@ -69,6 +69,7 @@ var camerathread2:TCameraThread2;
         points3: array[0..maxpoint-1] of TPoint;
 
         maxpoint3:integer=0;
+        brightness:integer=0;
 
 procedure diff(b1,b2,b3,count:cardinal);
 procedure diff2(b1,b2,b3,count,t:cardinal);
@@ -82,6 +83,9 @@ procedure blur3u(b1,b2,count:cardinal);
 procedure blur3(b1,b2,count:cardinal);
 procedure blur3v(b1,b2,count:cardinal);
 function findpoints2(b1,b2,count:integer):integer;
+function avg(b1,count:cardinal):cardinal;
+function fmax(b1,count:cardinal):cardinal;
+
 
 implementation
 
@@ -122,6 +126,7 @@ var td:int64;
     tf:textfile;
     n:integer=1;
     d1,d2,d:integer;
+        average:cardinal;
 
 // the thread detects light spots
 
@@ -134,7 +139,7 @@ for i:=0 to maxpoint-1 do for j:=0 to 3 do points3[i,j]:=0;
 repeat
   repeat threadsleep(1) until processed or terminated;
   processed:=false;
-  if n<180 then goto p104;    // wait 3 seconds to establish background picture
+  if n<180 then goto p104;    // wait 3 seconds to establish the background picture
 
   SchedulerPreemptDisable(CPUGetCurrent);
   pointnum:=findpoints2(cardinal(miniwindow2.canvas),cardinal(@testbuf4),cxres*cyres) ;
@@ -282,6 +287,15 @@ p104:
       dpoke(base+_spritebase+8*i,2048);
       dpoke(base+_spritebase+8*i+2,2048);
       end;
+//  led brightness autocontrol
+
+  average:=fmax(cardinal(@testbuf3),cxres*cyres);
+  if average<180 then brightness+=1;
+  if average>190 then brightness-=1;
+  if brightness>1024 then brightness:=1024 ;
+  if brightness<16 then brightness:=16;
+  setpwm(0,brightness);
+
 
 until terminated;
 camerawindow2.println('PAThread terminating;');
@@ -296,6 +310,7 @@ const maxframe=360000;  //1 minute
 
 var frames2:integer;
     buffer:cardinal;
+
 
 begin
 ThreadSetpriority(ThreadGetCurrent,6);
@@ -338,6 +353,9 @@ setpallette(grayscalepallette,0);
 buffer:=initcamera(640,480,60,cardinal(@camerabuffer));
 camerawindow2.println ('----- Camera buffer at '+inttohex(buffer,8));
 if buffer<$C0000000 then goto p999;
+initpwm(1000,1024);
+sleep(10);
+setpwm(0, brightness);
 startcamera;
 while keypressed do readkey;
 for frames2:=1 to maxframe do
@@ -353,7 +371,11 @@ for frames2:=1 to maxframe do
 //  t2:=gettime-t2;  at2+=t2;
 //  t3:=gettime;
   diff4(cardinal(@testbuf3), cardinal(@testbuf2), cardinal(miniwindow2.canvas),cxres*cyres,32);
-  processed:=true;
+    processed:=true;
+
+//  box(0,500,200,50,34);
+//  outtextxy(0,500,inttostr(average),104);
+
 //  t3:=gettime-t3;  at3+=t3;
 //  t4:=gettime;
   fastmove(cardinal(@camerabuffer),cardinal(rendertestwindow2.canvas), cxres*cyres);
@@ -1145,6 +1167,65 @@ p101:            ldr r3,[r0],#4
                  end;
 end;
 
+
+function avg(b1,count:cardinal):cardinal;
+
+label p101;
+
+// Make an average of 8 pixels, optimized
+// rev 20190202
+
+begin
+
+
+                 asm
+                 ldr r0,b1
+                 mov r1,#0
+                 ldr r2,count
+
+p101:            ldrb r3,[r0],#1
+                 add r1,r3
+                 subs r2,#1
+                 bgt p101
+
+//                 ldr r2,count
+//                 udiv r1,r1,r2
+
+                 str r1,result
+                 end ['r0','r1','r2','r3'];
+
+result:=result div count;
+end;
+
+
+function fmax(b1,count:cardinal):cardinal;
+
+label p101;
+
+// Make an average of 8 pixels, optimized
+// rev 20190202
+
+begin
+
+
+                 asm
+                 ldr r0,b1
+                 mov r1,#0
+                 ldr r2,count
+
+p101:            ldrb r3,[r0],#1
+                 cmps r1,r3
+                 movle r1,r3
+                 subs r2,#1
+                 bgt p101
+
+//                 ldr r2,count
+//                 udiv r1,r1,r2
+
+                 str r1,result
+                 end ['r0','r1','r2','r3'];
+
+end;
 
 procedure blur3(b1,b2,count:cardinal);
 

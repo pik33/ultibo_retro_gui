@@ -31,7 +31,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="25">
+    <Units Count="27">
       <Unit0>
         <Filename Value="Project1.pas"/>
         <IsPartOfProject Value="True"/>
@@ -136,6 +136,14 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="SimpleGL"/>
       </Unit24>
+      <Unit25>
+        <Filename Value="pwmtest.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit25>
+      <Unit26>
+        <Filename Value="serialtest.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit26>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

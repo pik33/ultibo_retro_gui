@@ -100,6 +100,12 @@ function  SA_GetCurrentFreq:integer;
 function  SA_GetCurrentRange:integer;
 procedure  SA_SetEQ(band,db:integer);
 procedure  SA_SetEQpreamp(db:integer);
+
+// PWM functions
+
+procedure initpwm(freq,range:integer);
+procedure setpwm(channel,value:integer);
+
 var
 dmanextcb,
 ctrl1adr,
@@ -113,7 +119,7 @@ equalizer_active:boolean=false;
 //------------------ End of Interface ------------------------------------------
 
 implementation
-uses retromalina;
+//uses retromalina;
 type
      PLongBuffer=^TLongBuffer;
      TLongBuffer=array[0..65535] of integer;  // 64K DMA buffer
@@ -155,8 +161,11 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
       _pwm_dmac=    $3F20C008;       // PWM DMA Configuration MMU address
       _pwm_rng1=    $3F20C010;       // PWM Range channel #1 MMU address
       _pwm_rng2=    $3F20C020;       // PWM Range channel #2 MMU address
+      _pwm_dat1=    $3F20C014;       // PWM Data channel #1 MMU address
+      _pwm_dat2=    $3F20C024;       // PWM Data channel #2 MMU address
 
       _gpfsel4=     $3F200010;       // GPIO Function Select 4 MMU address
+      _gpfsel1=     $3F200004;       // GPIO Function Select 4 MMU address
       _pwmclk=      $3F1010a0;       // PWM Clock ctrl reg MMU address
       _pwmclk_div=  $3F1010a4;       // PWM clock divisor MMU address
 
@@ -174,17 +183,24 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
 
       and_mask_40_45=  %11111111111111000111111111111000;  // AND mask for gpio 40 and 45
       or_mask_40_45_4= %00000000000000100000000000000100;  // OR mask for set Alt Function #0 @ GPIO 40 and 45
+      and_mask_18_19=  %11000000111111111111111111111111;  // AND mask for gpio 18 and 19
+      or_mask_18_19_4= %00010010000000000000000000000000;  // OR mask for set Alt Function #5 @ GPIO 18 and 19
 
       clk_plld=     $5a000016;       // set clock to PLL D
+      clk_osc=      $5a000011;       // set clock to 19.2 MHz oscillator
+      clk_stop=     $5a000001;       // set clock to 19.2 MHz oscillator
+      clk_stop2=     $5a000006;       // set clock to 19.2 MHz oscillator
       clk_div=      $5a000000 + divider shl 12;  //002000;       // set clock divisor to 2.0
 
       pwm_ctl_val=  $0000a1e1;       // value for PWM init:
                                      // bit 15: chn#2 set M/S mode=1. Use PWM mode for non-noiseshaped audio and M/S mode for oversampled noiseshaped audio
                                      // bit 13: enable fifo for chn #2
+                                     // bit 10 repeat last data
                                      // bit 8: enable chn #2
                                      // bit 7: chn #1 M/S mode on
                                      // bit 6: clear FIFO
                                      // bit 5: enable fifo for chn #1
+                                     // bit 2 repeat last data
                                      // bit 0: enable chn #1
 
       pwm_dmac_val= $80000707;       // PWM DMA ctrl value:
@@ -196,12 +212,15 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
 
 
 var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
+          gpfsel1:cardinal     absolute _gpfsel1;      // GPIO Function Select 1
           pwmclk:cardinal      absolute _pwmclk;       // PWM Clock ctrl
           pwmclk_div: cardinal absolute _pwmclk_div;   // PWM Clock divisor
           pwm_ctl:cardinal     absolute _pwm_ctl;      // PWM Control Register
           pwm_dmac:cardinal    absolute _pwm_dmac;     // PWM DMA Configuration MMU address
           pwm_rng1:cardinal    absolute _pwm_rng1;     // PWM Range channel #1 MMU address
           pwm_rng2:cardinal    absolute _pwm_rng2;     // PWM Range channel #2 MMU address
+          pwm_dat1:cardinal    absolute _pwm_dat1;     // PWM Data channel #1 MMU address
+          pwm_dat2:cardinal    absolute _pwm_dat2;     // PWM Data channel #2 MMU address
 
           dma_enable:cardinal  absolute _dma_enable;   // DMA Enable register
 
@@ -248,6 +267,8 @@ var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
           balance:integer=128;
           dbvolume:single=0;
 
+          pwmrange:integer=1024;
+
 procedure InitAudioEx(range,t_length:integer);  forward;
 function noiseshaper8(bufaddr,outbuf,oversample,len:integer):integer; forward;
 function noiseshaper9(bufaddr,outbuf,oversample,len:integer):integer; forward;
@@ -275,6 +296,58 @@ end;
 //------------------------------------------------------------------------------
 //  Procedure initaudio - init the GPIO, PWM and DMA for audio subsystem.
 //------------------------------------------------------------------------------
+
+procedure InitPWM(freq,range:integer);
+
+// This inits PWM for the control purpose
+
+var i,pwmdiv,ctlval,pwmdmacval:integer;
+
+begin
+
+
+pwmdiv:=19200000 div (freq*range);
+if pwmdiv>4095 then pwmdiv:=4095;
+pwmdiv:=$5a000000 + pwmdiv shl 12;
+
+ctlval:=$00008181;             // value for PWM init:
+                               // bit 15: chn#2 set M/S mode=1. Use PWM mode for non-noiseshaped audio and M/S mode for oversampled noiseshaped audio
+                               // bit 13: enable fifo for chn #2
+                               // bit 8: enable chn #2
+                               // bit 7: chn #1 M/S mode on
+                               // bit 6: clear FIFO
+                               // bit 5: enable fifo for chn #1
+                               // bit 0: enable chn #1
+
+pwmdmacval:=$00000000;         // PWM DMA disable
+
+closeaudio;                    // PWM control cannot work with audio on as it uses the same hardware !!!
+
+//pwm_ctl:=ctlval;                   // stop PWM
+gpfsel4:=(gpfsel4 and and_mask_40_45) or or_mask_40_45_4;  // gpio 40/45 as alt#0 -> PWM Out
+gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_4;  // gpio 18/19 as alt#0 -> PWM Out
+pwmclk_div:=pwmdiv;                                        // set PWM clock divisor=2 (250 MHz)
+pwmclk:=clk_stop;                                          // set PWM clock src=PLLD (500 MHz)
+sleep(10);                                                 // set PWM clock src=PLLD (500 MHz)
+pwmclk:=clk_osc;                                           // set PWM clock src=PLLD (500 MHz)
+pwm_rng1:=range;                                           // minimum range for 8-bit noise shaper to avoid overflows
+pwm_rng2:=range;                                           //
+pwm_dat1:=0;
+pwm_dat2:=0;
+pwm_dmac:=pwmdmacval;                                      // pwm dma disable
+pwm_ctl:=ctlval;                                           // pwm contr0l -
+pwmrange:=range;
+//pwm_opened:=true;
+end;
+
+procedure setpwm(channel,value:integer);
+
+begin
+if value<0 then value:=0;
+if value>pwmrange then value:=pwmrange;
+if channel=0 then pwm_dat1:=value;
+if channel=1 then pwm_dat2:=value;
+end;
 
 
 procedure InitAudioEx(range,t_length:integer);               //TODO don't init second time!!!
@@ -311,8 +384,15 @@ threadsleep(1);
 // Init the hardware
 
 gpfsel4:=(gpfsel4 and and_mask_40_45) or or_mask_40_45_4;  // gpio 40/45 as alt#0 -> PWM Out
+gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_4;  // gpio 18/19 as alt#0 -> PWM Out
+pwmclk:=clk_stop2;                                          // set PWM clock src=PLLD (500 MHz)
+sleep(100);
+// set PWM clock src=PLLD (500 MHz)
+pwmclk_div:=clk_div;
 pwmclk:=clk_plld;                                          // set PWM clock src=PLLD (500 MHz)
-pwmclk_div:=clk_div;                                       // set PWM clock divisor=2 (250 MHz)
+                                                         // set PWM clock src=PLLD (500 MHz)
+
+                                                         // set PWM clock divisor=2 (250 MHz)
 pwm_rng1:=range;                                           // minimum range for 8-bit noise shaper to avoid overflows
 pwm_rng2:=range;                                           //
 pwm_ctl:=pwm_ctl_val;                                      // pwm contr0l - enable pwm, clear fifo, use fifo
@@ -585,8 +665,6 @@ obtained^.oversample:=max_pwm_freq div desired^.freq;
 
   if obtained^.oversample=22 then obtained^.oversample:=21;
 
-  box(0,0,100,100,0);
-  outtextxy(0,0,inttostr(obtained^.oversample),15);
 over_freq:=desired^.freq*obtained^.oversample;
 obtained^.range:=round(base_freq/over_freq);
 obtained^.freq:=round(base_freq/(obtained^.range*obtained^.oversample));
@@ -619,9 +697,8 @@ if obtained^.range<>CurrentAudioSpec.range then
   pwm_rng2:=obtained^.range;
   pwm_ctl:=pwm_ctl_val;         // start PWM
   end;
-  debug1:=dma_nextcb;
-  debug2:=ctrl2_adr;
-  debug3:=ctrl1_adr;
+
+if obtained^.oversampled_size<>CurrentAudioSpec.oversampled_size then
   begin
   repeat threadsleep(0) until dma_nextcb=nocache+ctrl2_adr;
   ctrl1_ptr^[3]:=obtained^.oversampled_size;
@@ -632,9 +709,6 @@ if obtained^.range<>CurrentAudioSpec.range then
 repeat until working=1;
 repeat until working=0;
 CurrentAudioSpec:=obtained^;
-
-
-//outtextxy(100,16,inttostr(ctrl1_adr),15);
 end;
 
 
@@ -665,6 +739,9 @@ if audio_opened then
   dma_cs:=$80000000;
 
   pwm_ctl:=0;
+  sleep(10);
+  pwmclk:=clk_stop2;     // stop the clock
+  sleep(10);
 
 //... and return the memory to the system
 
@@ -1790,11 +1867,11 @@ function noiseshaper8a(bufaddr,outbuf,oversample,len:integer):integer;
 
 label p102,p999,i1l,i1r,i2l,i2r;
 var len2:integer;
-     et2:int64;
+//     et2:int64;
 // -- rev 20170701
 
 begin
-et2:=gettime;
+//et2:=gettime;
 oversample1(bufaddr,outbuf,oversample,len);
 len2:=len*oversample;
 if equalizer_active then equalizer(outbuf,len2);
@@ -1851,7 +1928,7 @@ p999:           pop {r0-r10,r12,r14}
                 end;
 
 CleanDataCacheRange(outbuf,$10000);
-et:=gettime-et2;
+//et:=gettime-et2;
 end;
 
 

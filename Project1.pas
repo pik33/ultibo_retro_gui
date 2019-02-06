@@ -34,7 +34,7 @@ uses  //Ultibo units
   blitter,
   retro, simpleaudio, {scripttest,} xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64, fmsynth,
-  camera2, gltest,gltest2,glwindows, SimpleGL;
+  camera2, gltest,gltest2,glwindows, SimpleGL,pwmtest, serialtest;
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
@@ -181,8 +181,9 @@ testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 //freemem(testptr);
 // end;
 
-repeat
 
+
+repeat
 
   background.icons.checkall;
 
@@ -281,8 +282,10 @@ repeat
     synth.dblclicked:=false;
     if fmwindow=nil then
       begin
-      fmthread:=TFMSynthThread.create(true);
-      fmthread.start;
+
+     pwmtest1;
+  //    fmthread:=TFMSynthThread.create(true);
+ //     fmthread.start;
       end;
     end;
 
