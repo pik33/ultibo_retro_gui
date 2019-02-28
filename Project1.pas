@@ -58,6 +58,8 @@ var
     fmthread:TFMSynthThread=nil;
     glthread:TOpenGLThread=nil;
     glwindowsthread:TGLWindowsThread=nil;
+    st1:TSerialthread=nil;
+    st2:TSerialthread2=nil;
     fh,i,j,k:integer;
     message:TWindow;
     scr:cardinal;
@@ -189,7 +191,16 @@ repeat
 
   if testicon.dblclicked then
     begin
-    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
+//    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
+    if sw=nil then begin
+   st1:=Tserialthread.create(true);
+    sleep(150);
+    st2:=Tserialthread2.create(true);
+    sleep(150);
+    st1.start;
+    sleep(500);
+    st2.start;
+    end;
     testicon.dblclicked:=false;
     end;
 

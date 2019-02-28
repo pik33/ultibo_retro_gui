@@ -164,10 +164,19 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
       _pwm_dat1=    $3F20C014;       // PWM Data channel #1 MMU address
       _pwm_dat2=    $3F20C024;       // PWM Data channel #2 MMU address
 
+      _i2s_cs=      $3F203000;       // I2S Control Register MMU address
+      _i2s_mode=    $3F203008;       // I2S Mode MMU address
+      _i2s_rxc=     $3F20300C;       // I2S Receiver Configuration MMU address
+      _i2s_txc=     $3f203010;       // I2S Transmitter Configuration MMU address
+      _i2s_dreq=    $3f203014;       // I2S DMA Configuration MMU address
+
       _gpfsel4=     $3F200010;       // GPIO Function Select 4 MMU address
       _gpfsel1=     $3F200004;       // GPIO Function Select 4 MMU address
-      _pwmclk=      $3F1010a0;       // PWM Clock ctrl reg MMU address
+      _gpfsel2=     $3F200008;       // GPIO Function Select 4 MMU address
+      _pwmclk=      $3F1010a0;       // PWM clock ctrl reg MMU address
       _pwmclk_div=  $3F1010a4;       // PWM clock divisor MMU address
+      _pcmclk=      $3F101098;       // I2S clock ctrl reg MMU address
+      _pcmclk_div=  $3F101098;       // I2S clock ctrl reg MMU address
 
       _dma_enable=  $3F007ff0;       // DMA enable register
       _dma_cs=      $3F007000;       // DMA control and status
@@ -181,15 +190,19 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
                                       // 1 - src address increment after read
                                       // 4 - DREQ controls write
 
+// ----- PWM @ GPIO 18,19 (GPIO) or 40,45 (jack)
+
       and_mask_40_45=  %11111111111111000111111111111000;  // AND mask for gpio 40 and 45
       or_mask_40_45_4= %00000000000000100000000000000100;  // OR mask for set Alt Function #0 @ GPIO 40 and 45
       and_mask_18_19=  %11000000111111111111111111111111;  // AND mask for gpio 18 and 19
       or_mask_18_19_4= %00010010000000000000000000000000;  // OR mask for set Alt Function #5 @ GPIO 18 and 19
 
+// ----- I2S @ GPIO 18,19,20,21 as ALT0 at gpfsel1 and gpfsel2
+
       clk_plld=     $5a000016;       // set clock to PLL D
       clk_osc=      $5a000011;       // set clock to 19.2 MHz oscillator
       clk_stop=     $5a000001;       // set clock to 19.2 MHz oscillator
-      clk_stop2=     $5a000006;       // set clock to 19.2 MHz oscillator
+      clk_stop2=    $5a000006;       // set clock to 19.2 MHz oscillator
       clk_div=      $5a000000 + divider shl 12;  //002000;       // set clock divisor to 2.0
 
       pwm_ctl_val=  $0000a1e1;       // value for PWM init:
