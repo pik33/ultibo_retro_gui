@@ -296,7 +296,6 @@ p104:
   if brightness<16 then brightness:=16;
   setpwm(0,brightness);
 
-
 until terminated;
 camerawindow2.println('PAThread terminating;');
 //closefile(tf);

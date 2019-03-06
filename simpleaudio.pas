@@ -106,6 +106,13 @@ procedure  SA_SetEQpreamp(db:integer);
 procedure initpwm(freq,range:integer);
 procedure setpwm(channel,value:integer);
 
+// I2S Communication
+
+procedure initI2SMaster;
+//procedure initI2SSlavetransmitter;
+//procedure initI2SReceiver;
+//procedure initI2SMasterreceiver;
+
 var
 dmanextcb,
 ctrl1adr,
@@ -116,10 +123,15 @@ eq:array[0..9] of integer=(0,0,0,0,0,0,0,0,0,0);
 eqdbtable:array[-12..12] of integer=(256,288,323,363,408,458,513,579,646,725,814,914,1024,1150,1292,1450,1628,1828,2051,2302,2583,2900,3253,3651,4096);
 equalizer_active:boolean=false;
 
+outbuf:array[0..127] of cardinal;
+i2stransmitted:boolean=false;
+
 //------------------ End of Interface ------------------------------------------
 
 implementation
-//uses retromalina;
+
+uses retromalina, mwindows;   //for debug
+
 type
      PLongBuffer=^TLongBuffer;
      TLongBuffer=array[0..65535] of integer;  // 64K DMA buffer
@@ -127,6 +139,22 @@ type
      PCtrlBlock=^TCtrlBlock;
 
 TAudioThread= class(TThread)
+private
+protected
+  procedure Execute; override;
+public
+ Constructor Create(CreateSuspended : boolean);
+end;
+
+TI2SReceiveThread= class(TThread)
+private
+protected
+  procedure Execute; override;
+public
+ Constructor Create(CreateSuspended : boolean);
+end;
+
+TI2STransmitThread= class(TThread)
 private
 protected
   procedure Execute; override;
@@ -156,6 +184,7 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
 // ------- Hardware registers addresses --------------------------------------
 
       _pwm_fif1_ph= $7E20C018;       // PWM FIFO input reg physical address
+      _pcm_fif1_ph= $7E203004;       // PCM FIFO input reg physical address
 
       _pwm_ctl=     $3F20C000;       // PWM Control Register MMU address
       _pwm_dmac=    $3F20C008;       // PWM DMA Configuration MMU address
@@ -171,12 +200,12 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
       _i2s_dreq=    $3f203014;       // I2S DMA Configuration MMU address
 
       _gpfsel4=     $3F200010;       // GPIO Function Select 4 MMU address
-      _gpfsel1=     $3F200004;       // GPIO Function Select 4 MMU address
-      _gpfsel2=     $3F200008;       // GPIO Function Select 4 MMU address
+      _gpfsel1=     $3F200004;       // GPIO Function Select 1 MMU address
+      _gpfsel2=     $3F200008;       // GPIO Function Select 2 MMU address
       _pwmclk=      $3F1010a0;       // PWM clock ctrl reg MMU address
       _pwmclk_div=  $3F1010a4;       // PWM clock divisor MMU address
       _pcmclk=      $3F101098;       // I2S clock ctrl reg MMU address
-      _pcmclk_div=  $3F101098;       // I2S clock ctrl reg MMU address
+      _pcmclk_div=  $3F10109C;       // I2S clock ctrl reg MMU address
 
       _dma_enable=  $3F007ff0;       // DMA enable register
       _dma_cs=      $3F007000;       // DMA control and status
@@ -185,17 +214,34 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
 
 // ------- Hardware initialization constants
 
-      transfer_info=$00050140;        // DMA transfer information
-                                      // 5 - DMA peripheral code (5 -> PWM)
-                                      // 1 - src address increment after read
-                                      // 4 - DREQ controls write
+transfer_info=$00050140;        // DMA transfer information
+                                // 5 - DMA peripheral code (5 -> PWM)
+                                // 1 - src address increment after read
+                                // 4 - DREQ controls write
+
+pcm_rx_transfer_info=$00030410; // DMA transfer information
+                                // 3 - DMA peripheral code (3 -> PCM_RX)
+                                // 4 - DREQ controls read
+                                // 1 - dst address increment after write
+
+pcm_tx_transfer_info=$00020140; // DMA transfer information
+                                // 2 - DMA peripheral code (2 -> PCM_TX)
+                                // 1 - src address increment after read
+                                // 4 - DREQ controls write
+
+
 
 // ----- PWM @ GPIO 18,19 (GPIO) or 40,45 (jack)
 
       and_mask_40_45=  %11111111111111000111111111111000;  // AND mask for gpio 40 and 45
       or_mask_40_45_4= %00000000000000100000000000000100;  // OR mask for set Alt Function #0 @ GPIO 40 and 45
       and_mask_18_19=  %11000000111111111111111111111111;  // AND mask for gpio 18 and 19
-      or_mask_18_19_4= %00010010000000000000000000000000;  // OR mask for set Alt Function #5 @ GPIO 18 and 19
+      or_mask_18_19_4= %00010010000000000000000000000000;  // OR mask for set Alt Function #5 @ GPIO 18 and 19 as PWM
+      or_mask_18_19_0= %00100100000000000000000000000000;  // OR mask for set Alt Function #0 @ GPIO 18 and 19 as PCM_CLK and PCM_FS
+      and_mask_20_21=  %11111111111111111111111111000000;  // AND mask for gpio 18 and 19
+      or_mask_20_21_0= %00000000000000000000000000100100;  // OR mask for set Alt Function #0 @ GPIO 20 and 21 as PCM_DIN and PCM_DOUT
+      and_mask_12_13=  %11111111111111111111000000111111;  // AND mask for gpio 12 and 13
+      or_mask_12_13_0= %00000000000000000000100100000000;  // OR mask for set Alt Function #0 @ GPIO 12 and 13 as PWM
 
 // ----- I2S @ GPIO 18,19,20,21 as ALT0 at gpfsel1 and gpfsel2
 
@@ -222,10 +268,13 @@ const nocache=$C0000000;              // constant to disable GPU L2 Cache
                                      // bits 7..0: DREQ value
 
       dma_chn= 14;                   // use DMA channel 14 (the last)
+      pcm_dma_chn= 13;               // use DMA channel 13 for PCM tx
+      pcm_dma_rx_chn= 12;            // use DMA channel 12 for PCM RX
 
 
 var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
           gpfsel1:cardinal     absolute _gpfsel1;      // GPIO Function Select 1
+          gpfsel2:cardinal     absolute _gpfsel2;      // GPIO Function Select 2
           pwmclk:cardinal      absolute _pwmclk;       // PWM Clock ctrl
           pwmclk_div: cardinal absolute _pwmclk_div;   // PWM Clock divisor
           pwm_ctl:cardinal     absolute _pwm_ctl;      // PWM Control Register
@@ -237,21 +286,57 @@ var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
 
           dma_enable:cardinal  absolute _dma_enable;   // DMA Enable register
 
-          dma_cs:cardinal      absolute _dma_cs+($100*dma_chn); // DMA ctrl/status
-          dma_conblk:cardinal  absolute _dma_conblk+($100*dma_chn); // DMA ctrl block addr
-          dma_nextcb:cardinal  absolute _dma_nextcb+($100*dma_chn); // DMA next ctrl block addr
+          dma_cs:cardinal             absolute _dma_cs+($100*dma_chn);         // DMA ctrl/status
+          pcm_dma_cs:cardinal         absolute _dma_cs+($100*pcm_dma_chn);     // DMA ctrl/status
+          pcm_dma_rx_cs:cardinal      absolute _dma_cs+($100*pcm_dma_rx_chn);  // DMA ctrl/status
+          dma_conblk:cardinal         absolute _dma_conblk+($100*dma_chn);     // DMA ctrl block addr
+          pcm_dma_conblk:cardinal     absolute _dma_conblk+($100*pcm_dma_chn); // DMA ctrl block addr
+          pcm_dma_rx_conblk:cardinal  absolute _dma_conblk+($100*pcm_dma_rx_chn); // DMA ctrl block addr
+          dma_nextcb:cardinal         absolute _dma_nextcb+($100*dma_chn);     // DMA next ctrl block addr
+          pcm_dma_nextcb:cardinal     absolute _dma_nextcb+($100*pcm_dma_chn); // DMA next ctrl block addr
+          pcm_dma_rx_nextcb:cardinal  absolute _dma_nextcb+($100*pcm_dma_rx_chn); // DMA next ctrl block addr
 
           dmactrl_ptr:PCardinal=nil;                   // DMA ctrl block pointer
-          dmactrl_adr:cardinal absolute dmactrl_ptr;       // DMA ctrl block address
-          dmabuf1_ptr:PCardinal=nil;                 // DMA data buffer #1 pointer
+          dmactrl_adr:cardinal absolute dmactrl_ptr;   // DMA ctrl block address
+          dmabuf1_ptr:PCardinal=nil;                   // DMA data buffer #1 pointer
           dmabuf1_adr:cardinal absolute dmabuf1_ptr;   // DMA data buffer #1 address
-          dmabuf2_ptr:PCardinal=nil;                 // DMA data buffer #2 pointer
+          dmabuf2_ptr:PCardinal=nil;                   // DMA data buffer #2 pointer
           dmabuf2_adr:cardinal absolute dmabuf2_ptr;   // DMA data buffer #2 address
+
+
+          dma2ctrl_ptr:PCardinal=nil;                  // DMA ctrl block pointer -- PCM
+          dma2ctrl_adr:cardinal absolute dma2ctrl_ptr; // DMA ctrl block address
+          dmabuf3_ptr:PCardinal=nil;                   // DMA data buffer #3 pointer
+          dmabuf3_adr:cardinal absolute dmabuf3_ptr;   // DMA data buffer #3 address
+          dmabuf4_ptr:PCardinal=nil;                   // DMA data buffer #4 pointer
+          dmabuf4_adr:cardinal absolute dmabuf4_ptr;   // DMA data buffer #4 address
+
+          dma3ctrl_ptr:PCardinal=nil;                  // DMA ctrl block pointer -- PCM
+          dma3ctrl_adr:cardinal absolute dma3ctrl_ptr; // DMA ctrl block address
+          dmabuf5_ptr:PCardinal=nil;                   // DMA data buffer #3 pointer
+          dmabuf5_adr:cardinal absolute dmabuf5_ptr;   // DMA data buffer #3 address
+          dmabuf6_ptr:PCardinal=nil;                   // DMA data buffer #4 pointer
+          dmabuf6_adr:cardinal absolute dmabuf6_ptr;   // DMA data buffer #4 address
 
           ctrl1_ptr,ctrl2_ptr:PCtrlBlock;              // DMA ctrl block array pointers
           ctrl1_adr:cardinal absolute ctrl1_ptr;       // DMA ctrl block #1 array address
           ctrl2_adr:cardinal absolute ctrl2_ptr;       // DMA ctrl block #2 array address
 
+          ctrl3_ptr,ctrl4_ptr:PCtrlBlock;              // DMA ctrl block array pointers for PCM
+          ctrl3_adr:cardinal absolute ctrl3_ptr;       // DMA ctrl block #3 array address
+          ctrl4_adr:cardinal absolute ctrl4_ptr;       // DMA ctrl block #4 array address
+
+          ctrl5_ptr,ctrl6_ptr:PCtrlBlock;              // DMA ctrl block array pointers for PCM
+          ctrl5_adr:cardinal absolute ctrl5_ptr;       // DMA ctrl block #5 array address
+          ctrl6_adr:cardinal absolute ctrl6_ptr;       // DMA ctrl block #6 array address
+
+          i2s_cs:cardinal     absolute _i2s_cs;        // I2S Control Register MMU address
+          i2s_mode:cardinal   absolute _i2s_mode;      // I2S Mode MMU address
+          i2s_rxc:cardinal    absolute _i2s_rxc;       // I2S Receiver Configuration MMU address
+          i2s_txc:cardinal    absolute _i2s_txc;       // I2S Transmitter Configuration MMU address
+          i2s_dreq:cardinal   absolute _i2s_dreq;      // I2S DMA Configuration MMU address
+          pcmclk:cardinal     absolute _pcmclk;        // I2S clock control
+          pcmclk_div:cardinal absolute _pcmclk_div;    // I2S clock divider
 
 //          CurrentAudioSpec:TAudioSpec;
 
@@ -265,6 +350,8 @@ var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
           SampleBuffer_32_adr:cardinal absolute SampleBuffer_32_ptr;
 
           AudioThread:TAudioThread;
+          I2SReceiveThread:TI2SReceiveThread;
+          I2STransmitThread:TI2STransmitThread;
 
           AudioOn:integer=0;                 // 1 - audio worker thread is running
           volume:integer=4096;               // audio volume; 4096 -> 0 dB
@@ -281,6 +368,8 @@ var       gpfsel4:cardinal     absolute _gpfsel4;      // GPIO Function Select 4
           dbvolume:single=0;
 
           pwmrange:integer=1024;
+
+          t_length_pcm:integer=512;
 
 procedure InitAudioEx(range,t_length:integer);  forward;
 function noiseshaper8(bufaddr,outbuf,oversample,len:integer):integer; forward;
@@ -307,8 +396,132 @@ PageTableSetEntry(Entry);
 end;
 
 //------------------------------------------------------------------------------
-//  Procedure initaudio - init the GPIO, PWM and DMA for audio subsystem.
+//  I2S related procedures for communication
 //------------------------------------------------------------------------------
+
+
+
+procedure initI2SMaster;
+
+var i:integer;
+
+begin
+
+
+// init transmitter DMA
+
+dma2ctrl_ptr:=GetAlignedMem(64,32);      // get 64 bytes for 2 DMA ctrl blocks
+ctrl3_ptr:=PCtrlBlock(dma2ctrl_ptr);      // set pointers so the ctrl blocks can be accessed as array
+ctrl4_ptr:=PCtrlBlock(dma2ctrl_ptr+8);    // second ctrl block is 8 longs further
+dmabuf3_ptr:=getmem(t_length_pcm);                       // allocate 64k for DMA buffer
+dmabuf4_ptr:=getmem(t_length_pcm);                       // .. and the second one
+
+for i:=0 to (t_length_pcm div 4)-1 do
+  begin
+  dmabuf3_ptr[i]:=0;
+  dmabuf4_ptr[i]:=0;
+  end;
+
+ctrl3_ptr^[0]:=pcm_tx_transfer_info;      // transfer info
+ctrl3_ptr^[2]:=_pcm_fif1_ph;              // destination address
+ctrl3_ptr^[1]:=nocache+dmabuf3_adr;       // source address -> buffer #1
+ctrl3_ptr^[3]:=t_length_pcm;              // transfer length
+ctrl3_ptr^[4]:=$0;                        // 2D length, unused
+ctrl3_ptr^[5]:=nocache+ctrl4_adr;         // next ctrl block -> ctrl block #2
+ctrl3_ptr^[6]:=$0;                        // unused
+ctrl3_ptr^[7]:=$0;                        // unused
+ctrl4_ptr^:=ctrl3_ptr^;                   // copy first block to second
+ctrl4_ptr^[5]:=nocache+ctrl3_adr;         // next ctrl block -> ctrl block #1
+ctrl4_ptr^[1]:=nocache+dmabuf4_adr;       // source address -> buffer #2
+CleanDataCacheRange(dma2ctrl_adr,64);      // now push this into RAM
+threadsleep(1);
+
+
+// init receiver DMA
+
+dma3ctrl_ptr:=GetAlignedMem(64,32);      // get 64 bytes for 2 DMA ctrl blocks
+ctrl5_ptr:=PCtrlBlock(dma3ctrl_ptr);      // set pointers so the ctrl blocks can be accessed as array
+ctrl6_ptr:=PCtrlBlock(dma3ctrl_ptr+8);    // second ctrl block is 8 longs further
+dmabuf5_ptr:=getmem(t_length_pcm);                       // allocate 64k for DMA buffer
+dmabuf6_ptr:=getmem(t_length_pcm);                       // .. and the second one
+background.println('dmabuf5_ptr is '+inttohex(cardinal(dmabuf5_ptr),8));
+for i:=0 to (t_length_pcm div 4)-1 do
+  begin
+  dmabuf5_ptr[i]:=0;
+  dmabuf6_ptr[i]:=0;
+  end;
+
+ctrl5_ptr^[0]:=pcm_rx_transfer_info;      // transfer info
+ctrl5_ptr^[1]:=_pcm_fif1_ph;              // source address
+ctrl5_ptr^[2]:=nocache+dmabuf5_adr;       // destination address -> buffer #1
+ctrl5_ptr^[3]:=t_length_pcm;              // transfer length
+ctrl5_ptr^[4]:=$0;                        // 2D length, unused
+ctrl5_ptr^[5]:=nocache+ctrl6_adr;         // next ctrl block -> ctrl block #2
+ctrl5_ptr^[6]:=$0;                        // unused
+ctrl5_ptr^[7]:=$0;                        // unused
+ctrl6_ptr^:=ctrl5_ptr^;                   // copy first block to second
+ctrl6_ptr^[5]:=nocache+ctrl5_adr;         // next ctrl block -> ctrl block #1
+ctrl6_ptr^[1]:=nocache+dmabuf6_adr;       // source address -> buffer #2
+CleanDataCacheRange(dma3ctrl_adr,64);     // now push this into RAM
+threadsleep(1);
+
+
+                                           background.println('dma control initialized');
+
+// init GPIO: 18 clk, 19 fs, 20 data in, 21 data out
+
+gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_0;  // gpio 18/19 as alt#0 -> PCM clk/fs
+gpfsel2:=(gpfsel2 and and_mask_20_21) or or_mask_20_21_0;  // gpio 20/21 as alt#0 -> PCM in/Out
+
+                                                  background.println('gpfsel done');
+// set clock to 1 MHz
+
+pcmclk:=clk_stop2;                                          // set PWM clock src=PLLD (500 MHz)
+sleep(100);
+//pcmclk_div:=$5a07D000;   // 2 MHz clock
+pcmclk_div:=$5aFFF000;
+//pcmclk:=clk_plld;
+pcmclk:=clk_osc;
+threadsleep(1);
+
+                                                 background.println('pcmclk done');
+
+
+// init I2S hardware
+i2s_cs:=0;
+sleep(1);
+i2s_cs:=  $00018218;       // 16:rx err reset, 15: tx err reset, 9: dma enable,4: clear rx fifo, 3: clear tx fif0, 0: enable if
+i2s_mode:=$00010002;       // master
+i2s_txc:= $C008C208;       // 2 channels, 32 bit
+i2s_rxc:= $C008C208;       // 2 channels, 32 bit
+i2s_dreq:=$08382020;       // panic tx=8, panic rx=56, lvl tx=rx=32
+i2s_cs  :=$0201821F;       // start transmitting
+                                                   background.println('i2s initialized');
+
+
+
+dma_enable:=dma_enable or (1 shl pcm_dma_chn);                 // enable dma channel # dma_chn
+pcm_dma_conblk:=nocache+ctrl3_adr;                             // init DMA ctr block to ctrl block # 1
+pcm_dma_cs:=$00FF0003;                                         // start DMA
+
+dma_enable:=dma_enable or (1 shl pcm_dma_rx_chn);                 // enable dma channel # dma_chn
+pcm_dma_rx_conblk:=nocache+ctrl5_adr;                             // init DMA ctr block to ctrl block # 1
+pcm_dma_rx_cs:=$00FF0003;                                         // start DMA
+                                            background.println('dma started');
+
+                                            background.println('transmitting started');
+I2STransmitThread:=TI2STransmitThread.Create(true);
+I2STransmitThread.start;
+i2sreceivethread:=Ti2sreceivethread.Create(true);
+i2sreceivethread.start;
+                                           background.println('transmitting thread running');
+end;
+
+
+//------------------------------------------------------------------------------
+//  PWM procedures for control purpose
+//------------------------------------------------------------------------------
+
 
 procedure InitPWM(freq,range:integer);
 
@@ -338,7 +551,7 @@ closeaudio;                    // PWM control cannot work with audio on as it us
 
 //pwm_ctl:=ctlval;                   // stop PWM
 gpfsel4:=(gpfsel4 and and_mask_40_45) or or_mask_40_45_4;  // gpio 40/45 as alt#0 -> PWM Out
-gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_4;  // gpio 18/19 as alt#0 -> PWM Out
+gpfsel1:=(gpfsel1 and and_mask_12_13) or or_mask_12_13_0;  // gpio 12/13 as alt#0 -> PWM Out
 pwmclk_div:=pwmdiv;                                        // set PWM clock divisor=2 (250 MHz)
 pwmclk:=clk_stop;                                          // set PWM clock src=PLLD (500 MHz)
 sleep(10);                                                 // set PWM clock src=PLLD (500 MHz)
@@ -362,6 +575,10 @@ if channel=0 then pwm_dat1:=value;
 if channel=1 then pwm_dat2:=value;
 end;
 
+
+//------------------------------------------------------------------------------
+//  InitAudioEx - init the GPIO, PWM and DMA for audio subsystem.
+//------------------------------------------------------------------------------
 
 procedure InitAudioEx(range,t_length:integer);               //TODO don't init second time!!!
 
@@ -397,7 +614,7 @@ threadsleep(1);
 // Init the hardware
 
 gpfsel4:=(gpfsel4 and and_mask_40_45) or or_mask_40_45_4;  // gpio 40/45 as alt#0 -> PWM Out
-gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_4;  // gpio 18/19 as alt#0 -> PWM Out
+//gpfsel1:=(gpfsel1 and and_mask_18_19) or or_mask_18_19_4;  // gpio 18/19 as alt#0 -> PWM Out
 pwmclk:=clk_stop2;                                          // set PWM clock src=PLLD (500 MHz)
 sleep(100);
 // set PWM clock src=PLLD (500 MHz)
@@ -2175,6 +2392,80 @@ if db>12 then db:=12;
 if db<-12 then db:=-12;
 eq_preamp:=db;
 end;
+
+// I2S threads
+
+constructor TI2SReceiveThread.Create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+constructor TI2STransmitThread.Create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+procedure TI2SReceiveThread.Execute;
+
+var i:integer;
+const c:cardinal=0;
+
+begin
+threadsetpriority(threadgetcurrent,6);
+threadsleep(1);
+repeat
+   //               background.tc:=44;
+   //            background.println('waiting for dma');
+  repeat threadsleep(1) until (pcm_dma_rx_cs and 2) <>0;
+                  background.println(inttohex(pcm_dma_rx_nextcb,8));
+  //  background.println('dma done');
+  nc:=pcm_dma_rx_nextcb;
+  pcm_dma_rx_cs:=$00FF0003;
+  c+=1;
+  if nc=nocache+ctrl5_adr then invalidateDataCacheRange(dmabuf5_adr,$200) else invalidateDataCacheRange(dmabuf6_adr,$200);
+  threadsleep(2);
+  if nc=nocache+ctrl5_adr then
+                               for i:=0 to (t_length_pcm div 4)-1 do outbuf[i]:=dmabuf5_ptr[i]
+                          else
+                               for i:=0 to (t_length_pcm div 4)-1 do outbuf[i]:=dmabuf6_ptr[i];
+  i2stransmitted:=true;
+//  background.println(inttohex(cardinal(dmabuf5_ptr), 8)+' ');
+//  for i:=0 to 127 do background.print(inttohex(dmabuf5_ptr[i], 8)+' ');
+
+until terminated;
+end;
+
+procedure TI2STransmitThread.Execute;
+
+const c:cardinal=0;
+var i:cardinal;
+    d:cardinal absolute $3F007D14;
+
+begin
+threadsetpriority(threadgetcurrent,6);
+threadsleep(1);
+repeat
+//                background.tc:=44;
+//                background.println('waiting for dma');
+  repeat threadsleep(1) until (pcm_dma_cs and 2) <>0;
+//                    background.println('dma done');
+  nc:=pcm_dma_nextcb;
+  c+=1;
+  if nc=nocache+ctrl3_adr then
+                                for i:=0 to (t_length_pcm div 4)-1 do dmabuf3_ptr[i]:=c*256+i
+                          else
+                                 for i:=0 to (t_length_pcm div 4)-1 do dmabuf4_ptr[i]:=c*256+i+128;   //test
+
+  if nc=nocache+ctrl3_adr then CleanDataCacheRange(dmabuf3_adr,$200) else CleanDataCacheRange(dmabuf4_adr,$200);
+//            background.println('dma restarting');
+  pcm_dma_cs:=$00FF0003;
+until terminated;
+end;
+
 
 end.
 

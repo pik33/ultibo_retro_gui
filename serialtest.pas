@@ -5,7 +5,7 @@ unit serialtest;
 interface
 
 uses
-  Classes, SysUtils, GlobalConst, Platform, retromalina, mwindows, threads;
+  Classes, SysUtils, GlobalConst, Platform, retromalina, mwindows, threads, simpleaudio;
 
 type TSerialThread=class (TThread)
 
@@ -67,13 +67,20 @@ sw.move(200,200,800,600,0,0);
 sw.tc:=200;
 sw.bg:=0;
 sw.cls(0);
-i:=SerialOpen(1000000,SERIAL_DATA_8BIT,SERIAL_STOP_1BIT,SERIAL_PARITY_NONE,SERIAL_FLOW_NONE,0,0);
+sleep(200);
+initI2SMaster;
+sleep(200);
+//initI2Smasterreceiver;
+sleep(200);
+//i:=SerialOpen(1000000,SERIAL_DATA_8BIT,SERIAL_STOP_1BIT,SERIAL_PARITY_NONE,SERIAL_FLOW_NONE,0,0);
 //sw.println(inttostr(i));
 //for i:=1 to 6 do begin serialread(@testbuf[0],1024,count);  sw.println(inttostr(i)); end;
 repeat
-  serialread(@character,1,count);
-  if character=#141 then sw.println('') else sw.print(character);
-until sw.needclose or (sw2=nil);
+  repeat threadsleep(1) until i2stransmitted;
+  i2stransmitted:=false;
+  for i:=0 to 127 do sw.print(inttostr(outbuf[i])+' ');
+  sw.println(' ');
+until sw.needclose;
 sw.destroy;
 sw:=nil;
 end;
@@ -98,25 +105,12 @@ i:=SerialOpen(460800,SERIAL_DATA_8BIT,SERIAL_STOP_1BIT,SERIAL_PARITY_NONE,SERIAL
 sw2.println('waiting 2 seconds');
 threadsleep(2000) ;
 sw2.println('transmission start');
-t:=gettime;
-for i:=0 to 1023 do serialwrite(@testbuf[i],1,count); sw2.println('1');
-for i:=0 to 1023 do serialwrite(@testbuf[i],1,count); sw2.println('2');
-for i:=0 to 1023 do serialwrite(@testbuf[i],1,count); sw2.println('3');
-for i:=0 to 1023 do serialwrite(@testbuf[i],1,count); sw2.println('4');
-for i:=0 to 1023 do serialwrite(@testbuf[i],1,count); sw2.println('5');
-//serialwrite(@testbuf[0],1024,count); sw2.println('2');
-//serialwrite(@testbuf[0],1024,count); sw2.println('3');
-//serialwrite(@testbuf[0],1024,count); sw2.println('4');
-//serialwrite(@testbuf[0],1024,count); sw2.println('5');
-//serialwrite(@testbuf[0],1024,count); sw2.println('6');
-t:=gettime-t;
-sw2.println(inttostr(t));
-
 repeat
-  repeat threadsleep(0); until keypressed;
-  ch:=readkey;
-  serialwrite(@ch,1,count);
-  if ch=141 then sw2.println('') else sw2.print(chr(ch));
+  threadsleep(1)
+//  repeat threadsleep(0); until keypressed;
+//  ch:=readkey;
+//  serialwrite(@ch,1,count);
+//  if ch=141 then sw2.println('') else sw2.print(chr(ch));
 until sw2.needclose;
 sw2.destroy;
 sw2:=nil;
