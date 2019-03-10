@@ -445,10 +445,11 @@ ctrl6_ptr:=PCtrlBlock(dma3ctrl_ptr+8);    // second ctrl block is 8 longs furthe
 dmabuf5_ptr:=getmem(t_length_pcm);                       // allocate 64k for DMA buffer
 dmabuf6_ptr:=getmem(t_length_pcm);                       // .. and the second one
 background.println('dmabuf5_ptr is '+inttohex(cardinal(dmabuf5_ptr),8));
+background.println('dmabuf6_ptr is '+inttohex(cardinal(dmabuf6_ptr),8));
 for i:=0 to (t_length_pcm div 4)-1 do
   begin
   dmabuf5_ptr[i]:=0;
-  dmabuf6_ptr[i]:=0;
+  dmabuf6_ptr[i]:=i+1000000;
   end;
 
 ctrl5_ptr^[0]:=pcm_rx_transfer_info;      // transfer info
@@ -461,7 +462,7 @@ ctrl5_ptr^[6]:=$0;                        // unused
 ctrl5_ptr^[7]:=$0;                        // unused
 ctrl6_ptr^:=ctrl5_ptr^;                   // copy first block to second
 ctrl6_ptr^[5]:=nocache+ctrl5_adr;         // next ctrl block -> ctrl block #1
-ctrl6_ptr^[1]:=nocache+dmabuf6_adr;       // source address -> buffer #2
+ctrl6_ptr^[2]:=nocache+dmabuf6_adr;       // source address -> buffer #2
 CleanDataCacheRange(dma3ctrl_adr,64);     // now push this into RAM
 threadsleep(1);
 
@@ -479,7 +480,7 @@ gpfsel2:=(gpfsel2 and and_mask_20_21) or or_mask_20_21_0;  // gpio 20/21 as alt#
 pcmclk:=clk_stop2;                                          // set PWM clock src=PLLD (500 MHz)
 sleep(100);
 //pcmclk_div:=$5a07D000;   // 2 MHz clock
-pcmclk_div:=$5aFFF000;
+pcmclk_div:=$5a002000;
 //pcmclk:=clk_plld;
 pcmclk:=clk_osc;
 threadsleep(1);
@@ -494,7 +495,8 @@ i2s_cs:=  $00018218;       // 16:rx err reset, 15: tx err reset, 9: dma enable,4
 i2s_mode:=$00010002;       // master
 i2s_txc:= $C008C208;       // 2 channels, 32 bit
 i2s_rxc:= $C008C208;       // 2 channels, 32 bit
-i2s_dreq:=$08382020;       // panic tx=8, panic rx=56, lvl tx=rx=32
+//i2s_dreq:=$08382020;       // panic tx=8, panic rx=56, lvl tx=rx=32
+i2s_dreq:=$10303020;       // panic tx=8, panic rx=56, lvl tx=rx=32
 i2s_cs  :=$0201821F;       // start transmitting
                                                    background.println('i2s initialized');
 
@@ -510,10 +512,12 @@ pcm_dma_rx_cs:=$00FF0003;                                         // start DMA
                                             background.println('dma started');
 
                                             background.println('transmitting started');
-I2STransmitThread:=TI2STransmitThread.Create(true);
-I2STransmitThread.start;
+
 i2sreceivethread:=Ti2sreceivethread.Create(true);
 i2sreceivethread.start;
+
+I2STransmitThread:=TI2STransmitThread.Create(true);
+I2STransmitThread.start;
                                            background.println('transmitting thread running');
 end;
 
@@ -2420,14 +2424,17 @@ threadsleep(1);
 repeat
    //               background.tc:=44;
    //            background.println('waiting for dma');
-  repeat threadsleep(1) until (pcm_dma_rx_cs and 2) <>0;
-                  background.println(inttohex(pcm_dma_rx_nextcb,8));
+  repeat threadsleep(0) until (pcm_dma_rx_cs and 2) <>0;
+//                  background.println(inttohex(pcm_dma_rx_nextcb,8));
   //  background.println('dma done');
   nc:=pcm_dma_rx_nextcb;
   pcm_dma_rx_cs:=$00FF0003;
   c+=1;
-  if nc=nocache+ctrl5_adr then invalidateDataCacheRange(dmabuf5_adr,$200) else invalidateDataCacheRange(dmabuf6_adr,$200);
-  threadsleep(2);
+ // if nc=nocache+ctrl5_adr then
+    invalidateDataCacheRange(dmabuf5_adr,$200);
+    //else
+    invalidateDataCacheRange(dmabuf6_adr,$200);
+//  threadsleep(2);
   if nc=nocache+ctrl5_adr then
                                for i:=0 to (t_length_pcm div 4)-1 do outbuf[i]:=dmabuf5_ptr[i]
                           else
@@ -2451,14 +2458,14 @@ threadsleep(1);
 repeat
 //                background.tc:=44;
 //                background.println('waiting for dma');
-  repeat threadsleep(1) until (pcm_dma_cs and 2) <>0;
+  repeat threadsleep(0) until (pcm_dma_cs and 2) <>0;
 //                    background.println('dma done');
   nc:=pcm_dma_nextcb;
-  c+=1;
+//  c+=1;
   if nc=nocache+ctrl3_adr then
-                                for i:=0 to (t_length_pcm div 4)-1 do dmabuf3_ptr[i]:=c*256+i
+                                for i:=0 to (t_length_pcm div 4)-1 do begin c+=1; dmabuf3_ptr[i]:=c; end
                           else
-                                 for i:=0 to (t_length_pcm div 4)-1 do dmabuf4_ptr[i]:=c*256+i+128;   //test
+                                 for i:=0 to (t_length_pcm div 4)-1 do begin c+=1; dmabuf4_ptr[i]:=c; end;  //test
 
   if nc=nocache+ctrl3_adr then CleanDataCacheRange(dmabuf3_adr,$200) else CleanDataCacheRange(dmabuf4_adr,$200);
 //            background.println('dma restarting');

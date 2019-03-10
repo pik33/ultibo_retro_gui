@@ -57,12 +57,12 @@ var
 procedure TSerialThread.execute;
 
 var testbuf:array[0..1023] of byte;
-    i:integer;
+    const i:integer=0;
 
 begin
 ThreadSetpriority(ThreadGetCurrent,6);
 threadsleep(1);
-sw:=TWindow.create(800,600,'Serial receive');
+sw:=TWindow.create(1152,800,'Serial receive');
 sw.move(200,200,800,600,0,0);
 sw.tc:=200;
 sw.bg:=0;
@@ -77,9 +77,11 @@ sleep(200);
 //for i:=1 to 6 do begin serialread(@testbuf[0],1024,count);  sw.println(inttostr(i)); end;
 repeat
   repeat threadsleep(1) until i2stransmitted;
-  i2stransmitted:=false;
-  for i:=0 to 127 do sw.print(inttostr(outbuf[i])+' ');
-  sw.println(' ');
+  i2stransmitted:=false; i:=(i+1) and $7F;
+//  for i:=0 to 127 do
+  sw.print(inttohex(outbuf[i],8)+' ');
+//  sw.println(' ');
+  if keypressed then begin readkey; repeat threadsleep(100) until keypressed; readkey; end;
 until sw.needclose;
 sw.destroy;
 sw:=nil;
