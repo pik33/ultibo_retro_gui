@@ -5,7 +5,8 @@ unit serialtest;
 interface
 
 uses
-  Classes, SysUtils, GlobalConst, Platform, retromalina, mwindows, threads, simpleaudio;
+  Classes, SysUtils, GlobalConst, Platform, retromalina, mwindows, threads, simpleaudio, blcksock, winsock2;
+
 
 type TSerialThread=class (TThread)
 
@@ -28,6 +29,24 @@ type TSerialThread2=class (TThread)
 var sw:TWindow=nil;
     sw2:TWindow=nil;
 
+
+    type TServerThread=class (TThread)
+
+         protected
+           procedure Execute; override;
+         public
+           Constructor Create(CreateSuspended : boolean);
+    end;
+
+    type TClientThread=class (TThread)
+
+         protected
+           procedure Execute; override;
+         public
+           Constructor Create(CreateSuspended : boolean);
+    end;
+
+
 implementation
 
 var
@@ -36,6 +55,7 @@ var
  Character:Char;
  Characters:String;
  i:integer;
+
 
 
  constructor TSerialThread.create(CreateSuspended : boolean);
@@ -118,6 +138,84 @@ sw2.destroy;
 sw2:=nil;
 end;
 
+
+
+
+
+constructor TClientThread.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+constructor TServerThread.create(CreateSuspended : boolean);
+
+begin
+FreeOnTerminate := True;
+inherited Create(CreateSuspended);
+end;
+
+procedure TServerThread.execute;
+
+var sock:TUDPBlockSocket;
+    buf:string;
+
+begin
+sock:=TUDPBlockSocket.create;
+sock.createsocket;
+sock.bind('127.0.0.1','12345');
+while buf<>'exit' do
+  begin
+  buf:=sock.RecvPacket(1000);
+//  if buf<>'' then  form1.memo1.lines.add(buf);
+  sleep(1);
+  end;
+end;
+
+procedure TClientThread.execute;
+
+var sock:TUDPBlockSocket;
+    buf:string;
+    result:boolean;
+    IPAddress:string;
+     Winsock2TCPClient:TWinsock2TCPClient;
+
+const i:integer=0;
+
+begin
+//result:=SetIPAddress('Network0','192.168.2.10','255.255.255.0','192.168.2.1');
+
+Winsock2TCPClient:=TWinsock2TCPClient.Create;
+
+
+sw2:=TWindow.create(800,600,'Serial transmit');
+sw2.move(1100,200,800,600,0,0);
+sw2.tc:=24;
+sw2.bg:=0;
+sw2.cls(0);
+REPEAT  IPAddress:=Winsock2TCPClient.LocalAddress;    sw2.println('1 '+ipaddress); sleep(1000) until ipaddress<>'';
+sock:=TUDPBlockSocket.create;
+
+sock.connect('192.168.2.2','12345');
+
+repeat
+//  if result then sw2.println('true') else sw2.println('false');
+  sw2.println(ipaddress);
+  i:=i+1;
+
+  buf:='Test string '+inttostr(i);
+  sw2.println(buf);
+  sock.sendstring(buf);
+  sleep(1000);
+until sw2.needclose;
+sw2.destroy;
+sw2:=nil;
+end;
+
+
+
+
 //uses
 
 //  GlobalTypes,
@@ -172,6 +270,10 @@ if SerialOpen(9600,SERIAL_DATA_8BIT,SERIAL_STOP_1BIT,SERIAL_PARITY_NONE,SERIAL_F
   begin
   end;
 end;
+
+initialization
+
+//SetIPAddress('Network0','192.168.2.10','255.255.255.0','192.168.2.1');
 
 end.
 

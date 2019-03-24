@@ -34,7 +34,10 @@ uses  //Ultibo units
   blitter,
   retro, simpleaudio, {scripttest,} xmp, mwindows, calculatorunit, icons, sysinfo,
   playerunit, captureunit, mandelbrot, notepad, c64, fmsynth,
-  camera2, gltest,gltest2,glwindows, SimpleGL,pwmtest, serialtest;
+  camera2, gltest,gltest2,glwindows, SimpleGL,pwmtest, serialtest,
+  network, SMSC95XX,        {And the drivers for the Raspberry Pi network adapter}
+  LAN78XX, http;
+
 
 const ver='Colors v. 0.30 --- 2018.04.30';
 
@@ -58,7 +61,7 @@ var
     fmthread:TFMSynthThread=nil;
     glthread:TOpenGLThread=nil;
     glwindowsthread:TGLWindowsThread=nil;
-    st1:TSerialthread=nil;
+    st1:Tclientthread=nil;
     st2:TSerialthread2=nil;
     fh,i,j,k:integer;
     message:TWindow;
@@ -157,6 +160,8 @@ basictest.x:=640; basictest.y:=96; basictest.size:=48; basictest.l:=128; basicte
 filetype:=-1;
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
 
+
+
 //------------------- The main loop
 
 
@@ -193,7 +198,7 @@ repeat
     begin
 //    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
     if sw=nil then begin
-    st1:=Tserialthread.create(true);
+    st1:=Tclientthread.create(true);
     sleep(150);
 //    st2:=Tserialthread2.create(true);
 //    sleep(150);
@@ -316,6 +321,8 @@ repeat
       RenameFile(drive+'kernel7_l.img',drive+'kernel7.img');
       RenameFile(drive+'config.txt',drive+'config_u.txt');
       RenameFile(drive+'config_l.txt',drive+'config.txt');
+      RenameFile(drive+'cmdline.txt',drive+'cmdline.u');
+      RenameFile(drive+'cmdline.l',drive+'cmdline.txt');
       systemrestart(3);
       end;
     end;
