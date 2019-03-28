@@ -479,7 +479,7 @@ procedure unhidecolor(c,bank:cardinal);
 procedure scrconvertnative(src,screen:pointer);
 procedure print(line:string);
 procedure println(line:string);
-
+procedure printscreen;
 
 implementation
 
@@ -3408,6 +3408,17 @@ sid[0]:= siddata[$6b];
 sid[1]:= siddata[$6c];
 
 
+end;
+
+procedure printscreen;
+
+begin
+box(0,0,100,100,44);
+fh:=filecreate(drive+'screen');
+outtextxy(0,0,inttostr(fh),0);
+outtextxy(0,16,drive+'screen'+timetostr(now),0);
+filewrite(fh,p2^,(xres+64)*yres*4);
+fileclose(fh);
 end;
 
 end.

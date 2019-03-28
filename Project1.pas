@@ -338,7 +338,13 @@ repeat
 //  script1;
 //  readkey;
 //  end;
+//     box(0,0,100,100,0);    outtextxyz(0,0,inttostr(key),44,2,2);
 
+  if key=198 then //print screen
+    begin
+    key:=readkey;   key:=0;
+    printscreen;
+    end;
 
   until key=key_escape;
 pauseaudio(1);

@@ -153,8 +153,9 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="script;/home/pi/ultibo/synapse/"/>
+      <OtherUnitFiles Value="script;synapse"/>
       <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+      <SrcPath Value="/home/pi/ultibo/core/fpc/source/rtl/ultibo/core/"/>
     </SearchPaths>
     <Parsing>
       <SyntaxOptions>
