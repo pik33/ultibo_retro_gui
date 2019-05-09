@@ -197,15 +197,16 @@ repeat
   if testicon.dblclicked then
     begin
 //    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
-    if sw=nil then begin
-    st1:=Tclientthread.create(true);
-    sleep(150);
+ //   if sw=nil then begin
+ //   st1:=Tclientthread.create(true);
+ //   sleep(150);
 //    st2:=Tserialthread2.create(true);
 //    sleep(150);
-    st1.start;
+ //   st1.start;
 //    sleep(500);
 //    st2.start;
-    end;
+    glwindows_start ;
+//    end;
     testicon.dblclicked:=false;
     end;
 
