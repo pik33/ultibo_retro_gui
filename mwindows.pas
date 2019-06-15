@@ -39,6 +39,27 @@ type TWindow=class;
      end;
 
 //------------------------------------------------------------------------------
+// Applet registering
+//------------------------------------------------------------------------------
+
+type TAppletProcedure=procedure;
+
+type TAppletInfo=record
+                 name:string;
+                 proc:TAppletProcedure;
+                 end;
+
+type TAppletTable=array[0..1023] of TAppletInfo;
+
+
+
+var AppletTable:TAppletTable;
+    AppletNum:integer=0;
+
+
+procedure applet_register(name:string;proc:TAppletProcedure);
+
+//------------------------------------------------------------------------------
 // Basic window class
 //------------------------------------------------------------------------------
 
@@ -296,6 +317,8 @@ type TIcon=class(TObject)
      bg:array[0..12287] of byte;
      next,prev:TIcon;
      clicked,dblclicked:boolean;
+     onclick:procedure;
+     ondblclick:procedure;
      constructor create(atitle:string;g:TWindow);
      procedure draw;
      procedure move(ax,ay:integer);
@@ -306,7 +329,7 @@ type TIcon=class(TObject)
      procedure arrange;
      procedure checkall;
 
-     procedure LoadICONFromFile (fn : string);   // added pjde
+     procedure LoadICONFromFile (fn : string);     // added pjde
      procedure LoadICONFromStream (s : TStream);   // added pjde
 
 
@@ -2928,6 +2951,7 @@ title:=atitle;
 granny:=g;
 if granny.icons=nil then granny.icons:=self;
 next:=nil; prev:=nil;
+onclick:=nil; ondblclick:=nil;
 clicked:=false; dblclicked:=false;
 highlighted:=false;
 end;
@@ -3095,7 +3119,11 @@ if (state=1) and (mk=1) then
   end;
 
 repeat
-  if temp.checkmouse and dblclick then temp.dblclicked:=true;
+  if temp.checkmouse and click then
+    if temp.onclick<>nil then temp.onclick else temp.clicked:=true;
+
+  if temp.checkmouse and dblclick then
+    if temp.ondblclick<>nil then temp.ondblclick else temp.dblclicked:=true;
   if temp.checkmouse and (mk=0) then
     begin
     temp.highlight;
@@ -3740,6 +3768,16 @@ end;}
 
 end;
 
+procedure applet_register(name:string;proc:TAppletProcedure);
+
+begin
+if AppletNum<1023 then
+  begin
+  AppletTable[AppletNum].name:=name;
+  AppletTable[AppletNum].proc:=proc;
+  AppletNum+=1;
+  end;
+end;
 
 //------------------------------------------------------------------------------
 // The end of the unit

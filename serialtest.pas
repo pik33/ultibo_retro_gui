@@ -175,6 +175,8 @@ end;
 
 procedure TClientThread.execute;
 
+label p999;
+
 var sock:TUDPBlockSocket;
     buf:string;
     result:boolean;
@@ -189,26 +191,34 @@ begin
 Winsock2TCPClient:=TWinsock2TCPClient.Create;
 
 
-sw2:=TWindow.create(800,600,'Serial transmit');
+sw2:=TWindow.create(800,600,'Network transmit');
 sw2.move(1100,200,800,600,0,0);
-sw2.tc:=24;
+sw2.tc:=26;
 sw2.bg:=0;
 sw2.cls(0);
-REPEAT  IPAddress:=Winsock2TCPClient.LocalAddress;    sw2.println('1 '+ipaddress); sleep(1000) until ipaddress<>'';
-sock:=TUDPBlockSocket.create;
+i:=0;
+REPEAT i+=1; IPAddress:=Winsock2TCPClient.LocalAddress;    sw2.println('Waiting for ip '+ inttostr(i)); threadsleep(500) until ((ipaddress<>'') or (i>29));
+if i>19 then
+  begin
+  sw2.println('No IP address available, closing.');
+  threadsleep(2000);
+  goto p999;
+  end;
+sw2.println('IP Address: '+ipaddress);
+i:=0;
 
+sock:=TUDPBlockSocket.create;
 sock.connect('192.168.2.2','12345');
 
 repeat
-//  if result then sw2.println('true') else sw2.println('false');
-  sw2.println(ipaddress);
   i:=i+1;
-
   buf:='Test string '+inttostr(i);
   sw2.println(buf);
   sock.sendstring(buf);
-  sleep(1000);
+  threadsleep(200);
 until sw2.needclose;
+
+p999:
 sw2.destroy;
 sw2:=nil;
 end;

@@ -53,13 +53,14 @@ var
 
     wheel:integer;
     t:int64;
-    testicon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth,cameratest,basictest:TIcon;
+    desktop_icons:array[0..1023] of TIcon;
+    testicon, test1icon, test2icon, trash, calculator, console,player,status,mandel,textedit,raspbian,synth,cameratest,basictest,gltesticon:TIcon;
     calculatorthread:TCalculatorthread=nil;
     sysinfothread:TSysinfothread=nil;
     mandelthread:Tmandelthread=nil;
     notepadthread:Tnotepadthread=nil;
     fmthread:TFMSynthThread=nil;
-    glthread:TOpenGLThread=nil;
+
     glwindowsthread:TGLWindowsThread=nil;
     st1:Tclientthread=nil;
     st2:TSerialthread2=nil;
@@ -153,9 +154,19 @@ synth.x:=384; synth.y:=96; synth.size:=48; synth.l:=128; synth.h:=96; synth.draw
 cameratest:=Testicon.append('Camera test');
 cameratest.icon48:=i48_camera;
 cameratest.x:=512; cameratest.y:=96; cameratest.size:=48; cameratest.l:=128; cameratest.h:=96; cameratest.draw;
-basictest:=Testicon.append('GL test');
+basictest:=Testicon.append('BASIC test');
 basictest.icon48:=i48_basic;
 basictest.x:=640; basictest.y:=96; basictest.size:=48; basictest.l:=128; basictest.h:=96; basictest.draw;
+test1icon:=Testicon.append('Network test');
+test1icon.LoadICONFromFile(drive+'Colors\Icons\Adwaita\48x48\apps\web-browser.png');
+test1icon.x:=768; test1icon.y:=96; test1icon.size:=48; test1icon.l:=128; test1icon.h:=96; test1icon.draw;
+test2icon:=Testicon.append('Test icon 2');
+test2icon.LoadICONFromFile(drive+'Colors\Icons\Adwaita\48x48\apps\user-info.png');
+test2icon.x:=896; test2icon.y:=96; test2icon.size:=48; test2icon.l:=128; test2icon.h:=96; test2icon.draw;
+gltesticon:=Testicon.append('OpenGL test');
+gltesticon.LoadICONFromFile(drive+'Colors\Icons\Adwaita\48x48\status\weather-clear.png');
+gltesticon.x:=1024; gltesticon.y:=0; gltesticon.size:=48; gltesticon.l:=128; gltesticon.h:=96; gltesticon.draw;
+gltesticon.ondblclick:=@runglthread;
 
 filetype:=-1;
 testbutton:=Tbutton.create(2,2,100,22,8,15,'Start',panel);
@@ -194,7 +205,7 @@ repeat
 
   background.icons.checkall;
 
-  if testicon.dblclicked then
+  if test1icon.dblclicked then
     begin
 //    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
     if sw=nil then begin
@@ -206,7 +217,7 @@ repeat
 //    sleep(500);
 //    st2.start;
     end;
-    testicon.dblclicked:=false;
+    test1icon.dblclicked:=false;
     end;
 
   if cameratest.dblclicked then
@@ -280,17 +291,7 @@ repeat
       end;
     end;
 
-  if (basictest.dblclicked) then
-    begin
-    basictest.dblclicked:=false;
-    if glwindow=nil then
-      begin
-//      glwindowsthread:=Tglwindowsthread.create(true);
-//      glwindowsthread.start;
-      glthread:=Topenglthread.create(true);
-      glthread.start;
-      end;
-    end;
+
 
   if synth.dblclicked then
     begin

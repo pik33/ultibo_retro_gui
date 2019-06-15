@@ -5,11 +5,12 @@ unit gltest2;
 interface
 
 uses
-  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit,blitter, simplegl;
+  Classes, SysUtils, GLES20, DispmanX, VC4, Math, retromalina, mwindows, threads,retro,platform,playerunit,blitter,simplegl;
 
 
 
 procedure gltest2_start;
+procedure runglthread;
 
 type TOpenGLThread=class (TThread)
 
@@ -62,7 +63,7 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
     texaddr:cardinal;
     testbitmap:TTexturebitmap;
 
-
+    glthread:TOpenGLThread=nil;
 
 //--------------------- Shaders ------------------------------------------------
 
@@ -788,6 +789,14 @@ gl_cleanup;
 BCMHostDeinit;
 end;
 
+procedure runglthread;
+begin
+glthread:=Topenglthread.create(true);
+glthread.start;
+end;
 
+initialization
+
+applet_register('GLTest2',@runglthread);
 end.
 
