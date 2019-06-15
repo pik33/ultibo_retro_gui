@@ -134,7 +134,7 @@ var      activecolor:integer=120;
 
 
 
-//---------------- end of the square definition
+
 
 
 implementation
@@ -175,6 +175,7 @@ var square_uvs:array[0..11] of GLfloat=(
  0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1
 );
 
+//---------------- end of the square definition
 //--------------------- Shaders ------------------------------------------------
 
 const VertexSource:String =

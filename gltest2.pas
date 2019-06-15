@@ -165,6 +165,24 @@ uvs:array[0..71] of GLfloat=(
 
 //---------------- end of the cube definition
 
+
+// -----------------  A square ------------------------------------------------
+
+var square_vertices:array[0..17] of GLfloat = (
+-1.0, 1.0, 0.0,-1.0,-1.0, 0.0, 1.0, 1.0, 0.0,          // Front
+ 1.0, 1.0, 0.0,-1.0,-1.0, 0.0, 1.0,-1.0, 0.0
+
+);
+var square_normals:array[0..17] of GLfloat = (
+ 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,          // Front
+ 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0
+
+);
+
+var square_uvs:array[0..11] of GLfloat=(
+ 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1
+);
+
 implementation
 
 
@@ -682,7 +700,48 @@ glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@normals,GL_DYNAMIC_DRAW);
 // Draw it
 glDrawArrays(GL_TRIANGLES,0,36);
 
+ // ------------------- Draw a rectangle --------------------------------------------
 
+// compute rotate angles
+//angle1+=1.11*speed;
+//if angle1>360 then angle1-=360;
+//angle2+=0.82*speed;
+//if angle2>360 then angle2-=360;
+
+// transform the model
+
+// A transform matrix for lighting. As it will transform normals only
+// the scale and translate transforms are omitted
+
+lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,0);
+lightmat:=rotate(lightmat,0,1,0,0);
+
+modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
+//modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (around the axis)
+//modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
+//modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);              // rotate again, now all modell will rotate around the center of the scene
+modelviewmat2:=translate(modelviewmat2,0,0,-5);                  // push it 5 units again or you will not see it
+mvmat:=modelviewmat2;                                            // todo: moving camera
+mvpmat:=projectionmat*mvmat;
+glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
+glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
+glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
+
+//UVs for the texture
+glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
+glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), @square_uvs[0], GL_dynamic_DRAW);
+
+//Vertices
+glBindBuffer(GL_ARRAY_BUFFER,vertexID);
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@square_Vertices,GL_DYNAMIC_DRAW);
+
+//Normals
+glBindBuffer(GL_ARRAY_BUFFER,normalID);
+glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@square_normals,GL_DYNAMIC_DRAW);
+
+// Draw it
+glDrawArrays(GL_TRIANGLES,0,6);
 
 //--------------------------------- Draw a sphere -----------------------------
 
