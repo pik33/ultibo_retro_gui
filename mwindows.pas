@@ -39,7 +39,7 @@ type TWindow=class;
      end;
 
 //------------------------------------------------------------------------------
-// Applet registering
+// Applet registering and desktop init
 //------------------------------------------------------------------------------
 
 type TAppletProcedure=procedure;
@@ -56,8 +56,9 @@ type TAppletTable=array[0..1023] of TAppletInfo;
 var AppletTable:TAppletTable;
     AppletNum:integer=0;
 
-
 procedure applet_register(name:string;proc:TAppletProcedure);
+
+procedure init_desktop;
 
 //------------------------------------------------------------------------------
 // Basic window class
@@ -3779,6 +3780,37 @@ if AppletNum<1023 then
   end;
 end;
 
+
+procedure init_desktop;
+
+label p999;
+
+var f:textfile;
+    s:string;
+    error:integer;
+
+begin
+error:=0;
+background.println('Assigning file '+drive+'ini\desktop.ini');
+assignfile(f,drive+'Colors\ini\desktop.ini');
+try
+  reset(f);
+except
+  begin
+  background.println('Failed, exiting');
+  error:=1;
+  end;
+end;
+if error>0 then goto p999;
+background.println('Entering loop');
+while not eof(f) do
+  begin
+  readln(f,s);
+  background.println(s);
+  end;
+closefile(f);
+p999:
+end;
 //------------------------------------------------------------------------------
 // The end of the unit
 //------------------------------------------------------------------------------

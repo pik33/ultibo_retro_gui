@@ -119,6 +119,8 @@ ThreadSetCPU(ThreadGetCurrent,CPU_ID_0);
 threadsleep(1);
 startreportbuffer;
 startmousereportbuffer;
+
+
 testicon:=TIcon.create('Drive C',background);
 testicon.icon48:=i48_hdd;
 testicon.x:=0; testicon.y:=192; testicon.size:=48; testicon.l:=128; testicon.h:=96; testicon.draw;
@@ -211,11 +213,9 @@ repeat
     if sw=nil then begin
     st1:=Tclientthread.create(true);
     sleep(150);
-//    st2:=Tserialthread2.create(true);
-//    sleep(150);
+
     st1.start;
-//    sleep(500);
-//    st2.start;
+
     end;
     test1icon.dblclicked:=false;
     end;
