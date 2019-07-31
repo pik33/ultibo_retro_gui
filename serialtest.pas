@@ -28,7 +28,7 @@ type TSerialThread2=class (TThread)
 
 var sw:TWindow=nil;
     sw2:TWindow=nil;
-
+close:boolean=false;
 
     type TServerThread=class (TThread)
 
@@ -56,7 +56,7 @@ var
  Characters:String;
  i:integer;
 
-
+      Winsock2TCPClient:TWinsock2TCPClient;
 
  constructor TSerialThread.create(CreateSuspended : boolean);
 
@@ -158,19 +158,47 @@ end;
 
 procedure TServerThread.execute;
 
+label p999;
+
 var sock:TUDPBlockSocket;
     buf:string;
+        IPAddress:string;
+    i:integer;
+  //       Winsock2TCPClient:TWinsock2TCPClient;
 
 begin
+sw:=TWindow.create(800,600,'Serial receive');
+sw.move(200,200,800,600,0,0);
+sw.tc:=200;
+sw.bg:=0;
+sw.cls(0);
+sleep(200);
+sw.println('Test');
+i:=0;
+REPEAT i+=1; IPAddress:=Winsock2TCPClient.LocalAddress;    sw.println('Waiting for ip '+ inttostr(i)); threadsleep(500) until ((ipaddress<>'') or (i>19));
+if i>19 then
+  begin
+  sw.println('No IP address available, closing.');
+  threadsleep(2000);
+  goto p999;
+  end;
+sw.println('IP Address: '+ipaddress);
 sock:=TUDPBlockSocket.create;
-sock.createsocket;
-sock.bind('127.0.0.1','12345');
-while buf<>'exit' do
+//sock.createsocket;
+sock.bind(ipaddress,'12346');
+
+while (not sw.needclose) and (not close) do
   begin
   buf:=sock.RecvPacket(1000);
-//  if buf<>'' then  form1.memo1.lines.add(buf);
+  if buf<>'' then  sw.println(buf);
   sleep(1);
   end;
+close:=true;
+p999:
+sock.destroy;
+sock:=nil;
+sw.destroy;
+sw:=nil;
 end;
 
 procedure TClientThread.execute;
@@ -179,14 +207,13 @@ label p999;
 
 var sock:TUDPBlockSocket;
     buf:string;
-    result:boolean;
     IPAddress:string;
-     Winsock2TCPClient:TWinsock2TCPClient;
+//     Winsock2TCPClient:TWinsock2TCPClient;
 
 const i:integer=0;
 
 begin
-//result:=SetIPAddress('Network0','192.168.2.10','255.255.255.0','192.168.2.1');
+
 
 Winsock2TCPClient:=TWinsock2TCPClient.Create;
 
@@ -197,7 +224,7 @@ sw2.tc:=26;
 sw2.bg:=0;
 sw2.cls(0);
 i:=0;
-REPEAT i+=1; IPAddress:=Winsock2TCPClient.LocalAddress;    sw2.println('Waiting for ip '+ inttostr(i)); threadsleep(500) until ((ipaddress<>'') or (i>29));
+REPEAT i+=1; IPAddress:=Winsock2TCPClient.LocalAddress;    sw2.println('Waiting for ip '+ inttostr(i)); threadsleep(500) until ((ipaddress<>'') or (i>19));
 if i>19 then
   begin
   sw2.println('No IP address available, closing.');
@@ -215,10 +242,12 @@ repeat
   buf:='Test string '+inttostr(i);
   sw2.println(buf);
   sock.sendstring(buf);
-  threadsleep(200);
-until sw2.needclose;
-
+  waitvbl;
+until close or sw2.needclose;
+close:=true;
 p999:
+sock.destroy;
+sock:=nil;
 sw2.destroy;
 sw2:=nil;
 end;

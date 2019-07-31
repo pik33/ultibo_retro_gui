@@ -63,7 +63,7 @@ var
 
     glwindowsthread:TGLWindowsThread=nil;
     st1:Tclientthread=nil;
-    st2:TSerialthread2=nil;
+    st2:TServerthread=nil;
     fh,i,j,k:integer;
     message:TWindow;
     scr:cardinal;
@@ -209,12 +209,18 @@ repeat
 
   if test1icon.dblclicked then
     begin
+    close:=false;
+    sleep(150);
 //    if mousedebugwindow=nil then begin mousedebugwindow:=twindow.create(640,480,'Mouse debug'); mousedebugwindow.move(100,100,640,480,0,0); end;
     if sw=nil then begin
     st1:=Tclientthread.create(true);
     sleep(150);
 
     st1.start;
+    st2:=Tserverthread.create(true);
+    sleep(150);
+
+    st2.start;
 
     end;
     test1icon.dblclicked:=false;
