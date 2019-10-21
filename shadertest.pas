@@ -65,51 +65,34 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
 
     shaderthread:TShaderThread=nil;
 
+
+    chuj:cardinal;
+
 //--------------------- Shaders ------------------------------------------------
 
 const VertexSource:String =
  'precision highp float;' +
- 'uniform mat4 u_mvpMat;' +
- 'uniform mat4 u_mvMat;' +
- 'uniform mat4 u_lightMat;' +
- 'uniform mat4 u_lightsourceMat;' +
- 'uniform vec2 u_scale;'+
- 'uniform vec2 u_delta;'+
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
  'attribute vec4 a_normal;' +
  'varying highp vec2 v_texcoord;'+
- 'varying highp vec3 v_normal;'+
- 'varying highp vec3 v_lightpos;'+
- 'varying highp vec3 v_vertexpos;'+
  'void main()' +
  '{' +
+   ' vec2 scale=vec2(1920./2048.,1200./2048.); '+
  '    gl_Position = a_position; ' +
- '    vec4 vp = u_mvMat * a_position;  '+
- '    v_vertexpos = normalize(vp.xyz);  '+
- '    v_lightpos = normalize((u_lightsourceMat*vec4(0.0,0.0,0.0,1.0)-vp).xyz); ' +
- '    v_texcoord = a_texcoord*u_scale+u_delta;  '+
- '    v_normal = (u_lightMat* a_normal).xyz; '+
+ '    v_texcoord = a_texcoord*scale;  '+
  '}';
 
 FragmentSource:String =
  'precision highp float;' +
  'varying highp vec2 v_texcoord;'+
- 'varying highp vec3 v_normal;'+
- 'varying highp vec3 v_lightpos;'+
- 'varying highp vec3 v_vertexpos;'+
  'uniform highp sampler2D u_texture;'+
- 'uniform highp sampler2D u_palette;'+
-
  'void main()' +
  '{' +
- 'float mti = floor(4.0*fract(2048.0*v_texcoord.x)); ' +
- 'vec4 p0 = texture2D(u_texture, v_texcoord)*0.996; '+
-// if avoiding hack
- 'float p0f=(1.0-abs(sign(mti)))*p0.r+(1.0-abs(sign(mti-1.0)))*p0.g+(1.0-abs(sign(mti-2.0)))*p0.b+(1.0-abs(sign(mti-3.0)))*p0.a; '+
- 'vec4 c0 = texture2D(u_palette, vec2(p0f+0.0001,0.5)); '+
+
+ 'vec4 p0 = texture2D(u_texture, v_texcoord); '+
  'gl_FragColor =  p0; '  +
-// coscolor+vec4((c0*(0.9*cosTheta+0.1)).xyz,1); '+
+
 
   '}';
 
@@ -150,6 +133,7 @@ end;
 procedure TShaderThread.execute;
 
 label p999;
+  var q:cardinal;
 
 begin
 ThreadSetPriority(ThreadGetCurrent,6);
@@ -158,23 +142,10 @@ threadsleep(10);
 if glwindow=nil then
   begin
   glwindow:=TWindow.create(256 ,256 ,'');
-  glwindow.cls(128);
-  glwindow.putpixel(0,0,$11);
-  glwindow.putpixel(1,0,$12);
-  glwindow.putpixel(2,0,$13);
-  glwindow.putpixel(3,0,$14);
-  glwindow.putpixel(4,0,$15);
-  glwindow.putpixel(5,0,$16);
-  glwindow.putpixel(6,0,$17);
-  glwindow.putpixel(7,0,$18);
-  glwindow.putpixel(8,0,$19);
-  glwindow.putpixel(9,0,$20);
-  glwindow.putpixel(10,0,$21);
-  glwindow.putpixel(11,0,$22);
-  glwindow.putpixel(12,0,$23);
-  glwindow.putpixel(13,0,$24);
-  glwindow.putpixel(14,0,$25);
-  glwindow.putpixel(15,0,$26);
+  glwindow.cls($23);
+  q:=$4655434b; lpoke(cardinal(glwindow.canvas),q);
+  q:=$15161718; lpoke(cardinal(glwindow.canvas)+4,q);
+
   end
 else goto p999;
 shadertest_start;
@@ -350,6 +321,8 @@ var Config:EGLConfig;
     DestRect:VC_RECT_T;
     SourceRect:VC_RECT_T;
 
+    fuck1,fuck2:cardinal;
+
 begin
 
 //Setup some DispmanX and EGL defaults
@@ -411,8 +384,9 @@ DispmanDisplay:=vc_dispmanx_display_open(DISPMANX_ID_MAIN_LCD);
 //Start a DispmanX update
 
 DispmanUpdate:=vc_dispmanx_update_start(0);
-DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,DispmanDisplay,0 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
-
+DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,DispmanDisplay,fuck2 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
+fuck1:=vc_dispmanx_resource_get_image_handle(fuck2);
+retromalina.outtextxyz(0,60,inttohex(fuck1,8),124,3,3);
 
 //Define an EGL DispmanX native window structure
 
@@ -521,7 +495,7 @@ glTexImage2D(GL_TEXTURE_2D, 0, gl_luminance, 2048, 2048, 0, gl_luminance, GL_UNS
 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 ,256 ,GL_luminance, GL_unsigned_BYTE, glwindow.canvas); // push the texture from window canvas to GPU area
 
 //Find the testure pointer
-i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$14131211) and (lpeek(i+4)=$18171615) and (lpeek(i+8)=$22212019) and (lpeek(i+12)=$26252423)) or (i>$3F000000) ;
+i:=$30000000; repeat i:=i+4 until ((lpeek(i)=$4655434b) and (lpeek(i+4)=$15161718) and (lpeek(i+128)=$23232323) and (lpeek(i+192)=$23232323)) or (i>$3F000000) ;
 testbitmap.address:=i;testbitmap.w:=2048; testbitmap.l:=2048;
 retromalina.outtextxyz(0,0,inttohex(i,8),44,3,3);
 texaddr:=i;
@@ -593,9 +567,11 @@ const angle1:glfloat=0;
 var modelviewmat2:matrix4;
     tscale:array[0..1] of glfloat=(1.0,1.0);
     tdelta:array[0..1] of glfloat=(0.0,0.0);
+    i,j:integer;
 
 begin
 
+for j:=1 to 2 do begin
 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
 
 tscale[0]:=64/2048;
@@ -711,11 +687,21 @@ glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
 //testbitmap.box(128,128,128,128,232);
 //testbitmap.outtextxyz(0,frames mod 208,' Frame# '+inttostr(frames),(frames div 16) mod 256,2,2);
 //cleandatacacherange(testbitmap.address,131072*32);
-
+if frames>130 then begin if chuj<$3F000000 then for i:=chuj to chuj+300000 do begin poke(i,i mod 1920);  end; end;
 eglSwapBuffers(Display,Surface);
 
 frames+=1;
 
+if frames=60 then begin
+for i:=16 to 16383 do poke(texaddr+i,255);
+cleandatacacherange(texaddr,16384);
+end;
+if frames=128 then begin
+i:=$30000000; repeat i:=i+4 until ((dpeek(i)=$4b4b) and (dpeek(i+4)=$4343) and (dpeek(i+8)=$5555) and (dpeek(i+12)=$4646) and (dpeek(i+128)=$FFFF) and (i<>texaddr)) or (i>$3F000000) ;
+retromalina.outtextxyz(0,100,inttohex(i,8),202,3,3);
+chuj:=i;
+end;
+end;
 end;
 
 procedure shader_cleanup;
@@ -725,7 +711,11 @@ var
  Success:Integer;
  DispmanUpdate:DISPMANX_UPDATE_HANDLE_T;
 
+ i:integer;
 begin
+
+
+
 
 // Delete the OpenGL ES buffers
 glDeleteBuffers(1,@vertexID);
@@ -736,8 +726,16 @@ glDeleteProgram(programID);
 
 //Destroy the EGL surface
 eglDestroySurface(Display,Surface);
-
+sleep(1000);
 //Remove the dispmanx layer
+
+//  test: fill the dispmanx
+
+if chuj<$3F000000 then for i:=chuj to chuj+3000000 do begin poke(i,i mod 1920); cleandatacacherange(i,16);  end  ;
+
+while keypressed do readkey;
+repeat until keypressed;
+
 DispmanUpdate:=vc_dispmanx_update_start(0);
 vc_dispmanx_element_remove(DispmanUpdate,DispmanElement);
 vc_dispmanx_update_submit_sync(DispmanUpdate);
