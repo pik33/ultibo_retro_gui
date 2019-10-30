@@ -65,12 +65,14 @@ var programID,vertexID,colorID,texcoordID,normalID:GLuint;
 
     shaderthread:TShaderThread=nil;
 
+    basetime:int64;
+    u_itime:glint;
 
-    chuj:cardinal;
+    //chuj:cardinal;
 
 //--------------------- Shaders ------------------------------------------------
 
-const VertexSource:String =
+{const VertexSource:String =
  'precision highp float;' +
  'attribute vec4 a_position;' +
  'attribute vec2 a_texcoord;' +
@@ -95,6 +97,45 @@ FragmentSource:String =
 
 
   '}';
+ }
+
+
+const VertexSource:String =
+
+ 'attribute vec4 a_position; ' +
+ 'attribute vec2 a_texcoord; ' +
+ 'varying vec2 v_texcoord; '+
+ 'void main() ' +
+ '{' +
+ '    gl_Position = a_position; ' +
+// '    v_texcoord = vec2(800./2048.,600./2048.)*a_texcoord;  '+
+ '    v_texcoord = a_texcoord;  '+
+ '}';
+
+FragmentSource:String =
+ 'varying vec2 v_texcoord; '+
+ 'uniform sampler2D u_texture; '+
+ 'uniform float iTime; '+
+ 'void main()' +
+ '{' +
+   ' vec2 iResolution=vec2(960.,600.); '+
+   ' vec2 p=(3.0*gl_FragCoord.xy-iResolution.xy)/max(iResolution.x,iResolution.y);  '+
+   'float f = cos(iTime/30.);                                                     '+
+   'float s = sin(iTime/30.);                                                     '+
+   'p = vec2(p.x*f-p.y*s, p.x*s+p.y*f);                                         '+
+
+   'for(float i=3.0;i<30.;i++) '+
+'	{           '+
+ '    vec2 p1= (i*p.yx+iTime*vec2(.30,.30)  + vec2(.30,3.0)); '+
+ '    p1= cos(p1); '+
+ '    p1= abs(p1); '+
+ '    p1= sqrt(p1); '+
+ '    p+= .30/i * p1; '+
+// '    p+= .30/i * sqrt(abs(cos(i*p.yx+iTime*vec2(.30,.30)  + vec2(.30,3.0)))); '+
+'	}                                                                           '+
+'	vec3 col=vec3(.30*sin(3.0*p.x)+.30,.30*sin(3.0*p.y)+.30,sin(3.0*p.x+3.0*p.y)); '+
+'	gl_FragColor=(3.0/(3.0-(3.0/3.0)))*vec4(col, 3.0);                               '+
+'} ';
 
 // -----------------  test square ------------------------------------------------
 
@@ -321,8 +362,6 @@ var Config:EGLConfig;
     DestRect:VC_RECT_T;
     SourceRect:VC_RECT_T;
 
-    fuck1,fuck2:cardinal;
-
 begin
 
 //Setup some DispmanX and EGL defaults
@@ -374,8 +413,8 @@ Context:=eglCreateContext(Display,Config,EGL_NO_CONTEXT,@ContextAttributes);
 
 //Setup the DispmanX source and destination rectangles
 
-vc_dispmanx_rect_set(@DestRect,0,0,xres,yres);
-vc_dispmanx_rect_set(@SourceRect,0,0,xres shl 16,yres shl 16);  // shl 16 all params
+vc_dispmanx_rect_set(@DestRect,0,0,xres, yres );
+vc_dispmanx_rect_set(@SourceRect,0,0,(xres shl 16),(yres shl 16));  // shl 16 all params
 
 //Open the DispmanX display
 
@@ -384,9 +423,7 @@ DispmanDisplay:=vc_dispmanx_display_open(DISPMANX_ID_MAIN_LCD);
 //Start a DispmanX update
 
 DispmanUpdate:=vc_dispmanx_update_start(0);
-DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,DispmanDisplay,fuck2 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
-fuck1:=vc_dispmanx_resource_get_image_handle(fuck2);
-retromalina.outtextxyz(0,60,inttohex(fuck1,8),124,3,3);
+DispmanElement:=vc_dispmanx_element_add(DispmanUpdate,DispmanDisplay,0 {Layer},@DestRect,0 {Source},@SourceRect,DISPMANX_PROTECTION_NONE,@Alpha,nil {Clamp},DISPMANX_NO_ROTATE {Transform});
 
 //Define an EGL DispmanX native window structure
 
@@ -469,6 +506,8 @@ u_scale:=glGetUniformLocation(programID,'u_scale');
 u_delta:=glGetUniformLocation(programID,'u_delta');
 a_texcoord:=glGetAttribLocation(programID,'a_texcoord');
 a_normal:=glGetAttribLocation(programID,'a_normal');
+u_itime:=glGetUniformLocation(programID,'iTime');
+
 
 //Generate vertex and color buffers and fill them with our cube data
 
@@ -547,7 +586,7 @@ glViewport(0,0,xres,yres);                              // full screen OpenGL vi
 glUseProgram(programID);                                // attach a shader program
 glUniform1i(u_texture,0);                               // tell the shader what is the texture numbers
 glUniform1i(u_palette,1);                               // this is a pallette so OpenGL object can show the 8-bit depth window
-
+basetime:=gettime;
 end;
 
 
@@ -568,26 +607,28 @@ var modelviewmat2:matrix4;
     tscale:array[0..1] of glfloat=(1.0,1.0);
     tdelta:array[0..1] of glfloat=(0.0,0.0);
     i,j:integer;
+    tttt:int64;
 
 begin
-
-for j:=1 to 2 do begin
+tttt:=gettime;
+glUniform1f(u_itime,(tttt-basetime)/1000000);
+//for j:=1 to 2 do begin
 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);    // clear the scene
 
-tscale[0]:=64/2048;
-tscale[1]:=256/2048;
-tdelta[0]:=0;
-tdelta[1]:=0;
-gluniform2fv(u_scale,1,@tscale);
-gluniform2fv(u_delta,1,@tdelta);
+//tscale[0]:=64/2048;
+//tscale[1]:=256/2048;
+//tdelta[0]:=0;
+//tdelta[1]:=0;
+//g/luniform2fv(u_scale,1,@tscale);
+//gluniform2fv(u_delta,1,@tdelta);
 
 // A moving light source
 
-angle5+=0.05*speed;
-if angle5>360 then angle5:=0;
-lightsourcemat:=translate(matrix4_one,25,0.1,0);
-lightsourcemat:=rotate(lightsourcemat,0,1,0,angle5);
-lightsourcemat:=translate(lightsourcemat,0,0,-5);
+//angle5+=0.05*speed;
+//if angle5>360 then angle5:=0;
+//lightsourcemat:=translate(matrix4_one,25,0.1,0);
+//lightsourcemat:=rotate(lightsourcemat,0,1,0,angle5);
+//lightsourcemat:=translate(lightsourcemat,0,0,-5);
 
 // ------------------- Draw a cube --------------------------------------------
 
@@ -602,20 +643,20 @@ lightsourcemat:=translate(lightsourcemat,0,0,-5);
 // A transform matrix for lighting. As it will transform normals only
 // the scale and translate transforms are omitted
 
-lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
-lightmat:=rotate(lightmat,0,1,0,angle2);
+//lightmat:=rotate(modelviewmat,1.0,-0.374,-0.608,angle1);
+//lightmat:=rotate(lightmat,0,1,0,angle2);
 
-modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
+//modelviewmat2:=scale(modelviewmat,0.5,0.5,0.5);                  // reduce size
 //modelviewmat2:=rotate(modelviewmat2,1.0,-0.374,-0.608,angle1);   // rotate (around the axis)
-modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
+//modelviewmat2:=translate(modelviewmat2,0,0,-3);                  // move 3 units into the screen
 //modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle2);              // rotate again, now all modell will rotate around the center of the scene
 //modelviewmat2:=translate(modelviewmat2,0,0,-5);                  // push it 5 units again or you will not see it
-mvmat:=modelviewmat2;                                            // todo: moving camera
-mvpmat:=projectionmat*mvmat;
-glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
-glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
-glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
-glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
+//mvmat:=modelviewmat2;                                            // todo: moving camera
+//mvpmat:=projectionmat*mvmat;
+//glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
+//glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
+//glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
+//glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
 
 //UVs for the texture
 glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
@@ -626,59 +667,13 @@ glBindBuffer(GL_ARRAY_BUFFER,vertexID);
 glBufferData(GL_ARRAY_BUFFER,SizeOf(Vertices),@Vertices,GL_DYNAMIC_DRAW);
 
 //Normals
-glBindBuffer(GL_ARRAY_BUFFER,normalID);
-glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@normals,GL_DYNAMIC_DRAW);
+//glBindBuffer(GL_ARRAY_BUFFER,normalID);
+//glBufferData(GL_ARRAY_BUFFER,SizeOf(Normals),@normals,GL_DYNAMIC_DRAW);
 
 // Draw it
 glDrawArrays(GL_TRIANGLES,0,6);
 
-      {
 
-//--------------------------------- Draw a sphere -----------------------------
-
-// compute rotate angles
-angle3+=3.33*speed;
-if angle3>360 then angle3-=360;
-angle4+=0.378*speed;
-if angle4>360 then angle4-=360;
-
-// transform the model
-
-lightmat:=rotate(modelviewmat,0,1,0,angle3);
-lightmat:=rotate(lightmat,1,0,0,150);
-
-modelviewmat2:=scale(modelviewmat,0.6,0.6,0.6);
-modelviewmat2:=rotate(modelviewmat2,0,1,0,angle3);
-modelviewmat2:=rotate(modelviewmat2,1,0,0,150);
-modelviewmat2:=rotate(modelviewmat2,0,1,-0,-angle4);
-modelviewmat2:=translate(modelviewmat2,0,0,-3);
-modelviewmat2:=rotate(modelviewmat2,0,1,-0,angle4);
-modelviewmat2:=translate(modelviewmat2,0,0,-5);
-mvmat:=modelviewmat2;                                  // todo: moving camera
-mvpmat:=projectionmat*mvmat;
-
-glUniformMatrix4fv(mvpLoc,1,GL_FALSE,@mvpMat);
-glUniformMatrix4fv(lightLoc,1,GL_FALSE,@lightMat);
-glUniformMatrix4fv(mvLoc,1,GL_FALSE,@mvMat);
-glUniformMatrix4fv(lightsourceLoc,1,GL_FALSE,@lightsourceMat);
-
-//UVs for the texture
-glBindBuffer(GL_ARRAY_BUFFER,texcoordID);
-glBufferData(GL_ARRAY_BUFFER, svertex*8, @suvs2[0], GL_dynamic_DRAW);
-
-//Vertices
-glBindBuffer(GL_ARRAY_BUFFER,vertexID);
-
-glBufferData(GL_ARRAY_BUFFER,svertex*12,@Vertices2[0],GL_DYNAMIC_DRAW);
-
-//Normals
-glBindBuffer(GL_ARRAY_BUFFER,normalID);
-glBufferData(GL_ARRAY_BUFFER,svertex*12,@snormals2[0],GL_DYNAMIC_DRAW);
-// Draw it!
-
-glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
-       }
-//------------------------------------------------------------------------------
 // Update the texture
 
 //testbitmap.box(0,0,128,128,40);
@@ -687,21 +682,18 @@ glDrawArrays(GL_TRIANGLE_STRIP,0,svertex);
 //testbitmap.box(128,128,128,128,232);
 //testbitmap.outtextxyz(0,frames mod 208,' Frame# '+inttostr(frames),(frames div 16) mod 256,2,2);
 //cleandatacacherange(testbitmap.address,131072*32);
-if frames>130 then begin if chuj<$3F000000 then for i:=chuj to chuj+300000 do begin poke(i,i mod 1920);  end; end;
 eglSwapBuffers(Display,Surface);
 
 frames+=1;
 
-if frames=60 then begin
-for i:=16 to 16383 do poke(texaddr+i,255);
-cleandatacacherange(texaddr,16384);
-end;
-if frames=128 then begin
-i:=$30000000; repeat i:=i+4 until ((dpeek(i)=$4b4b) and (dpeek(i+4)=$4343) and (dpeek(i+8)=$5555) and (dpeek(i+12)=$4646) and (dpeek(i+128)=$FFFF) and (i<>texaddr)) or (i>$3F000000) ;
-retromalina.outtextxyz(0,100,inttohex(i,8),202,3,3);
-chuj:=i;
-end;
-end;
+//if frames=60 then begin
+//for i:=16 to 16383 do poke(texaddr+i,255);
+//cleandatacacherange(texaddr,16384);
+//;
+//if frames=128 then begin
+//i:=$30000000; repeat i:=i+4 until ((dpeek(i)=$4b4b) and (dpeek(i+4)=$4343) and (dpeek(i+8)=$5555) and (dpeek(i+12)=$4646) and (dpeek(i+128)=$FFFF) and (i<>texaddr)) or (i>$3F000000) ;
+//retromalina.outtextxyz(0,100,inttohex(i,8),202,3,3);
+
 end;
 
 procedure shader_cleanup;
@@ -731,7 +723,7 @@ sleep(1000);
 
 //  test: fill the dispmanx
 
-if chuj<$3F000000 then for i:=chuj to chuj+3000000 do begin poke(i,i mod 1920); cleandatacacherange(i,16);  end  ;
+
 
 while keypressed do readkey;
 repeat until keypressed;

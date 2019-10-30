@@ -429,7 +429,7 @@ Context:=eglCreateContext(Display,Config,EGL_NO_CONTEXT,@ContextAttributes);
 
 //Setup the DispmanX source and destination rectangles
 
-vc_dispmanx_rect_set(@DestRect,0,0,xres,yres);
+vc_dispmanx_rect_set(@DestRect,0,0,xres div 2,yres div 2);
 vc_dispmanx_rect_set(@SourceRect,0,0,xres shl 16,yres shl 16);  // shl 16 all params
 
 //Open the DispmanX display

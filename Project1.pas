@@ -168,6 +168,7 @@ test2icon.x:=896; test2icon.y:=96; test2icon.size:=48; test2icon.l:=128; test2ic
 gltesticon:=Testicon.append('OpenGL test');
 gltesticon.LoadICONFromFile(drive+'Colors\Icons\Adwaita\48x48\status\weather-clear.png');
 gltesticon.x:=1024; gltesticon.y:=0; gltesticon.size:=48; gltesticon.l:=128; gltesticon.h:=96; gltesticon.draw;
+//gltesticon.ondblclick:=@runglthread;
 gltesticon.ondblclick:=@runshaderthread;
 
 filetype:=-1;
